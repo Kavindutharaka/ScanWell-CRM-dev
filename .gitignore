@@ -1,0 +1,8 @@
+back-end/back-end/publish
+frontend/node_modules
+frontend/build
+**/.vs/
+**/.vscode/
+*.log
+**/bin/
+**/obj/
