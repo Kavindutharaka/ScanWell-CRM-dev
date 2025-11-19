@@ -39,20 +39,37 @@ export default function SideNav({ isOpen, onClose, scrollBottom = false }) {
 
   const navigationItems = [
     {
-      path: "/mail-tracking",
-      icon: Mail,
-      label: "Mass email tracking"
+      path: "/dashboard",
+      icon: TrendingUp,
+      label: "Dashboard"
     },
-    {
-      path: "/info-updates", 
-      icon: Info,
-      label: "InfoUpdates"
-    }
-    ,
     {
       path: "/rates", 
       icon: ChartLine,
-      label: "Rates"
+      label: "Rates Manage"
+    },
+    {
+      path: "/usefull-link", 
+      icon: Info,
+      label: "Usefull Links"
+    },
+    {
+      path: "/leads",
+      icon: CirclePlus,
+      label: "Social Leads"
+    },
+    {
+      path: "/mail-tracking",
+      icon: Mail,
+      label: "Email Leads"
+    }  
+  ];
+
+  const workspaceItems = [
+    {
+      path: "/sales-plans",
+      icon: FileText,
+      label: "Sales Plans"
     },
     {
       path: "/quotes-invoices", 
@@ -60,38 +77,19 @@ export default function SideNav({ isOpen, onClose, scrollBottom = false }) {
       label: "Quotes"
     },
     {
-      path: "/leads",
-      icon: CirclePlus,
-      label: "Leads"
-    }
-    
-  ];
-
-  const workspaceItems = [
+      path: "/rfq",
+      icon: CircleDollarSign,
+      label: "RFQ"
+    },
     {
       path: "/contacts",
       icon: UsersRound,
-      label: "Contacts board"
-    },
-    {
-      path: "/sales-calls",
-      icon: FileText,
-      label: "Sales Calls"
-    },
-    {
-      path: "/sales",
-      icon: CircleDollarSign,
-      label: "Sales"
+      label: "Contacts"
     },
     {
       path: "/accounts",
       icon: CreditCard,
       label: "Accounts"
-    },
-    {
-      path: "/dashboard",
-      icon: TrendingUp,
-      label: "Sales Dashboard"
     }
   ];
 
@@ -100,12 +98,12 @@ export default function SideNav({ isOpen, onClose, scrollBottom = false }) {
     {
       path: "/hr/manage",
       icon: Building2,
-      label: "Manage HR"
+      label: "Resources"
     },
     {
       path: "/hr/manage-employee",
       icon: Briefcase,
-      label: "Manage Employee"
+      label: "Employee"
     }
   ];
 
@@ -237,7 +235,7 @@ export default function SideNav({ isOpen, onClose, scrollBottom = false }) {
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-semibold text-orange-600 uppercase tracking-wider">
-                HR System Management
+                System Management
               </h3>
             </div>
             

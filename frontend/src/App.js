@@ -32,7 +32,7 @@ export default function App() {
         
         {/* Top-level routes */}
         <Route path="/mail-tracking" element={<MailTracking />} />
-        <Route path="/info-updates" element={<Info />} />
+        <Route path="/usefull-link" element={<Info />} />
         <Route path="/quotes-invoices" element={<QuotesInvoice />} />
         <Route path="/rates" element={<Rates/>} />
         
@@ -42,7 +42,7 @@ export default function App() {
         <Route path="/leads" element={<LeadPage />} />
         <Route path="/accounts" element={<Account />} />
         {/* <Route path="/projects" element={<Project />} /> */}
-        <Route path="/sales-calls" element={<Activities />} />
+        <Route path="/sales-plans" element={<Activities />} />
         <Route path="/dashboard" element={<SalesDashboard />} />
         
         {/* HR Management routes */}

@@ -182,7 +182,7 @@ export default function MailTrackingSec() {
               <Mail className="w-8 h-8 text-blue-600" />
               <div>
                 <h1 className="text-2xl lg:text-3xl font-bold text-slate-800">
-                  Mass Email Tracking
+                  Email Leads
                 </h1>
                 {/* <p className="text-sm text-slate-500 mt-1">Monitor and analyze your email campaigns</p> */}
               </div>

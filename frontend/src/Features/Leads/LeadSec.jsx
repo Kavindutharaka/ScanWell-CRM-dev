@@ -107,7 +107,7 @@ export default function LeadSec({ modalOpen }) {
             <div className="flex items-center gap-2">
               <UserPlus className="w-6 h-6 text-orange-600" />
               <h1 className="text-2xl lg:text-3xl font-bold text-slate-800">
-                Leads {reviewMode && <span className="text-lg text-orange-600">(Review Mode)</span>}
+                Social Leads {reviewMode && <span className="text-lg text-orange-600">(Review Mode)</span>}
               </h1>
             </div>
           </div>

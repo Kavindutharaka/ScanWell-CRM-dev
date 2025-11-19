@@ -156,7 +156,7 @@ export default function InfoAndUpdatesSec({ modalOpen, onEdit }) {
               <Info className="w-8 h-8 text-blue-600" />
               <div>
                 <h1 className="text-2xl lg:text-3xl font-bold text-slate-800">
-                  Info & Updates
+                  Usefull Links
                 </h1>
                 <p className="text-sm text-slate-500 mt-1">Quick access to important logistics resources</p>
               </div>
