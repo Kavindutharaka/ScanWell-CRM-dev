@@ -358,14 +358,7 @@ export default function QuotesInvoiceSec({ modalOpen, onEditDocument, refreshTri
                 <Plus className="w-5 h-5" />
                 <span>Create Rates</span>
               </button> */}
-            </div>
-             <button 
-                onClick={() => manageRates()}
-                className="flex items-center gap-2 px-4 py-2.5 bg-teal-600 text-white rounded-lg font-medium hover:bg-teal-700 transition-all duration-200 shadow-sm hover:shadow-md"
-              >
-                <DollarSign className="w-5 h-5" />
-                <span>Manage Rates</span>
-              </button>     
+            </div>   
             {/* Filter Button */}
             <button 
               className="flex items-center gap-2 px-3 py-2.5 bg-white border border-slate-300 rounded-lg text-sm font-medium hover:bg-slate-50 transition-all duration-200 shadow-sm"

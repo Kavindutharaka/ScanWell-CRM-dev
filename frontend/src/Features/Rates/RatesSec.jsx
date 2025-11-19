@@ -25,6 +25,7 @@ import {
 import * as XLSX from 'xlsx';
 import * as RateAPI from '../../api/rateAPI';
 
+
 export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
   const [activeTab, setActiveTab] = useState('all');
   const [loading, setLoading] = useState(true);
@@ -83,7 +84,7 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
     try {
       // Call your backend API endpoint that filters by category
       // Example: const data = await RateAPI.fetchLinerRates(linerCode);
-      const response = await fetch(`/api/rates/liner?category=${linerCode}`);
+      const response = await fetch(`${BASE_URL}/rates/liner?category=${linerCode}`);
       const data = await response.json();
       
       // Parse rateDataJson for each rate
