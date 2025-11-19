@@ -46,8 +46,8 @@ export default function QuotesInvoiceSec({ modalOpen, onEditDocument, refreshTri
     setLoading(true);
     setError(null);
     try {
-      const data = await QuotesInvoiceAPI.fetchDocuments();
-      setDocuments(data);
+      // const data = await QuotesInvoiceAPI.fetchDocuments();
+      // setDocuments(data);
     } catch (err) {
       console.error('Error fetching documents:', err);
       setError('Failed to load documents. Please try again.');

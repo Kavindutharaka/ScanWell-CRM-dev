@@ -95,25 +95,6 @@ export default function SideNav({ isOpen, onClose, scrollBottom = false }) {
     }
   ];
 
-  // HR Employee Directory - For managing employees
-  // const hrEmployeeItems = [
-  //   {
-  //     path: "/hr/employee-directory",
-  //     icon: Users,
-  //     label: "Employee Directory"
-  //   },
-  //   {
-  //     path: "/hr/add-employee",
-  //     icon: UserPlus,
-  //     label: "Add Employee"
-  //   },
-  //   {
-  //     path: "/hr/employee-status",
-  //     icon: UserCheck,
-  //     label: "Employee Status"
-  //   }
-  // ];
-
   // HR System Management - For managing departments, positions, etc.
   const hrSystemItems = [
     {
@@ -192,6 +173,12 @@ export default function SideNav({ isOpen, onClose, scrollBottom = false }) {
         className="flex-1 p-4 overflow-y-auto">
           {/* Main navigation */}
           <nav className="space-y-1 mb-6">
+             <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-slate-600 uppercase tracking-wider">
+                Info
+              </h3>
+            </div>
+              <div className="h-px bg-slate-200"></div>
             {navigationItems.map((item) => (
               <NavButton
                 key={item.path}

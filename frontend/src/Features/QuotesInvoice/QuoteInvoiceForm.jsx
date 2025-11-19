@@ -26,7 +26,7 @@ import {
   Truck,
   Route as RouteIcon
 } from "lucide-react";
-import * as QuotesInvoiceAPI from '../../api/QuotesInvoiceAPI';
+import QuotesInvoiceAPI from '../../api/QuotesInvoiceAPI';
 
 // ============================================================================
 // REUSABLE DROPDOWN COMPONENT
@@ -374,6 +374,21 @@ export default function QuoteInvoiceForm({ onClose, type = 'quote', editDocument
 
     loadAllOptions();
   }, []);
+
+  // Auto-add transit stop and transit column when transit category is selected
+  useEffect(() => {
+    if (quoteData.freightCategory === 'transit') {
+      // Add a transit stop if none exists
+      if (transitRoute.transitStops.length === 0) {
+        addTransitStop();
+      }
+      
+      // Add a transit column to route plan if none exists
+      if (routePlanData.transitPoints.length === 0) {
+        addRoutePlanTransitPoint();
+      }
+    }
+  }, [quoteData.freightCategory]);
 
   // ============================================================================
   // EVENT HANDLERS
@@ -744,6 +759,54 @@ export default function QuoteInvoiceForm({ onClose, type = 'quote', editDocument
     }
   };
 
+  const handleSave = async () => {
+  try {
+    setIsSubmitting(true);
+
+    const payload = {
+      quoteId: quoteData.quoteId,
+      customerId: parseInt(quoteData.customerId) || null,
+      customerName: quoteData.customerName,
+      clientId: parseInt(quoteData.clientId) || null,
+      clientName: quoteData.clientName,
+      pickupLocationId: parseInt(quoteData.pickupLocationId) || null,
+      deliveryLocationId: parseInt(quoteData.deliveryLocationId) || null,
+      creditTermsId: parseInt(quoteData.creditTermsId) || null,
+      createdDate: quoteData.createdDate,
+      daysValid: quoteData.days ? parseInt(quoteData.days) : null,
+      freightMode: quoteData.freightMode,
+      freightCategory: quoteData.freightCategory,
+      createdBy: quoteData.createdBy || "Current User",
+
+      // These come directly from your state
+      directRoute,
+      transitRoute,
+      multimodalSegments: multimodalSegments,
+      routePlan: routePlanData,
+      freightCharges: freightCharges,
+      additionalCharges: additionalCharges,
+      customTerms: customTerms
+    };
+
+    let result;
+    if (editDocument) {
+      result = await QuotesInvoiceAPI.updateQuote(editDocument.id, payload);
+    } else {
+      result = await QuotesInvoiceAPI.createQuote(payload);
+    }
+
+    console.log("Quote saved!", result);
+    onSuccess?.(result);
+    onClose();
+
+  } catch (error) {
+    console.error("Save failed:", error.response?.data || error.message);
+    alert("Failed to save quote. Check console.");
+  } finally {
+    setIsSubmitting(false);
+  }
+};
+
   // ============================================================================
   // RENDER FUNCTIONS
   // ============================================================================
@@ -843,20 +906,20 @@ export default function QuoteInvoiceForm({ onClose, type = 'quote', editDocument
                   }));
                   setErrors({});
                 }}
-                className={`p-6 rounded-xl border-2 transition-all transform hover:scale-105 ${
+                className={`p-4 rounded-lg border-2 transition-all transform hover:scale-105 ${
                   isSelected
                     ? 'border-teal-500 bg-teal-50 shadow-lg'
                     : 'border-slate-200 bg-white hover:border-teal-300'
                 }`}
               >
-                <div className={`w-16 h-16 rounded-lg bg-gradient-to-br ${mode.color} flex items-center justify-center mx-auto mb-4`}>
-                  <Icon className="w-8 h-8 text-white" />
+                <div className={`w-12 h-12 rounded-lg bg-gradient-to-br ${mode.color} flex items-center justify-center mx-auto mb-3`}>
+                  <Icon className="w-6 h-6 text-white" />
                 </div>
-                <h3 className="text-lg font-semibold text-slate-800 mb-2">{mode.name}</h3>
-                <p className="text-sm text-slate-600">{mode.description}</p>
+                <h3 className="text-base font-semibold text-slate-800 mb-1">{mode.name}</h3>
+                <p className="text-xs text-slate-600">{mode.description}</p>
                 {isSelected && (
-                  <div className="mt-4 flex items-center justify-center text-teal-600">
-                    <CheckCircle className="w-5 h-5" />
+                  <div className="mt-3 flex items-center justify-center text-teal-600">
+                    <CheckCircle className="w-4 h-4" />
                   </div>
                 )}
               </button>
@@ -891,20 +954,20 @@ export default function QuoteInvoiceForm({ onClose, type = 'quote', editDocument
                       setQuoteData(prev => ({ ...prev, freightCategory: category.id }));
                       setErrors({});
                     }}
-                    className={`p-6 rounded-xl border-2 transition-all transform hover:scale-105 ${
+                    className={`p-4 rounded-lg border-2 transition-all transform hover:scale-105 ${
                       isSelected
                         ? 'border-teal-500 bg-teal-50 shadow-lg'
                         : 'border-slate-200 bg-white hover:border-teal-300'
                     }`}
                   >
-                    <div className={`w-16 h-16 rounded-lg bg-gradient-to-br ${category.color} flex items-center justify-center mx-auto mb-4`}>
-                      <Icon className="w-8 h-8 text-white" />
+                    <div className={`w-12 h-12 rounded-lg bg-gradient-to-br ${category.color} flex items-center justify-center mx-auto mb-3`}>
+                      <Icon className="w-6 h-6 text-white" />
                     </div>
-                    <h3 className="text-lg font-semibold text-slate-800 mb-2">{category.name}</h3>
-                    <p className="text-sm text-slate-600">{category.description}</p>
+                    <h3 className="text-base font-semibold text-slate-800 mb-1">{category.name}</h3>
+                    <p className="text-xs text-slate-600">{category.description}</p>
                     {isSelected && (
-                      <div className="mt-4 flex items-center justify-center text-teal-600">
-                        <CheckCircle className="w-5 h-5" />
+                      <div className="mt-3 flex items-center justify-center text-teal-600">
+                        <CheckCircle className="w-4 h-4" />
                       </div>
                     )}
                   </button>
@@ -1568,7 +1631,7 @@ export default function QuoteInvoiceForm({ onClose, type = 'quote', editDocument
   // Route Plan Table (Air/Sea) - Continued in Part 2 due to length
   const renderRoutePlanTable = () => {
     const isAir = routeConfig.mode === 'air';
-    const title = isAir ? 'Air Route Plan' : 'Sea Route Plan';
+    const title = 'Route & Carrier Management';
     const codeLabel = isAir ? 'Airport Code' : 'Port Code';
 
     const columns = ['origin'];
@@ -1581,7 +1644,7 @@ export default function QuoteInvoiceForm({ onClose, type = 'quote', editDocument
       <div className="bg-white rounded-lg border border-slate-200 p-6 space-y-6">
         <div className="flex items-center justify-between border-b border-slate-200 pb-3">
           <h3 className="text-lg font-semibold text-slate-800">{title}</h3>
-          {quoteData.freightCategory === 'transit' && (
+          {/* {quoteData.freightCategory === 'transit' && (
             <button
               onClick={addRoutePlanTransitPoint}
               className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all text-sm font-medium flex items-center gap-2"
@@ -1589,7 +1652,7 @@ export default function QuoteInvoiceForm({ onClose, type = 'quote', editDocument
               <Plus className="w-4 h-4" />
               Add Transit Column
             </button>
-          )}
+          )} */}
         </div>
 
         <div className="overflow-x-auto">
@@ -1829,7 +1892,7 @@ export default function QuoteInvoiceForm({ onClose, type = 'quote', editDocument
             Back
           </button>
           <button
-            onClick={handleSubmit}
+            onClick={handleSave}
             disabled={isSubmitting}
             className="px-8 py-3 bg-teal-600 text-white rounded-lg hover:bg-teal-700 disabled:bg-teal-400 transition-all font-medium flex items-center gap-2"
           >
