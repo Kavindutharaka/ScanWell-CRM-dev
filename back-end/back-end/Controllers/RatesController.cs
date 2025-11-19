@@ -200,5 +200,69 @@ namespace back_end.Controllers
 
             return Ok("Rate deleted successfully.");
         }
+
+        // POST: api/rates/liner/bulk
+        [HttpPost, Route("liner/bulk")]
+        public IActionResult CreateLinerRatesBulk([FromBody] BulkLinerRateRequest request)
+        {
+            if (request?.rates == null || request.rates.Count == 0)
+                return BadRequest("No rates provided.");
+
+            var results = new List<object>();
+
+            string query = @"
+                INSERT INTO [dbo].[rates]  -- Use the SAME 'rates' table! Not linear_rates
+                (freightType, origin, destination, airline, liner, route, surcharges, 
+                transitTime, transshipmentTime, frequency, routingType, rateDataJson, 
+                validateDate, note, remark, owner, currency, category)
+                VALUES 
+                (@freightType, @origin, @destination, @airline, @liner, @route, @surcharges, 
+                @transitTime, @transshipmentTime, @frequency, @routingType, @rateDataJson, 
+                @validateDate, @note, @remark, @owner, @currency, @category);
+                SELECT SCOPE_IDENTITY();";
+
+            using (myCon)
+            {
+                myCon.Open();
+                foreach (var rate in request.rates)
+                {
+                    try
+                    {
+                        using (var myCom = new SqlCommand(query, myCon))
+                        {
+                            myCom.Parameters.AddWithValue("@freightType", rate.freightType ?? (object)DBNull.Value);
+                            myCom.Parameters.AddWithValue("@origin", rate.origin ?? (object)DBNull.Value);
+                            myCom.Parameters.AddWithValue("@destination", rate.destination ?? (object)DBNull.Value);
+                            myCom.Parameters.AddWithValue("@airline", rate.airline ?? (object)DBNull.Value);
+                            myCom.Parameters.AddWithValue("@liner", rate.liner ?? (object)DBNull.Value);
+                            myCom.Parameters.AddWithValue("@route", rate.route ?? (object)DBNull.Value);
+                            myCom.Parameters.AddWithValue("@surcharges", rate.surcharges ?? (object)DBNull.Value);
+                            myCom.Parameters.AddWithValue("@transitTime", rate.transitTime ?? (object)DBNull.Value);
+                            myCom.Parameters.AddWithValue("@transshipmentTime", rate.transshipmentTime ?? (object)DBNull.Value);
+                            myCom.Parameters.AddWithValue("@frequency", rate.frequency ?? (object)DBNull.Value);
+                            myCom.Parameters.AddWithValue("@routingType", rate.routingType ?? (object)DBNull.Value);
+                            myCom.Parameters.AddWithValue("@rateDataJson", rate.rateDataJson ?? (object)DBNull.Value);
+                            myCom.Parameters.AddWithValue("@validateDate", rate.validateDate ?? (object)DBNull.Value);
+                            myCom.Parameters.AddWithValue("@note", rate.note ?? (object)DBNull.Value);
+                            myCom.Parameters.AddWithValue("@remark", rate.remark ?? (object)DBNull.Value);
+                            myCom.Parameters.AddWithValue("@owner", rate.owner ?? (object)DBNull.Value);
+                            myCom.Parameters.AddWithValue("@currency", rate.currency ?? (object)DBNull.Value);
+                            myCom.Parameters.AddWithValue("@category", rate.category ?? (object)DBNull.Value);
+
+                            var newId = myCom.ExecuteScalar();
+                            results.Add(new { success = true, id = newId });
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        results.Add(new { success = false, error = ex.Message });
+                    }
+                }
+                myCon.Close();
+            }
+
+            return Ok(new { message = $"Processed {request.rates.Count} rates", results });
+        }
+
     }
 }
