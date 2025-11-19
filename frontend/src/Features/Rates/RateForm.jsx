@@ -34,6 +34,7 @@ export default function RateForm({ onClose, editRate, onSuccess }) {
       airline: '',
       liner: '',
       route: '',
+      currency: 'USD', // Currency field
       surcharges: '',
       transitTime: '',
       transshipmentTime: '', // New for Air Freight
@@ -76,6 +77,7 @@ export default function RateForm({ onClose, editRate, onSuccess }) {
         airline: editRate.airline || '',
         liner: editRate.liner || '',
         route: editRate.route || '',
+        currency: editRate.currency || 'USD',
         surcharges: editRate.surcharges || '',
         transitTime: editRate.transitTime || '',
         transshipmentTime: editRate.transshipmentTime || '',
@@ -118,6 +120,7 @@ export default function RateForm({ onClose, editRate, onSuccess }) {
     airline: '',
     liner: '',
     route: '',
+    currency: 'USD',
     surcharges: '',
     transitTime: '',
     transshipmentTime: '',
@@ -228,6 +231,7 @@ export default function RateForm({ onClose, editRate, onSuccess }) {
           freightType,
           origin: baseInfo.origin,
           destination: baseInfo.destination,
+          currency: routeData.currency,
           airline: routeData.airline || null,
           liner: routeData.liner || null,
           route: routeData.route || null,
@@ -273,6 +277,7 @@ export default function RateForm({ onClose, editRate, onSuccess }) {
               freightType,
               origin: baseInfo.origin,
               destination: baseInfo.destination,
+              currency: route.currency,
               airline: route.airline || null,
               liner: route.liner || null,
               route: route.route || null,
@@ -450,7 +455,7 @@ export default function RateForm({ onClose, editRate, onSuccess }) {
         {/* Route Details */}
         <div className="space-y-6">
           {/* Carrier and Route Info */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             {isAirFreight && (
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">Airline</label>
@@ -484,6 +489,25 @@ export default function RateForm({ onClose, editRate, onSuccess }) {
                 placeholder="e.g., CMB-SIN-BKK"
                 className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
               />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">Currency</label>
+              <select
+                value={route.currency}
+                onChange={(e) => handleRouteChange(route.id, 'currency', e.target.value)}
+                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              >
+                <option value="USD">USD</option>
+                <option value="EUR">EUR</option>
+                <option value="GBP">GBP</option>
+                <option value="LKR">LKR</option>
+                <option value="AED">AED</option>
+                <option value="SGD">SGD</option>
+                <option value="CNY">CNY</option>
+                <option value="JPY">JPY</option>
+                <option value="AUD">AUD</option>
+                <option value="CAD">CAD</option>
+              </select>
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-2">Routing Type</label>

@@ -6,7 +6,7 @@ import SalesDashboard from './Features/Dashboard/Dashboard';
 import ContactBoard from './Features/ContactBoard/ContactBoard';
 import MailTracking from './Features/MailTracking/MailTracking';
 import QuotesInvoice from './Features/QuotesInvoice/QuotesInvoice';
-import DealPage from './Features/Deals/DealPage';
+import RFQ from './Features/RFQ/RFQ';
 import LeadPage from './Features/Leads/LeadPage';
 import Account from './Features/Accounts/Account';
 import Rates from './Features/Rates/Rates';
@@ -38,7 +38,7 @@ export default function App() {
         
         {/* Workspace routes */}
         <Route path="/contacts" element={<ContactBoard />} />
-        <Route path="/sales" element={<DealPage />} />
+        <Route path="/rfq" element={<RFQ/>} />
         <Route path="/leads" element={<LeadPage />} />
         <Route path="/accounts" element={<Account />} />
         {/* <Route path="/projects" element={<Project />} /> */}

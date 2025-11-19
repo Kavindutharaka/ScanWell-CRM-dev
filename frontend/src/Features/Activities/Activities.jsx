@@ -13,6 +13,7 @@ import {
   Clock,
   AlertCircle,
 } from "lucide-react";
+import ActivitiesNotes from "./ActivitiesNotes";
 
 export default function Activities() {
   const [activities, setActivities] = useState([]);
@@ -21,6 +22,13 @@ export default function Activities() {
   const [editingActivity, setEditingActivity] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [openNoteModal, setOpenNoteModal] = useState(false);
+  const [isSuccesssNote, setIsSuccesssNote] = useState(false);
+  const [currentStatus, setCurrentStatus] = useState({
+    status: "",
+    activity_id: 0
+  });
+
 
   const modalOpen = () => {
     setEditingActivity(null);
@@ -48,6 +56,17 @@ export default function Activities() {
   const handleMenuClose = () => {
     setIsMobileMenuOpen(false);
   };
+
+  const noteModalopen = () => {
+    console.log("not trigger this!")
+    setOpenNoteModal(true);
+  };
+
+  const noteModalClose = () => {
+    setOpenNoteModal(false);
+  };
+
+
 
     useEffect(() => {
       loadActivities();
@@ -219,11 +238,34 @@ export default function Activities() {
                 onClose={handleFormClose}
                 initialActivity={editingActivity}
                 isEditMode={!!editingActivity}
+                noteModalOpen={noteModalopen}
+                isSuccesssNote={isSuccesssNote}
+                setCurrentStatus={setCurrentStatus}
               />
             </div>
           </div>
         </div>
       )}
+
+       {openNoteModal && (
+        <div className="fixed inset-0 z-50 overflow-y-auto">
+          <div 
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm transition-opacity"
+            onClick={modalClose}
+          />
+          <div className="flex items-center justify-center min-h-screen p-4">
+            <div className="relative w-full animate-fadeIn">
+              <ActivitiesNotes
+                onClose={noteModalClose}
+                initialActivity={editingActivity}
+                setIsSuccesssNote={setIsSuccesssNote}
+                currentStatus={currentStatus}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
 
       <style jsx>{`
         @keyframes fadeIn {

@@ -12,6 +12,7 @@ namespace back_end.Models
         public string destination { get; set; }
         public string? airline { get; set; }
         public string? liner { get; set; }
+        public string? currency { get; set; }
         public string? route { get; set; }
         public string? surcharges { get; set; }
         public string? transitTime { get; set; }

@@ -20,3 +20,14 @@ export const deleteActivity = async (id) => {
   const response = await axios.delete(`${BASE_URL}/Activity/${id}`);
   return response.data;
 };
+
+export const saveNotes = async (statuslog) => {
+  const response = await axios.post(`${BASE_URL}/Statuslog`,statuslog);
+  return response.data;
+};
+
+export const fetchActivityHistory = async (id) => {
+  const response = await axios.get(`${BASE_URL}/Statuslog/${id}`);
+  return response.data;
+};
+

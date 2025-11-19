@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import {
   ChevronDown,
+  ChevronRight,
   Plus,
   Phone,
   Mail,
@@ -15,15 +16,53 @@ import {
   Edit2,
   RefreshCw
 } from "lucide-react";
-import { fetchActivities, deleteActivity } from "../../api/ActivityApi";
+import { fetchActivities, deleteActivity, fetchActivityHistory } from "../../api/ActivityApi";
 
 export default function ActivitiesDetails({ onOpen, onEdit, loading: initialLoading = false, delay = 0, activities, loadActivities, setActivities }) {
-  // const [activities, setActivities] = useState([]);
   const [loading, setLoading] = useState(initialLoading);
   const [error, setError] = useState('');
   const [selectedIds, setSelectedIds] = useState(new Set());
+  const [expandedRows, setExpandedRows] = useState(new Set());
+  const [activityHistory, setActivityHistory] = useState({});
+  const [loadingHistory, setLoadingHistory] = useState({});
 
- 
+  // Fetch activity status history
+  const fetchActivityHistoryData = async (activityId) => {
+    if (activityHistory[activityId]) {
+      return; // Already loaded
+    }
+
+    setLoadingHistory(prev => ({ ...prev, [activityId]: true }));
+    
+    try {
+      const data = await fetchActivityHistory(activityId);
+      
+      setActivityHistory(prev => ({
+        ...prev,
+        [activityId]: data
+      }));
+    } catch (err) {
+      console.error('Error fetching activity history:', err);
+      setError('Failed to load activity history. Please try again.');
+    } finally {
+      setLoadingHistory(prev => ({ ...prev, [activityId]: false }));
+    }
+  };
+
+  // Toggle expand/collapse
+  const toggleExpand = async (activityId) => {
+    const newExpanded = new Set(expandedRows);
+    
+    if (newExpanded.has(activityId)) {
+      newExpanded.delete(activityId);
+    } else {
+      newExpanded.add(activityId);
+      // Fetch history when expanding
+      await fetchActivityHistoryData(activityId);
+    }
+    
+    setExpandedRows(newExpanded);
+  };
 
   // Handle row selection
   const handleSelectAll = (e) => {
@@ -69,6 +108,18 @@ export default function ActivitiesDetails({ onOpen, onEdit, loading: initialLoad
       console.error('Error deleting activity:', err);
       setError('Failed to delete activity. Please try again.');
     }
+  };
+
+  // Format date
+  const formatDate = (dateString) => {
+    const date = new Date(dateString);
+    return date.toLocaleString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
   };
 
   // Loading skeleton
@@ -138,6 +189,75 @@ export default function ActivitiesDetails({ onOpen, onEdit, loading: initialLoad
     );
   };
 
+  // Activity History Row Component
+  const ActivityHistoryRow = ({ activityId }) => {
+    const history = activityHistory[activityId] || [];
+    const isLoading = loadingHistory[activityId];
+
+    if (isLoading) {
+      return (
+        <tr>
+          <td colSpan="10" className="px-4 py-3 bg-slate-50">
+            <div className="flex items-center justify-center gap-2 text-slate-500">
+              <RefreshCw className="w-4 h-4 animate-spin" />
+              <span className="text-sm">Loading history...</span>
+            </div>
+          </td>
+        </tr>
+      );
+    }
+
+    if (!history || history.length === 0) {
+      return (
+        <tr>
+          <td colSpan="10" className="px-4 py-3 bg-slate-50">
+            <div className="text-center text-sm text-slate-500">
+              No history available
+            </div>
+          </td>
+        </tr>
+      );
+    }
+
+    return (
+      <tr>
+        <td colSpan="10" className="px-4 py-3 bg-slate-50">
+          <div className="space-y-3">
+            <h4 className="text-sm font-semibold text-slate-700 mb-3">Activity History</h4>
+            <div className="space-y-2">
+              {history.map((record) => (
+                <div key={record.sysID} className="bg-white rounded-lg p-3 border border-slate-200">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1 space-y-2">
+                      <div className="flex items-center gap-3">
+                        <StatusBadge 
+                          status={record.new_status} 
+                          color={
+                            record.new_status === 'completed' ? 'bg-green-500' :
+                            record.new_status === 'in-progress' ? 'bg-blue-500' :
+                            'bg-slate-500'
+                          }
+                        />
+                        <span className="text-xs text-slate-500">
+                          {formatDate(record.created_at)}
+                        </span>
+                      </div>
+                      {record.note && (
+                        <p className="text-sm text-slate-600 pl-1">
+                          {record.note}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </td>
+      </tr>
+    );
+  };
+
   if (loading) {
     return <LoadingSkeleton />;
   }
@@ -158,15 +278,6 @@ export default function ActivitiesDetails({ onOpen, onEdit, loading: initialLoad
           </button>
           <h2 className="text-lg font-bold text-slate-800">Sales Calls</h2>
           <span className="text-sm text-slate-500">({activities.length})</span>
-          {/* {onOpen && (
-            <button
-              onClick={onOpen}
-              className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-all duration-200 active:scale-95 shadow-sm"
-            >
-              <Plus className="w-4 h-4" />
-              <span className="hidden sm:inline">Add Activity</span>
-            </button>
-          )} */}
         </div>
 
         <button
@@ -183,8 +294,7 @@ export default function ActivitiesDetails({ onOpen, onEdit, loading: initialLoad
         <div className="p-4 bg-red-50 border-b border-red-200 flex items-start gap-3">
           <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
           <div>
-            <p className="font-medium text-red-900">Error</p>
-            <p className="text-sm text-red-700">{error}</p>
+            <p className="text-sm text-red-800">{error}</p>
           </div>
         </div>
       )}
@@ -197,13 +307,9 @@ export default function ActivitiesDetails({ onOpen, onEdit, loading: initialLoad
             <table className="w-full">
               <thead className="bg-slate-50 border-b border-slate-200">
                 <tr>
+                  <th className="px-4 py-3 text-left w-12"></th>
                   <th className="px-4 py-3 text-left">
-                    {/* <input
-                      type="checkbox"
-                      checked={selectedIds.size === activities.length && activities.length > 0}
-                      onChange={handleSelectAll}
-                      className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500 focus:ring-2"
-                    /> */}
+                    {/* Checkbox header if needed */}
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Activity</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Type</th>
@@ -218,65 +324,74 @@ export default function ActivitiesDetails({ onOpen, onEdit, loading: initialLoad
               <tbody className="divide-y divide-slate-100">
                 {activities.map((activity) => {
                   const TypeIcon = activity.typeIcon;
+                  const isExpanded = expandedRows.has(activity.id);
+                  
                   return (
-                    <tr key={activity.id} className="hover:bg-slate-50 transition-colors group">
-                      <td className="px-4 py-4">
-                        <div className="flex items-center gap-2">
-                          <PriorityIndicator priority={activity.priority} />
-                          {/* <input
-                            type="checkbox"
-                            checked={selectedIds.has(activity.id)}
-                            onChange={(e) => handleSelectRow(activity.id, e)}
-                            className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500 focus:ring-2"
-                          /> */}
-                        </div>
-                      </td>
-                      <td className="px-4 py-4">
-                        <div className="flex items-center gap-2">
-                          <TypeIcon className="w-4 h-4 text-slate-500" />
-                          <span className="font-medium text-slate-900">{activity.title}</span>
-                        </div>
-                      </td>
-                      <td className="px-4 py-4">
-                        <div className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium text-white ${activity.typeColor}`}>
-                          <TypeIcon className="w-3 h-3" />
-                          <span>{activity.type}</span>
-                        </div>
-                      </td>
-                      <td className="px-4 py-4">
-                        <Avatar name={activity.owner} />
-                      </td>
-                      <td className="px-4 py-4 text-sm text-slate-600 whitespace-nowrap">
-                        {activity.startTime}
-                      </td>
-                      <td className="px-4 py-4 text-sm text-slate-600 whitespace-nowrap">
-                        {activity.endTime}
-                      </td>
-                      <td className="px-4 py-4">
-                        <StatusBadge status={activity.status} color={activity.statusColor} />
-                      </td>
-                      <td className="px-4 py-4 text-sm text-slate-600">
-                        {activity.relatedItem}
-                      </td>
-                      <td className="px-4 py-4">
-                        <div className="flex items-center gap-2">
+                    <React.Fragment key={activity.id}>
+                      <tr className="hover:bg-slate-50 transition-colors group">
+                        <td className="px-4 py-4">
                           <button
-                            onClick={() => handleEdit(activity)}
-                            className="p-1.5 hover:bg-blue-100 rounded transition-colors"
-                            title="Edit activity"
+                            onClick={() => toggleExpand(activity.id)}
+                            className="p-1 hover:bg-slate-200 rounded transition-all"
+                            title={isExpanded ? "Collapse history" : "Expand history"}
                           >
-                            <Edit2 className="w-4 h-4 text-blue-600" />
+                            <ChevronRight 
+                              className={`w-4 h-4 text-slate-500 transition-transform duration-200 ${
+                                isExpanded ? 'rotate-90' : ''
+                              }`}
+                            />
                           </button>
-                          {/* <button
-                            onClick={() => handleDelete(activity.id)}
-                            className="p-1.5 hover:bg-red-100 rounded transition-colors"
-                            title="Delete activity"
-                          >
-                            <Trash2 className="w-4 h-4 text-red-600" />
-                          </button> */}
-                        </div>
-                      </td>
-                    </tr>
+                        </td>
+                        <td className="px-4 py-4">
+                          <div className="flex items-center gap-2">
+                            <PriorityIndicator priority={activity.priority} />
+                          </div>
+                        </td>
+                        <td className="px-4 py-4">
+                          <div className="flex items-center gap-2">
+                            <TypeIcon className="w-4 h-4 text-slate-500" />
+                            <span className="font-medium text-slate-900">{activity.title}</span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-4">
+                          <div className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium text-white ${activity.typeColor}`}>
+                            <TypeIcon className="w-3 h-3" />
+                            <span>{activity.type}</span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-4">
+                          <Avatar name={activity.owner} />
+                        </td>
+                        <td className="px-4 py-4 text-sm text-slate-600 whitespace-nowrap">
+                          {activity.startTime}
+                        </td>
+                        <td className="px-4 py-4 text-sm text-slate-600 whitespace-nowrap">
+                          {activity.endTime}
+                        </td>
+                        <td className="px-4 py-4">
+                          <StatusBadge status={activity.status} color={activity.statusColor} />
+                        </td>
+                        <td className="px-4 py-4 text-sm text-slate-600">
+                          {activity.relatedItem}
+                        </td>
+                        <td className="px-4 py-4">
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => handleEdit(activity)}
+                              className="p-1.5 hover:bg-blue-100 rounded transition-colors"
+                              title="Edit activity"
+                            >
+                              <Edit2 className="w-4 h-4 text-blue-600" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                      
+                      {/* Expanded History Row */}
+                      {isExpanded && (
+                        <ActivityHistoryRow activityId={activity.id} />
+                      )}
+                    </React.Fragment>
                   );
                 })}
               </tbody>
@@ -287,17 +402,25 @@ export default function ActivitiesDetails({ onOpen, onEdit, loading: initialLoad
           <div className="lg:hidden p-4 space-y-4">
             {activities.map((activity) => {
               const TypeIcon = activity.typeIcon;
+              const isExpanded = expandedRows.has(activity.id);
+              const history = activityHistory[activity.id] || [];
+              const isLoadingHistory = loadingHistory[activity.id];
+              
               return (
                 <div key={activity.id} className="bg-slate-50 rounded-lg p-4 space-y-3">
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-3 flex-1">
+                      <button
+                        onClick={() => toggleExpand(activity.id)}
+                        className="p-1 hover:bg-slate-200 rounded transition-all"
+                      >
+                        <ChevronRight 
+                          className={`w-4 h-4 text-slate-500 transition-transform duration-200 ${
+                            isExpanded ? 'rotate-90' : ''
+                          }`}
+                        />
+                      </button>
                       <PriorityIndicator priority={activity.priority} />
-                      <input
-                        type="checkbox"
-                        checked={selectedIds.has(activity.id)}
-                        onChange={(e) => handleSelectRow(activity.id, e)}
-                        className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500 focus:ring-2"
-                      />
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
                           <TypeIcon className="w-4 h-4 text-slate-500" />
@@ -325,6 +448,50 @@ export default function ActivitiesDetails({ onOpen, onEdit, loading: initialLoad
                       <span>Related: {activity.relatedItem}</span>
                     </div>
                   </div>
+
+                  {/* Expanded History for Mobile */}
+                  {isExpanded && (
+                    <div className="mt-3 pt-3 border-t border-slate-300">
+                      {isLoadingHistory ? (
+                        <div className="flex items-center justify-center gap-2 text-slate-500 py-4">
+                          <RefreshCw className="w-4 h-4 animate-spin" />
+                          <span className="text-sm">Loading history...</span>
+                        </div>
+                      ) : history.length === 0 ? (
+                        <div className="text-center text-sm text-slate-500 py-4">
+                          No history available
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          <h4 className="text-sm font-semibold text-slate-700 mb-2">Activity History</h4>
+                          {history.map((record) => (
+                            <div key={record.sysID} className="bg-white rounded-lg p-3 border border-slate-200">
+                              <div className="space-y-2">
+                                <div className="flex items-center gap-3">
+                                  <StatusBadge 
+                                    status={record.new_status} 
+                                    color={
+                                      record.new_status === 'completed' ? 'bg-green-500' :
+                                      record.new_status === 'in-progress' ? 'bg-blue-500' :
+                                      'bg-slate-500'
+                                    }
+                                  />
+                                  <span className="text-xs text-slate-500">
+                                    {formatDate(record.created_at)}
+                                  </span>
+                                </div>
+                                {record.note && (
+                                  <p className="text-sm text-slate-600">
+                                    {record.note}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   <div className="flex items-center gap-2 pt-2">
                     <button

@@ -1,8 +1,8 @@
 import { X, Calendar, User, Clock, Tag, FileText } from "lucide-react";
 import { useEffect, useState } from "react";
-import { createNewActivity, updateActivity } from "../../api/ActivityApi";
+import { createNewActivity, saveNotes, updateActivity } from "../../api/ActivityApi";
 
-export default function ActivitiesForm({ onClose, initialActivity = null, isEditMode = false }) {
+export default function ActivitiesForm({ onClose, initialActivity = null, isEditMode = false, noteModalOpen, isSuccesssNote, setCurrentStatus }) {
   const [formData, setFormData] = useState({
     id: initialActivity?.id || null,
     activityName: initialActivity?.activity_name || '',
@@ -17,10 +17,29 @@ export default function ActivitiesForm({ onClose, initialActivity = null, isEdit
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [apiError, setApiError] = useState('');
+  const [preStatus, setPreStatus] = useState("");
+  const [iscanEdit, setIsCanEdit] = useState(false);
 
   useEffect(()=>{
-
+    if(!isEditMode){
+    const now = new Date();
+    const formatted = now.toISOString().slice(0, 16);
+    setFormData(prev => ({
+      ...prev,
+      startTime: formatted,
+      status: "planned"
+    }));
+  }
   },[])
+
+  useEffect(()=>{
+    if(isSuccesssNote){
+    console.log("dan trigger function!!");
+    autoTriggerEdit();
+    };
+  },[isSuccesssNote]);
+
+  useEffect(()=>{setPreStatus("status");console.log(initialActivity);},[initialActivity]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -40,6 +59,7 @@ export default function ActivitiesForm({ onClose, initialActivity = null, isEdit
       setApiError('');
     }
   };
+  
 
   const validateForm = () => {
     const newErrors = {};
@@ -75,12 +95,69 @@ export default function ActivitiesForm({ onClose, initialActivity = null, isEdit
     return new Date(dateTimeString).toISOString();
   };
 
+   const autoTriggerEdit = async () => {
+    
+    if (!validateForm()) {
+      return;
+    }
+
+    setIsSubmitting(true);
+    setApiError('');
+    
+    try {
+      // Prepare data for backend
+      const activityData = {
+        ...(isEditMode && { id: formData.id }),
+        activityName: formData.activityName.trim(),
+        activityType: formData.activityType,
+        owner: formData.owner.trim() || null,
+        startTime: formatDateTime(formData.startTime),
+        endTime: formData.endTime ? formatDateTime(formData.endTime) : null,
+        status: formData.status,
+        relatedItem: formData.relatedItem.trim() || null
+      };
+
+       console.log("yes it's bypass!");
+
+      let response;     
+        // Update existing activity
+        response = await updateActivity(activityData);
+        console.log('Activity updated successfully:', response);
+
+      
+      // Close modal after successful submission
+      onClose(response);
+      // window.location.reload();
+    } catch (error) {
+      console.error('Error submitting form:', error);
+      setApiError(
+        error.response?.data?.message || 
+        error.message || 
+        'An error occurred while saving the activity. Please try again.'
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     
     if (!validateForm()) {
       return;
     }
+
+    if(isEditMode && preStatus !== formData.status && !iscanEdit){
+      console.log("not equal can't update!");
+      setCurrentStatus(
+        {
+          status: formData.status,
+          activity_id: formData.id
+        });
+      noteModalOpen();
+      return;
+    }
+      console.log("yes it's bypass!");
 
     setIsSubmitting(true);
     setApiError('');
@@ -108,6 +185,16 @@ export default function ActivitiesForm({ onClose, initialActivity = null, isEdit
         // Create new activity
         response = await createNewActivity(activityData);
         console.log('Activity created successfully:', response);
+        if(response.activityId){
+            var payload = {
+              new_status: "planned",
+              note: "Start the activity",
+              activity_id: response.activityId
+            }
+                  console.log(payload);
+                  const res = await saveNotes(payload);
+                  console.log(res);
+          }
       }
       
       // Close modal after successful submission
@@ -246,7 +333,7 @@ export default function ActivitiesForm({ onClose, initialActivity = null, isEdit
             </div>
 
             {/* Status */}
-            <div>
+            {isEditMode &&  <div>
               <label className="flex items-center gap-2 text-sm font-semibold text-slate-700 mb-3">
                 <Clock className="w-4 h-4 text-green-600" />
                 Status *
@@ -260,7 +347,9 @@ export default function ActivitiesForm({ onClose, initialActivity = null, isEdit
                 }`}
               >
                 <option value="">Select status</option>
-                {statusOptions.map((option) => (
+                {statusOptions
+                .filter(option => !['planned', 'overdue'].includes(option.value))
+                .map((option) => (
                   <option key={option.value} value={option.value}>
                     {option.label}
                   </option>
@@ -272,9 +361,10 @@ export default function ActivitiesForm({ onClose, initialActivity = null, isEdit
                   {errors.status}
                 </p>
               )}
-            </div>
+            </div>}
 
             {/* Owner */}
+            {!isEditMode &&
             <div>
               <label className="flex items-center gap-2 text-sm font-semibold text-slate-700 mb-3">
                 <User className="w-4 h-4 text-indigo-600" />
@@ -289,6 +379,7 @@ export default function ActivitiesForm({ onClose, initialActivity = null, isEdit
                 placeholder="Activity owner/assignee"
               />
             </div>
+            }
 
             {/* Related Item */}
             <div>
@@ -307,6 +398,8 @@ export default function ActivitiesForm({ onClose, initialActivity = null, isEdit
             </div>
 
             {/* Start Time */}
+            {!isEditMode && 
+            <>
             <div>
               <label className="flex items-center gap-2 text-sm font-semibold text-slate-700 mb-3">
                 <Calendar className="w-4 h-4 text-emerald-600" />
@@ -316,10 +409,10 @@ export default function ActivitiesForm({ onClose, initialActivity = null, isEdit
                 type="datetime-local"
                 name="startTime"
                 value={formData.startTime}
-                onChange={handleInputChange}
                 className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all ${
                   errors.startTime ? 'border-red-500 bg-red-50' : 'border-slate-300 hover:border-slate-400'
                 }`}
+                readOnly
               />
               {errors.startTime && (
                 <p className="mt-2 text-sm text-red-600 flex items-center gap-1">
@@ -351,6 +444,8 @@ export default function ActivitiesForm({ onClose, initialActivity = null, isEdit
                 </p>
               )}
             </div>
+            </>
+            }
           </div>
         </form>
       </div>

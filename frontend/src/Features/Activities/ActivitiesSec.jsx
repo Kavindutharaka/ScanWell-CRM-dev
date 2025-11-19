@@ -76,7 +76,7 @@ export default function ActivitiesSec({ modalOpen, onEdit, activities, setActivi
             <div className="flex items-center gap-2">
               <Calendar className="w-6 h-6 text-blue-600" />
               <h1 className="text-2xl lg:text-3xl font-bold text-slate-800">
-                Activities
+                Sales Plans
               </h1>
             </div>
           </div>

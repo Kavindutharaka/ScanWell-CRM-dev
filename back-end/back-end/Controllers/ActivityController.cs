@@ -45,8 +45,15 @@ namespace back_end.Controllers
         [HttpPost]
         public ActionResult createActivity(Activitys activity)
         {
-            string query = @"insert into [dbo].[activity] (activity_name, activity_type, owner, start_time, end_time, status, related_item) 
-                             values (@activityName, @activityType, @owner, @startTime, @endTime, @status, @relatedItem);";
+            string query = @"
+                INSERT INTO [dbo].[activity] 
+                    (activity_name, activity_type, owner, start_time, end_time, status, related_item) 
+                VALUES 
+                    (@activityName, @activityType, @owner, @startTime, @endTime, @status, @relatedItem);
+                SELECT CAST(SCOPE_IDENTITY() AS INT);";
+
+            int newActivityId;
+
             using (SqlConnection myCon = new SqlConnection(_dbConnectionString))
             {
                 myCon.Open();
@@ -59,12 +66,20 @@ namespace back_end.Controllers
                     myCom.Parameters.AddWithValue("@endTime", activity.endTime ?? (object)DBNull.Value);
                     myCom.Parameters.AddWithValue("@status", activity.status ?? (object)DBNull.Value);
                     myCom.Parameters.AddWithValue("@relatedItem", activity.relatedItem ?? (object)DBNull.Value);
-                    myCom.ExecuteNonQuery();
+
+                    // Execute the insert and get the new ID
+                    newActivityId = (int)myCom.ExecuteScalar();
                 }
-                myCon.Close();
             }
-            return Ok("Activity added successfully.");
+
+            // Return both ID and message
+            return Ok(new 
+            { 
+                message = "Activity added successfully.", 
+                activityId = newActivityId 
+            });
         }
+
 
         [HttpPut]
         public ActionResult updateActivity(Activitys activity)
