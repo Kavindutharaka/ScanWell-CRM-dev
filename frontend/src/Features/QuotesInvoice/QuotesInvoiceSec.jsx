@@ -17,14 +17,9 @@ import {
   Clipboard,
   DollarSign,
 } from "lucide-react";
-import * as QuotesInvoiceAPI from '../../api//QuotesInvoiceAPI';
-import PdfGenerator from '../../components/PdfGenerator';
-import SeaImport from '../../AirImport';
-import AirExport from "../../AirExport";
-import SeaImportLcl from "../../SeaImportLcl";
-import SeaImportFcl from "../../SeaImportFcl";
-import SeaExportFcl from "../../SeaExportFcl";
-import SeaExportLcl from "../../SeaExportLcl";
+import API from '../../api/QuotesInvoiceAPI';
+import PreviewModal from './PreviewModal';
+import { generatePDF } from './QuotationTemplate';
 
 export default function QuotesInvoiceSec({ modalOpen, onEditDocument, refreshTrigger, openRateModal }) {
   const [activeTab, setActiveTab] = useState('main');
@@ -34,25 +29,160 @@ export default function QuotesInvoiceSec({ modalOpen, onEditDocument, refreshTri
   const [documents, setDocuments] = useState([]);
   const [error, setError] = useState(null);
   const [selectQuotes, setSelectQuotes] = useState({});
-  const [importCopy, setImportCopy] = useState(false);
-  const [exportCopy, setExportCopy] = useState(false);
-   const [seaImportFCLCopy, setSeaImportFCLCopy] = useState(false);
-  const [seaImportLCLCopy, setSeaImportLCLCopy] = useState(false);
-    const [seaExportFclCopy, setSeaExportFclCopy] = useState(false);
-    const [seaExportLclCopy, setSeaExportLclCopy] = useState(false);
+  
+  // PDF Preview & Generation States
+  const [showPreview, setShowPreview] = useState(false);
+  const [previewData, setPreviewData] = useState(null);
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
 
   // Fetch documents from API
   const loadDocuments = async () => {
     setLoading(true);
     setError(null);
     try {
-      // const data = await QuotesInvoiceAPI.fetchDocuments();
-      // setDocuments(data);
+      const data = await API.fetchQuotes();
+      console.log('Fetched quotes:', data);
+      setDocuments(data || []);
     } catch (err) {
       console.error('Error fetching documents:', err);
       setError('Failed to load documents. Please try again.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Transform quote data to PDF format
+  const transformQuoteToPDFData = (quote) => {
+    try {
+      const directRoute = quote.directRouteJson ? JSON.parse(quote.directRouteJson) : {};
+      const transitRoute = quote.transitRouteJson ? JSON.parse(quote.transitRouteJson) : {};
+      const routePlan = quote.routePlanJson ? JSON.parse(quote.routePlanJson) : {};
+      const freightCharges = quote.freightChargesJson ? JSON.parse(quote.freightChargesJson) : [];
+      const additionalCharges = quote.additionalChargesJson ? JSON.parse(quote.additionalChargesJson) : [];
+      const customTerms = quote.customTermsJson ? JSON.parse(quote.customTermsJson) : [];
+
+      const activeRoute = quote.freightCategory === 'transit' ? transitRoute : directRoute;
+      const pol = activeRoute?.portOfLoading?.portId || routePlan?.origin?.airportPortCode || '-';
+      const pod = activeRoute?.portOfDischarge?.portId || routePlan?.destination?.airportPortCode || '-';
+      const deliveryTerms = activeRoute?.portOfDischarge?.incoterm || activeRoute?.portOfLoading?.incoterm || '-';
+
+      const transformedFreightCharges = freightCharges.map(charge => ({
+        carrier: charge.carrier || activeRoute?.portOfLoading?.carrier || '-',
+        equip: charge.equipment || charge.uom || routePlan?.origin?.equipment || '-',
+        containers: charge.containers || charge.units || 0,
+        rate: charge.rate || charge.origin || 0,
+        rateUnit: charge.rateUnit || 'per unit',
+        currency: charge.currency || activeRoute?.portOfLoading?.currency || 'USD',
+        surcharge: charge.surcharge || '-',
+        tt: charge.transitTime || routePlan?.transitTime || '-',
+        freq: charge.frequency || 'WEEKLY',
+        route: quote.freightCategory?.toUpperCase() || 'DIRECT',
+        comments: charge.comments || charge.chargeName || ''
+      }));
+
+      const groupedCharges = additionalCharges.reduce((acc, charge) => {
+        const currency = charge.currency || 'USD';
+        if (!acc[currency]) {
+          acc[currency] = { items: [], total: 0 };
+        }
+        const quantity = parseFloat(charge.quantity) || 1;
+        const rate = parseFloat(charge.rate) || 0;
+        const amount = charge.amount || (quantity * rate);
+        acc[currency].items.push({
+          name: charge.name || 'Additional Charge',
+          amount: amount,
+          unit: charge.unit || 'per Shipment'
+        });
+        acc[currency].total += amount;
+        return acc;
+      }, {});
+
+      const otherCharges = {
+        lkr: groupedCharges.LKR || { items: [], total: 0 },
+        usd: groupedCharges.USD || { items: [], total: 0 }
+      };
+
+      const defaultTerms = [
+        'RATES ARE VALID TILL <> - SUBJECT TO SURCHARGE FLUCTUATIONS AS PER THE CARRIER',
+        'RATES ARE SUBJECT TO INWARD LOCAL HANDLING CHARGES OF LKR.18000.00 + VAT (SVAT)',
+        'RATES ARE QUOTED ON FOB/EXW BASIS',
+        'RATES ARE NOT APPLICABLE FOR DANGEROUS GOODS OR PERISHABLE CARGO',
+        'DUE TO THE CURRENT MARITIME CONSTRAINTS',
+        'VESSELS ARE SUBJECT TO BLANK SAILINGS/OMITTING COLOMBO PORT, ROLL OVERS WITH OR WITHOUT PRIOR NOTICE'
+      ];
+
+      const customerDisplayName = quote.customerName || quote.clientName || 'N/A';
+
+      return {
+        company: {
+          logoUrl: "",
+          name: "Scanwell Logistics Colombo (Pvt) Ltd.",
+          address: "67/1 Hudson Road Colombo 3 Sri Lanka.",
+          phone: "+94 11 2426600/4766400"
+        },
+        meta: {
+          quoteNumber: quote.quoteId || 'N/A',
+          serviceType: quote.freightMode || 'Freight Service',
+          terms: 'Credit Terms'
+        },
+        customer: {
+          name: customerDisplayName,
+          address: 'N/A'
+        },
+        shipment: {
+          pickupAddress: '',
+          deliveryAddress: '',
+          pol: pol,
+          pod: pod,
+          deliveryTerms: deliveryTerms,
+          pcs: parseInt(routePlan?.origin?.totalPieces) || 0,
+          volume: parseFloat(routePlan?.origin?.cbm) || 0,
+          grossWeight: parseFloat(routePlan?.origin?.grossWeight) || 0,
+          chargeableWeight: parseFloat(routePlan?.origin?.chargeableWeight) || 0
+        },
+        freightCharges: transformedFreightCharges,
+        otherCharges: otherCharges,
+        termsAndConditions: [...defaultTerms, ...customTerms.filter(t => t && t.trim())],
+        generatedBy: quote.createdBy || 'System'
+      };
+    } catch (error) {
+      console.error('Error transforming quote data:', error);
+      throw new Error('Failed to transform quote data for PDF generation');
+    }
+  };
+
+  // Handle PDF Preview
+  const handlePreview = (quote) => {
+    try {
+      const transformedData = transformQuoteToPDFData(quote);
+      setPreviewData(transformedData);
+      setShowPreview(true);
+    } catch (error) {
+      console.error('Error preparing preview:', error);
+      alert('Failed to prepare quotation preview.');
+    }
+  };
+
+  // Handle Direct PDF Download
+  const handleDirectDownload = async (quote) => {
+    setIsGeneratingPDF(true);
+    try {
+      const transformedData = transformQuoteToPDFData(quote);
+      setPreviewData(transformedData);
+      setShowPreview(true);
+      await new Promise(resolve => setTimeout(resolve, 500));
+      const filename = `${quote.quoteId.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
+      const result = await generatePDF(transformedData, filename);
+      if (result.success) {
+        alert('PDF generated successfully!');
+      }
+      setShowPreview(false);
+      setPreviewData(null);
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      alert('Failed to generate PDF.');
+    } finally {
+      setIsGeneratingPDF(false);
     }
   };
 
@@ -83,9 +213,10 @@ export default function QuotesInvoiceSec({ modalOpen, onEditDocument, refreshTri
     // Apply search filter
     if (searchQuery.trim()) {
       filtered = filtered.filter(doc => 
-        doc.documentNumber?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        doc.recipient?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        doc.status?.toLowerCase().includes(searchQuery.toLowerCase())
+        doc.quoteId?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        doc.customerName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        doc.clientName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        doc.freightMode?.toLowerCase().includes(searchQuery.toLowerCase())
       );
     }
 
@@ -101,31 +232,6 @@ export default function QuotesInvoiceSec({ modalOpen, onEditDocument, refreshTri
     openRateModal();
   };
 
-  // Handle download PDF
-  const handleCopy = async (doc) => {
-    setSelectQuotes(doc);
-    if(doc.freightType === "air-import"){
-      console.log("air import trigger!!!");
-      setImportCopy(true);
-    }else if(doc.freightType === "air-export"){
-      console.log("air export trigger!!!");
-      setExportCopy(true);
-    }else if(doc.freightType === "sea-import-fcl"){
-      console.log("Sea import fcl trigger!!!");
-      setSeaImportFCLCopy(true);
-    }else if(doc.freightType === "sea-import-lcl"){
-      console.log("Sea import lcl trigger!!!");
-      setSeaImportLCLCopy(true);
-    }else if(doc.freightType === "sea-export-fcl"){
-      console.log("Sea export fcl trigger!!!");
-      setSeaExportFclCopy(true);
-    }else if(doc.freightType === "sea-export-lcl"){
-      console.log("Sea export lcl trigger!!!");
-      setSeaExportLclCopy(true);
-    }
-    console.log("this is data",doc.rateData);
-  };
-
   // Handle view/edit document
   const handleEdit = (doc) => {
     if (onEditDocument) {
@@ -136,10 +242,10 @@ export default function QuotesInvoiceSec({ modalOpen, onEditDocument, refreshTri
   // Get type color
   const getTypeColor = (type) => {
     const normalizedType = type?.toLowerCase();
-    if (normalizedType === 'air-import') return 'bg-amber-500';
-    if (normalizedType === 'air-export') return 'bg-emerald-500';
-    if (normalizedType === 'sea-import-fcl' || normalizedType === 'sea-import-lcl') return 'bg-yellow-500';
-    if (normalizedType === 'sea-export-fcl' || normalizedType === 'sea-export-fcl') return 'bg-green-500';
+    if (normalizedType?.includes('air') && normalizedType?.includes('import')) return 'bg-amber-500';
+    if (normalizedType?.includes('air') && normalizedType?.includes('export')) return 'bg-emerald-500';
+    if (normalizedType?.includes('sea') && normalizedType?.includes('import')) return 'bg-yellow-500';
+    if (normalizedType?.includes('sea') && normalizedType?.includes('export')) return 'bg-green-500';
     return 'bg-slate-500';
   };
 
@@ -172,21 +278,21 @@ export default function QuotesInvoiceSec({ modalOpen, onEditDocument, refreshTri
   // Status badge component
   const StatusBadge = ({ status, color }) => (
     <div className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium text-white ${color}`}>
-      {status}
+      {status || 'Draft'}
     </div>
   );
 
   // Type badge component
   const TypeBadge = ({ type, color }) => (
     <div className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium text-white ${color}`}>
-      {type}
+      {type || 'N/A'}
     </div>
   );
 
   // Avatar component
   const Avatar = ({ name, color = "bg-slate-600" }) => (
     <div className={`${color} text-white rounded-full w-8 h-8 flex items-center justify-center shadow-sm`}>
-      <span className="text-xs font-semibold">{name}</span>
+      <span className="text-xs font-semibold">{name || 'NA'}</span>
     </div>
   );
 
@@ -305,40 +411,6 @@ export default function QuotesInvoiceSec({ modalOpen, onEditDocument, refreshTri
           </div>
         </div>
 
-        {/* Category Tabs */}
-        {/* <div className={`flex gap-1 mb-6 ${!loading ? 'animate-fadeInUp' : 'opacity-0'}`} style={{ animationDelay: '150ms', animationFillMode: 'both' }}>
-          <button
-            onClick={() => setActiveTab('main')}
-            className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
-              activeTab === 'main'
-                ? 'bg-teal-600 text-white shadow-sm'
-                : 'text-slate-600 hover:bg-slate-100'
-            }`}
-          >
-            Main Table
-          </button>
-          <button
-            onClick={() => setActiveTab('quotes')}
-            className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
-              activeTab === 'quotes'
-                ? 'bg-amber-500 text-white shadow-sm'
-                : 'text-slate-600 hover:bg-slate-100'
-            }`}
-          >
-            Quotes
-          </button>
-          <button
-            onClick={() => setActiveTab('invoices')}
-            className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
-              activeTab === 'invoices'
-                ? 'bg-emerald-500 text-white shadow-sm'
-                : 'text-slate-600 hover:bg-slate-100'
-            }`}
-          >
-            Invoices
-          </button>
-        </div> */}
-
         {/* Action Bar */}
         <div className={`flex flex-col sm:flex-row gap-4 py-4 border-t border-slate-200 mb-6 ${!loading ? 'animate-fadeInUp' : 'opacity-0'}`} style={{ animationDelay: '200ms', animationFillMode: 'both' }}>
           <div className="flex  items-center gap-3">
@@ -351,13 +423,6 @@ export default function QuotesInvoiceSec({ modalOpen, onEditDocument, refreshTri
                 <Plus className="w-5 h-5" />
                 <span>Create New</span>
               </button>
-              {/* <button 
-                onClick={() => createRates()}
-                className="flex items-center gap-2 px-4 py-2.5 bg-teal-600 text-white rounded-lg font-medium hover:bg-teal-700 transition-all duration-200 shadow-sm hover:shadow-md"
-              >
-                <Plus className="w-5 h-5" />
-                <span>Create Rates</span>
-              </button> */}
             </div>   
             {/* Filter Button */}
             <button 
@@ -422,39 +487,52 @@ export default function QuotesInvoiceSec({ modalOpen, onEditDocument, refreshTri
               <table className="w-full">
                 <thead className="bg-slate-50 border-b border-slate-200">
                   <tr>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Document #</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">FreightType</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Amount</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Recipient</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Status</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Issue Date</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Quote ID</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Customer</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Freight Mode</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Category</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Created Date</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Actions</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Owner</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Created By</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {filteredDocuments.map((doc) => (
                     <tr key={doc.id} className="hover:bg-slate-50 transition-colors">
                       <td className="px-4 py-4 text-sm font-medium text-slate-900">
-                        {doc.documentNumber}
-                      </td>
-                      <td className="px-4 py-4">
-                        <TypeBadge type={doc.freightType} color={getTypeColor(doc.freightType)} />
-                      </td>
-                      <td className="px-4 py-4 text-sm font-semibold text-slate-900">
-                        {formatCurrency(doc.amount || 0)}
+                        {doc.quoteId || 'N/A'}
                       </td>
                       <td className="px-4 py-4 text-sm text-slate-600">
-                        {doc.recipient}
+                        {doc.customerName || doc.clientName || 'N/A'}
                       </td>
                       <td className="px-4 py-4">
-                        <StatusBadge status={doc.status} color={getStatusColor(doc.status)} />
+                        <TypeBadge type={doc.freightMode} color={getTypeColor(doc.freightMode)} />
+                      </td>
+                      <td className="px-4 py-4">
+                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                          {doc.freightCategory || 'N/A'}
+                        </span>
                       </td>
                       <td className="px-4 py-4 text-sm text-slate-600">
-                        {formatDate(doc.issueDate)}
+                        {formatDate(doc.createdDate)}
                       </td>
                       <td className="px-4 py-4">
-                        <div className="flex items-center gap-2">              
+                        <div className="flex items-center gap-2">
+                          <button 
+                            onClick={() => handlePreview(doc)}
+                            className="p-1 hover:bg-teal-50 rounded transition-colors"
+                            title="Preview Quotation"
+                          >
+                            <Eye className="w-4 h-4 text-teal-600" />
+                          </button>
+                          <button 
+                            onClick={() => handleDirectDownload(doc)}
+                            disabled={isGeneratingPDF}
+                            className="p-1 hover:bg-blue-50 rounded transition-colors disabled:opacity-50"
+                            title="Download PDF"
+                          >
+                            <Download className={`w-4 h-4 text-blue-600 ${isGeneratingPDF ? 'animate-bounce' : ''}`} />
+                          </button>
                           <button 
                             onClick={() => handleEdit(doc)}
                             className="p-1 hover:bg-slate-100 rounded transition-colors"
@@ -462,17 +540,10 @@ export default function QuotesInvoiceSec({ modalOpen, onEditDocument, refreshTri
                           >
                             <Edit className="w-4 h-4 text-slate-600" />
                           </button>
-                          <button 
-                            onClick={() => handleCopy(doc)}
-                            className="p-1 hover:bg-slate-100 rounded transition-colors"
-                            title="Copy Invoice"
-                          >
-                            <Clipboard className="w-4 h-4 text-slate-600" />
-                          </button>                         
                         </div>
                       </td>
                       <td className="px-4 py-4">
-                        <Avatar name={'CS'|| 'NA'} color="bg-teal-600" />
+                        <Avatar name={doc.createdBy?.substring(0, 2).toUpperCase() || 'SU'} color="bg-teal-600" />
                       </td>
                     </tr>
                   ))}
@@ -531,71 +602,18 @@ export default function QuotesInvoiceSec({ modalOpen, onEditDocument, refreshTri
 
         <div className="h-8"></div>
       </div>
-      <div className="hidden">
-                <SeaImport
-                name={selectQuotes.recipient}
-                origin={selectQuotes.recipientAddress}
-                rateData={selectQuotes.rateData}
-                additionalCharges={selectQuotes.additionalCharges}
-                remarks={selectQuotes.remarksList}
-                autoCopy={importCopy}
-                />
-            </div>
-             <div className="hidden">
-                      <AirExport
-                      name={selectQuotes.recipient}
-                      origin={selectQuotes.recipientAddress}
-                      rateData={selectQuotes.rateData}
-                      additionalCharges={selectQuotes.additionalCharges}
-                      remarks={selectQuotes.remarksList}
-                      autoCopy={exportCopy}
-                      currency="USD"
-                      />
-                  </div>
-             <div className="hidden">
-                      <SeaImportFcl
-                      name={selectQuotes.recipient}
-                      origin={selectQuotes.recipientAddress}
-                      rateData={selectQuotes.rateData}
-                      additionalCharges={selectQuotes.additionalCharges}
-                      remarks={selectQuotes.remarksList}
-                      autoCopy={seaImportFCLCopy}
-                      currency="USD"
-                      />
-                  </div>
-             <div className="hidden">
-                      <SeaImportLcl
-                      name={selectQuotes.recipient}
-                      origin={selectQuotes.recipientAddress}
-                      rateData={selectQuotes.rateData}
-                      additionalCharges={selectQuotes.additionalCharges}
-                      remarks={selectQuotes.remarksList}
-                      autoCopy={seaImportLCLCopy}
-                      currency="USD"
-                      />
-                  </div>
-                   <div className="hidden">
-                            <SeaExportFcl
-                            name={selectQuotes.recipient}
-                      origin={selectQuotes.recipientAddress}
-                      rateData={selectQuotes.rateData}
-                      additionalCharges={selectQuotes.additionalCharges}
-                      remarks={selectQuotes.remarksList}
-                      autoCopy={seaExportFclCopy}
-                      currency="USD"
-                            />
-                        </div>
-                   <div className="hidden">
-                            <SeaExportLcl
-                            name={selectQuotes.recipient}
-                      origin={selectQuotes.recipientAddress}
-                      rateData={selectQuotes.rateData}
-                      additionalCharges={selectQuotes.additionalCharges}
-                      remarks={selectQuotes.remarksList}
-                      autoCopy={seaExportLclCopy}
-                      currency="USD"
-                            />
-                        </div>
+
+      {/* Preview Modal */}
+      {showPreview && previewData && (
+        <PreviewModal
+          isOpen={showPreview}
+          onClose={() => {
+            setShowPreview(false);
+            setPreviewData(null);
+          }}
+          quotationData={previewData}
+        />
+      )}
     </div>
   );
 }

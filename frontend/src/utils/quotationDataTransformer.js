@@ -36,18 +36,18 @@ export const transformQuoteDataForPDF = (formData) => {
   const transformedFreightCharges = freightCharges.map(charge => ({
     carrier: charge.carrier || activeRoute?.portOfLoading?.carrier || '-',
     equip: charge.equipment || routePlanData?.origin?.equipment || '-',
-    containers: charge.containers || 0,
+    containers: charge.containers || charge.quantity || 0,
     rate: charge.rate || 0,
-    rateUnit: charge.rateUnit || 'per CBM',
+    rateUnit: charge.rateUnit || charge.unit || 'per CBM',
     currency: charge.currency || activeRoute?.portOfLoading?.currency || 'USD',
     surcharge: charge.surcharge || '-',
     tt: charge.transitTime || routePlanData?.transitTime || '-',
     freq: charge.frequency || 'WEEKLY',
     route: quoteData.freightCategory?.toUpperCase() || 'DIRECT',
-    comments: charge.comments || ''
+    comments: charge.comments || charge.remark || ''
   }));
 
-  // Group additional charges by currency
+  // Group additional charges by currency and calculate amounts
   const groupedCharges = additionalCharges.reduce((acc, charge) => {
     const currency = charge.currency || 'USD';
     if (!acc[currency]) {
@@ -57,7 +57,11 @@ export const transformQuoteDataForPDF = (formData) => {
       };
     }
     
-    const amount = parseFloat(charge.amount) || 0;
+    // Calculate amount: quantity * rate
+    const quantity = parseFloat(charge.quantity) || 1;
+    const rate = parseFloat(charge.rate) || 0;
+    const amount = quantity * rate;
+    
     acc[currency].items.push({
       name: charge.name || 'Additional Charge',
       amount: amount,
@@ -80,6 +84,11 @@ export const transformQuoteDataForPDF = (formData) => {
     ...customTerms.filter(t => t && t.trim())
   ];
 
+  // Get credit terms label
+  const creditTermsLabel = quoteData.creditTermsId ? 
+    dropdownOptions.creditTerms?.find(ct => ct.value === quoteData.creditTermsId)?.label || 'Credit Terms' 
+    : 'Credit Terms';
+
   // Return transformed data
   return {
     company: {
@@ -91,9 +100,7 @@ export const transformQuoteDataForPDF = (formData) => {
     meta: {
       quoteNumber: quoteData.quoteId || 'N/A',
       serviceType: quoteData.freightMode || 'Freight Service',
-      terms: quoteData.creditTermsId ? 
-        dropdownOptions.creditTerms?.find(ct => ct.value === quoteData.creditTermsId)?.label || 'Credit Terms' 
-        : 'Credit Terms'
+      terms: creditTermsLabel
     },
     customer: {
       name: customerName,
@@ -143,6 +150,19 @@ export const validateQuoteDataForPDF = (formData) => {
 
   if (!formData.freightCharges || formData.freightCharges.length === 0) {
     errors.push('At least one freight charge is required');
+  }
+
+  // Validate route information
+  const activeRoute = formData.quoteData?.freightCategory === 'transit' 
+    ? formData.transitRoute 
+    : formData.directRoute;
+
+  if (!activeRoute?.portOfLoading?.portId && !formData.routePlanData?.origin?.airportPortCode) {
+    errors.push('Origin port/airport is required');
+  }
+
+  if (!activeRoute?.portOfDischarge?.portId && !formData.routePlanData?.destination?.airportPortCode) {
+    errors.push('Destination port/airport is required');
   }
 
   return {

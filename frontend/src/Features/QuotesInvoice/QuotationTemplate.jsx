@@ -1,4 +1,5 @@
 import React from 'react';
+import ReactDOM from 'react-dom'; 
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 
@@ -244,34 +245,30 @@ const styles = {
     borderBottom: '1px solid #ddd'
   },
   logoSection: {
-    width: '50%'
+    flex: 1
   },
   logo: {
-    maxWidth: '100px',
-    maxHeight: '60px'
+    maxWidth: '120px',
+    height: 'auto'
   },
   logoPlaceholder: {
-    width: '60px',
+    width: '120px',
     height: '60px',
-    borderRadius: '50%',
-    border: '2px solid #0099cc',
+    border: '2px dashed #0099cc',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    fontSize: '8px',
-    textAlign: 'center',
     backgroundColor: '#f0f8ff'
   },
   companyDetails: {
-    textAlign: 'right',
-    width: '50%'
+    flex: 2,
+    textAlign: 'right'
   },
   companyName: {
-    fontSize: '13px',
-    fontStyle: 'italic',
-    color: '#336699',
+    fontSize: '14px',
+    fontWeight: 'bold',
     margin: '0 0 5px 0',
-    fontWeight: 'bold'
+    color: '#336699'
   },
   companyText: {
     margin: '2px 0',
@@ -464,20 +461,6 @@ const styles = {
 // --- PDF Generation Function ---
 export const generatePDF = async (data, filename = 'quotation.pdf') => {
   try {
-    // Create a temporary container
-    const tempDiv = document.createElement('div');
-    tempDiv.style.position = 'absolute';
-    tempDiv.style.left = '-9999px';
-    tempDiv.style.top = '0';
-    document.body.appendChild(tempDiv);
-
-    // Render the quotation template into the temp div
-    const root = ReactDOM.createRoot(tempDiv);
-    root.render(<QuotationTemplate data={data} />);
-
-    // Wait for rendering
-    await new Promise(resolve => setTimeout(resolve, 500));
-
     const element = document.getElementById('quotation-template');
     
     if (!element) {
@@ -501,17 +484,17 @@ export const generatePDF = async (data, filename = 'quotation.pdf') => {
     const imgWidth = canvas.width;
     const imgHeight = canvas.height;
     const ratio = Math.min(pdfWidth / imgWidth, pdfHeight / imgHeight);
-    const imgX = (pdfWidth - imgWidth * ratio) / 2;
+    
+    // Calculate dimensions to fit page
+    const finalWidth = imgWidth * ratio;
+    const finalHeight = imgHeight * ratio;
+    const imgX = (pdfWidth - finalWidth) / 2;
     const imgY = 0;
 
-    pdf.addImage(imgData, 'PNG', imgX, imgY, imgWidth * ratio, imgHeight * ratio);
+    pdf.addImage(imgData, 'PNG', imgX, imgY, finalWidth, finalHeight);
     
     // Save PDF
     pdf.save(filename);
-
-    // Cleanup
-    root.unmount();
-    document.body.removeChild(tempDiv);
 
     return { success: true, message: 'PDF generated successfully' };
   } catch (error) {

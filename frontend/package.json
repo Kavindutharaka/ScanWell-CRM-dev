@@ -13,7 +13,7 @@
     "jspdf-autotable": "^5.0.2",
     "lucide-react": "^0.542.0",
     "react": "^19.1.1",
-    "react-dom": "^19.1.1",
+    "react-dom": "^19.2.0",
     "react-phone-number-input": "^3.4.12",
     "react-router-dom": "^6.30.1",
     "react-scripts": "5.0.1",
