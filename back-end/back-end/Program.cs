@@ -1,5 +1,9 @@
 using System.Text.Json.Serialization;
+using Microsoft.AspNetCore.Authentication.JwtBearer;  // Add this
+using Microsoft.IdentityModel.Tokens;  // Add this
 using Newtonsoft.Json;
+using System.Text;  // For Encoding.UTF8
+
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddHttpClient();
@@ -14,6 +18,23 @@ builder.Services.AddCors(options =>
               .AllowCredentials();
     });
 });
+
+// Add JWT Authentication
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"])),
+            ValidateIssuer = true,
+            ValidIssuer = builder.Configuration["Jwt:Issuer"],
+            ValidateAudience = true,
+            ValidAudience = builder.Configuration["Jwt:Audience"],
+            ValidateLifetime = true,  // Ensures token expiration is checked
+            ClockSkew = TimeSpan.Zero  // Optional: No grace period for expiration
+        };
+    });
 
 // Add services to the container.
 builder.Services.AddControllersWithViews().AddNewtonsoftJson();
@@ -35,6 +56,7 @@ app.UseRouting();
 
 app.UseCors("AllowLocalhost");
 
+app.UseAuthentication();  // This must come before UseAuthorization()
 app.UseAuthorization();
 
 app.MapStaticAssets();

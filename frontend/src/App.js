@@ -1,6 +1,8 @@
-import React from 'react';
+// App.js
+import React,{useEffect, useContext} from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import SideNav from './components/SideNav';
+import { AuthProvider } from './context/AuthContext';
+import ProtectedRoute from './components/ProtectedRoute';
 
 import SalesDashboard from './Features/Dashboard/Dashboard';
 import ContactBoard from './Features/ContactBoard/ContactBoard';
@@ -11,55 +13,48 @@ import LeadPage from './Features/Leads/LeadPage';
 import Account from './Features/Accounts/Account';
 import Rates from './Features/Rates/Rates';
 import Activities from './Features/Activities/Activities';
-import Login from './Features/Login/Login'
-
-// HR Components
+import Login from './Features/Login/Login';
 import HREmployees from './Features/PeopleHRManagement/HREmployees';
 import HRSystemManagement from './Features/HRManagement/HRSystemManagement';
 import Info from './Features/InfoUpdates/InfoAndUpdates';
-// Add these when you create them:
-// import HRPositions from './Features/HR/Positions/HRPositions';
-// import HRAttendance from './Features/HR/Attendance/HRAttendance';
-// import HRPerformance from './Features/HR/Performance/HRPerformance';
-// import HRSettings from './Features/HR/Settings/HRSettings';
+import EmployeeRoleManagement from './Features/RoleBase/EmployeeRoleManagement';
+import Profile from './Features/Profile/Profile';
 
-export default function App() {
+function App() {
   return (
-    <Router>
-      <Routes>
-        {/* Redirect root to dashboard */}
-        <Route path="/" element={<Navigate to="/dashboard" replace />} />
-        
-        {/* Top-level routes */}
-        <Route path="/mail-tracking" element={<MailTracking />} />
-        <Route path="/usefull-link" element={<Info />} />
-        <Route path="/quotes-invoices" element={<QuotesInvoice />} />
-        <Route path="/rates" element={<Rates/>} />
-        
-        {/* Workspace routes */}
-        <Route path="/contacts" element={<ContactBoard />} />
-        <Route path="/rfq" element={<RFQ/>} />
-        <Route path="/leads" element={<LeadPage />} />
-        <Route path="/accounts" element={<Account />} />
-        {/* <Route path="/projects" element={<Project />} /> */}
-        <Route path="/sales-plans" element={<Activities />} />
-        <Route path="/dashboard" element={<SalesDashboard />} />
-        
-        {/* HR Management routes */}
-        <Route path="/hr/manage-employee" element={<HREmployees />} />
-        <Route path="/hr/manage" element={<HRSystemManagement />} />
-        {/* Uncomment these as you create the components:
-        <Route path="/hr/positions" element={<HRPositions />} />
-        <Route path="/hr/attendance" element={<HRAttendance />} />
-        <Route path="/hr/performance" element={<HRPerformance />} />
-        <Route path="/hr/settings" element={<HRSettings />} />
-        */}
-        <Route path="/login" element={<Login />} />
-        
-        {/* Catch-all route */}
-        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+    <AuthProvider>
+      <Router>
+        <Routes>
+          {/* Public Route */}
+          <Route path="/login" element={<Login/>} />
+          
+          {/* Protected Routes */}
+          <Route element={<ProtectedRoute />}>
+            <Route path="/dashboard" element={<SalesDashboard />} />
+            <Route path="/contacts" element={<ContactBoard />} />
+            <Route path="/mail-tracking" element={<MailTracking />} />
+            <Route path="/quotes-invoices" element={<QuotesInvoice />} />
+            <Route path="/rates" element={<Rates />} />
+            <Route path="/rfq" element={<RFQ />} />
+            <Route path="/leads" element={<LeadPage />} />
+            <Route path="/accounts" element={<Account />} />
+            <Route path="/sales-plans" element={<Activities />} />
+            <Route path="/usefull-link" element={<Info />} />
+            <Route path="/hr/manage-employee" element={<HREmployees />} />
+            <Route path="/hr/manage" element={<HRSystemManagement />} />
+            <Route path="/rolebase" element={<EmployeeRoleManagement />} />
+            <Route path="/profile" element={<Profile />} />
+            
+            {/* Default redirect when logged in */}
+            <Route path="/" element={<Navigate to="/dashboard" replace />} />
+          </Route>
 
-      </Routes>
-    </Router>
+          {/* Catch all */}
+          <Route path="*" element={<Navigate to="/login" replace />} />
+        </Routes>
+      </Router>
+    </AuthProvider>
   );
 }
+
+export default App;

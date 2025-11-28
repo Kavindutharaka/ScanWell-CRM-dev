@@ -1,16 +1,11 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect } from "react";
 import {
   X,
   FileText,
   User,
-  Calendar,
-  DollarSign,
   Plus,
   Trash2,
   Save,
-  Copy,
-  Send,
-  Building,
   Plane,
   Ship,
   Package,
@@ -18,31 +13,26 @@ import {
   ChevronDown,
   AlertCircle,
   MapPin,
-  Search,
   CheckCircle,
-  Edit,
-  ArrowUp,
-  ArrowDown,
   Truck,
-  Route as RouteIcon
+  Route as RouteIcon,
+  DollarSign,
+  Download,
+  Layers
 } from "lucide-react";
-import QuotesInvoiceAPI from '../../api/QuotesInvoiceAPI';
+import {
+  fetchQuotes,
+  createQuote,
+  updateQuote,
+  fetchQuoteById
+} from '../../api/QuotesInvoiceAPI';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+// Import the logo
+import logo from '../../assets/images/logo.png';
 
-// ============================================================================
-// REUSABLE DROPDOWN COMPONENT
-// ============================================================================
-const DynamicDropdown = ({ 
-  label, 
-  name, 
-  value, 
-  onChange, 
-  options = [], 
-  placeholder = "Select...",
-  required = false,
-  error = null,
-  disabled = false,
-  className = ""
-}) => {
+// --- Reusable Components ---
+const DynamicDropdown = ({ label, name, value, onChange, options = [], placeholder = "Select...", required = false, error = null, disabled = false, className = "" }) => {
   return (
     <div className={className}>
       <label className="block text-sm font-medium text-slate-700 mb-2">
@@ -69,21 +59,7 @@ const DynamicDropdown = ({
   );
 };
 
-// ============================================================================
-// REUSABLE INPUT COMPONENT
-// ============================================================================
-const FormInput = ({ 
-  label, 
-  name, 
-  value, 
-  onChange, 
-  type = "text",
-  placeholder = "",
-  required = false,
-  error = null,
-  disabled = false,
-  className = ""
-}) => {
+const FormInput = ({ label, name, value, onChange, type = "text", placeholder = "", required = false, error = null, disabled = false, className = "" }) => {
   return (
     <div className={className}>
       <label className="block text-sm font-medium text-slate-700 mb-2">
@@ -105,17 +81,13 @@ const FormInput = ({
   );
 };
 
-// ============================================================================
-// MAIN COMPONENT
-// ============================================================================
 export default function QuoteInvoiceForm({ onClose, type = 'quote', editDocument = null, onSuccess }) {
+  // --- Original State Logic ---
   const [step, setStep] = useState(1);
-  
-  // ============================================================================
-  // STATE MANAGEMENT
-  // ============================================================================
-  
-  // Core Quote Information
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [errors, setErrors] = useState({});
+
   const [quoteData, setQuoteData] = useState({
     quoteId: generateQuoteId(),
     customerId: '',
@@ -127,107 +99,68 @@ export default function QuoteInvoiceForm({ onClose, type = 'quote', editDocument
     clientId: '',
     clientName: '',
     days: '',
-    freightMode: '', // 'Air Import' | 'Air Export' | 'Sea Import FCL' | 'Sea Import LCL' | 'Sea Export FCL' | 'Sea Export LCL'
-    freightCategory: '', // 'direct' | 'transit' | 'multimodal'
-    createdBy: '' // Will be set from system user
+    freightMode: '',
+    freightCategory: '',
+    createdBy: 'rukshala'
   });
 
-  // Route Configuration
-  const [routeConfig, setRouteConfig] = useState({
-    mode: '', // 'air' | 'sea'
-    type: '', // 'import' | 'export'
-    cargoType: '' // 'fcl' | 'lcl' | 'air'
-  });
-
-  // Direct Route Data
+  // Direct Route State
   const [directRoute, setDirectRoute] = useState({
-    portOfLoading: {
-      portId: '',
+    portOfLoading: '',
+    portOfDischarge: '',
+    options: [{
+      id: 1,
       carrier: '',
       incoterm: '',
       currency: 'USD',
-      cargoType: ''
-    },
-    portOfDischarge: {
-      portId: '',
-      carrier: '',
-      incoterm: '',
-      currency: 'USD',
-      cargoType: ''
-    }
+      cargoType: '',
+      equipment: '',
+      units: '',
+      netWeight: '',
+      grossWeight: '',
+      cbm: '',
+      chargeableWeight: '',
+      totalPieces: ''
+    }]
   });
 
-  // Transit Route Data (for Transit mode)
+  // Transit Route State
   const [transitRoute, setTransitRoute] = useState({
-    portOfLoading: {
-      portId: '',
-      carrier: '',
-      incoterm: '',
-      currency: 'USD',
-      cargoType: ''
-    },
-    transitStops: [], // Array of transit points
-    portOfDischarge: {
-      portId: '',
-      carrier: '',
-      incoterm: '',
-      currency: 'USD',
-      cargoType: ''
-    }
+    portOfLoading: '',
+    portOfDischarge: '',
+    transitStops: [],
+    segments: []
   });
 
-  // Multimodal Segments
-  const [multimodalSegments, setMultimodalSegments] = useState([]);
+  const [activeOptionIndex, setActiveOptionIndex] = useState(0);
 
-  // Route Plan Data (for Air/Sea table)
-  const [routePlanData, setRoutePlanData] = useState({
-    origin: {
-      airportPortCode: '',
-      carrier1: '',
-      equipment: '',
-      units: '',
-      netWeight: '',
-      grossWeight: '',
-      cbm: '',
-      chargeableWeight: '',
-      totalPieces: ''
-    },
-    transitPoints: [], // Array of transit point data
-    destination: {
-      airportPortCode: '',
-      carrier1: '',
-      equipment: '',
-      units: '',
-      netWeight: '',
-      grossWeight: '',
-      cbm: '',
-      chargeableWeight: '',
-      totalPieces: ''
-    }
+  // Charges State
+  const [freightCharges, setFreightCharges] = useState({
+    origin: [],
+    destination: []
   });
 
-  // Freight Charges
-  const [freightCharges, setFreightCharges] = useState([]);
+  const [handlingCharges, setHandlingCharges] = useState({
+    origin: [],
+    destination: []
+  });
 
-  // Additional Charges
-  const [additionalCharges, setAdditionalCharges] = useState([]);
-
-  // Terms & Conditions
+  // Terms State
   const [termsConditions, setTermsConditions] = useState([
-    'RATES ARE VALID TILL <> - SUBJECT TO SURCHARGE FLUCTUATIONS AS PER THE CARRIER',
-    'RATES ARE SUBJECT TO INWARD LOCAL HANDLING CHARGES OF LKR.18000.00 + VAT (SVAT)',
-    'RATES ARE QUOTED ON FOB/EXW BASIS',
-    'RATES ARE NOT APPLICABLE FOR DANGEROUS GOODS OR PERISHABLE CARGO',
-    'DUE TO THE CURRENT MARITIME CONSTRAINT\'S',
-    'VESSEL ARE SUBJECT BLANK SAILINGS/OMITTING COLOMBO PORT, ROLL OVERS WITH OR WITHOUT PRIOR NOTICE',
-    'RATES ARE SUBJECT TO CONTAINER DEPOSIT'
+    { id: 1, text: 'RATES ARE VALID TILL <> - SUBJECT TO SURCHARGE FLUCTUATIONS AS PER THE CARRIER', selected: true },
+    { id: 2, text: 'RATES ARE SUBJECT TO INWARD LOCAL HANDLING CHARGES OF LKR.18000.00 + VAT (SVAT)', selected: true },
+    { id: 3, text: 'RATES ARE QUOTED ON FOB/EXW BASIS', selected: true },
+    { id: 4, text: 'RATES ARE NOT APPLICABLE FOR DANGEROUS GOODS OR PERISHABLE CARGO', selected: false },
+    { id: 5, text: 'DUE TO THE CURRENT MARITIME CONSTRAINT\'S', selected: false },
+    { id: 6, text: 'VESSEL ARE SUBJECT BLANK SAILINGS/OMITTING COLOMBO PORT, ROLL OVERS WITH OR WITHOUT PRIOR NOTICE', selected: false },
+    { id: 7, text: 'RATES ARE SUBJECT TO CONTAINER DEPOSIT', selected: false }
   ]);
+  
   const [customTerms, setCustomTerms] = useState([]);
 
-  // Dropdown Options (to be loaded from DB)
+  // Dropdown Options
   const [dropdownOptions, setDropdownOptions] = useState({
     customers: [],
-    clients: [],
     locations: [],
     creditTerms: [],
     ports: [],
@@ -240,1987 +173,969 @@ export default function QuoteInvoiceForm({ onClose, type = 'quote', editDocument
     chargeNames: []
   });
 
-  const [errors, setErrors] = useState({});
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [loading, setLoading] = useState(false);
-
-  // ============================================================================
-  // UTILITY FUNCTIONS
-  // ============================================================================
-  
-  // Generate Quote ID: Format YYYYMMDDHHmmss
   function generateQuoteId() {
     const now = new Date();
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const day = String(now.getDate()).padStart(2, '0');
-    const hours = String(now.getHours()).padStart(2, '0');
-    const minutes = String(now.getMinutes()).padStart(2, '0');
-    const seconds = String(now.getSeconds()).padStart(2, '0');
-    return `${year}${month}${day}${hours}${minutes}${seconds}`;
+    return `Q-${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}-${Math.floor(Math.random() * 1000)}`;
   }
 
-  // Fetch dropdown options from database
-  const fetchDropdownOptions = async (tableName) => {
-    try {
-      // TODO: Replace with actual API calls
-      // const response = await API.fetchOptions(tableName);
-      // return response.data;
-      
-      // Placeholder return values
-      switch(tableName) {
-        case 'customers':
-          return [
-            { value: '1', label: 'Customer A' },
-            { value: '2', label: 'Customer B' }
-          ];
-        case 'locations':
-          return [
-            { value: '1', label: 'Colombo' },
-            { value: '2', label: 'Negombo' }
-          ];
-        case 'creditTerms':
-          return [
-            { value: '1', label: 'Net 30' },
-            { value: '2', label: 'Net 60' }
-          ];
-        case 'carriers':
-          return [
-            'MSC', 'MAERSK', 'CMA CGM', 'HAPAG-LLOYD', 'ONE',
-            'Emirates', 'Singapore Airlines', 'Qatar Airways'
-          ];
-        case 'incoterms':
-          return ['EXW', 'FOB', 'CFR', 'CIF', 'DAP', 'DDP'];
-        case 'currencies':
-          return ['USD', 'LKR', 'EUR', 'GBP'];
-        case 'cargoTypes':
-          return ['General Cargo', 'Dangerous Goods', 'Perishable', 'Heavy Lift'];
-        case 'equipment':
-          return ['20GP', '40GP', '40HQ', '45HQ', 'Pallet', 'Loose'];
-        case 'ports':
-          return [
-            { value: 'LKCMB', label: 'Colombo (LKCMB)' },
-            { value: 'SGSIN', label: 'Singapore (SGSIN)' },
-            { value: 'AEJEA', label: 'Dubai (AEJEA)' }
-          ];
-        case 'airports':
-          return [
-            { value: 'CMB', label: 'Colombo - CMB' },
-            { value: 'DXB', label: 'Dubai - DXB' },
-            { value: 'SIN', label: 'Singapore - SIN' }
-          ];
-        default:
-          return [];
-      }
-    } catch (error) {
-      console.error(`Error fetching ${tableName}:`, error);
-      return [];
-    }
-  };
-
-  // Load all dropdown options on mount
+  // --- Mock Data Load ---
   useEffect(() => {
     const loadAllOptions = async () => {
       setLoading(true);
-      try {
-        const [
-          customers,
-          locations,
-          creditTerms,
-          carriers,
-          incoterms,
-          currencies,
-          cargoTypes,
-          equipment,
-          ports,
-          airports
-        ] = await Promise.all([
-          fetchDropdownOptions('customers'),
-          fetchDropdownOptions('locations'),
-          fetchDropdownOptions('creditTerms'),
-          fetchDropdownOptions('carriers'),
-          fetchDropdownOptions('incoterms'),
-          fetchDropdownOptions('currencies'),
-          fetchDropdownOptions('cargoTypes'),
-          fetchDropdownOptions('equipment'),
-          fetchDropdownOptions('ports'),
-          fetchDropdownOptions('airports')
-        ]);
+      const mockData = {
+        customers: [{ value: '1', label: 'COURTAULDS TRADING COMPANY (PVT) LTD', address: 'PALUGAHAWELA, KATUWELLEGAMA, 11526, SRI LANKA' }, { value: '2', label: 'ABC Exporters' }],
+        locations: [{ value: '1', label: 'Colombo' }, { value: '2', label: 'Kandy' }],
+        creditTerms: [{ value: '1', label: 'Credit Terms' }, { value: '2', label: 'Prepaid' }],
+        carriers: ['WHL', 'MAERSK', 'MSC', 'CMA CGM', 'ONE', 'UL', 'SQ'],
+        incoterms: ['EXW', 'FOB', 'CFR', 'CIF', 'DAP', 'DDP'],
+        currencies: ['USD', 'LKR', 'EUR', 'GBP', 'AED', 'JPY'],
+        cargoTypes: ['General Cargo', 'Dangerous Goods', 'Perishable', 'Crates'],
+        equipment: ['20GP', '40GP', '40HQ', 'LCL', 'Air Pallet'],
+        ports: [{ value: 'HO CHI MINH', label: 'HO CHI MINH' }, { value: 'COLOMBO', label: 'COLOMBO' }, { value: 'SGSIN', label: 'Singapore' }],
+        airports: [{ value: 'CMB', label: 'Colombo (CMB)' }, { value: 'DXB', label: 'Dubai (DXB)' }],
+        chargeNames: ['DO CHARGES', 'Handling Charge', 'Freight', 'THC', 'Documentation Fee']
+      };
 
-        setDropdownOptions({
-          customers,
-          clients: customers, // Assuming clients are similar to customers
-          locations,
-          creditTerms,
-          carriers,
-          incoterms,
-          currencies,
-          cargoTypes,
-          equipment,
-          ports,
-          airports,
-          chargeNames: [
-            'Freight Charges', 'Handling Fee', 'Air Line Security Fee', 'BL Fee',
-            'Custom Clearance', 'SLPA Charges', 'Trico Charges', 'TIEP Cancellation Fee',
-            'Rework Charges', 'Doc Fee', 'CFS charges', 'Loading/Unloading'
-          ]
-        });
-      } catch (error) {
-        console.error('Error loading dropdown options:', error);
-      } finally {
-        setLoading(false);
-      }
+      setDropdownOptions(prev => ({ ...prev, ...mockData }));
+      setLoading(false);
     };
-
     loadAllOptions();
   }, []);
 
-  // Auto-add transit stop and transit column when transit category is selected
+  // --- Logic for Transit Segments ---
   useEffect(() => {
     if (quoteData.freightCategory === 'transit') {
-      // Add a transit stop if none exists
-      if (transitRoute.transitStops.length === 0) {
-        addTransitStop();
-      }
-      
-      // Add a transit column to route plan if none exists
-      if (routePlanData.transitPoints.length === 0) {
-        addRoutePlanTransitPoint();
-      }
+      updateTransitSegments();
     }
-  }, [quoteData.freightCategory]);
+  }, [transitRoute.transitStops, transitRoute.portOfLoading, transitRoute.portOfDischarge]);
 
-  // ============================================================================
-  // EVENT HANDLERS
-  // ============================================================================
+  const updateTransitSegments = () => {
+    const stops = [
+      transitRoute.portOfLoading,
+      ...transitRoute.transitStops.map(s => s.portId),
+      transitRoute.portOfDischarge
+    ].filter(Boolean);
 
-  const handleQuoteDataChange = (e) => {
-    const { name, value } = e.target;
-    setQuoteData(prev => ({
-      ...prev,
-      [name]: value
-    }));
+    if (stops.length < 2) return;
+
+    const newSegments = [];
+    for (let i = 0; i < stops.length - 1; i++) {
+      const from = stops[i];
+      const to = stops[i+1];
+      const existing = transitRoute.segments[i];
+      newSegments.push({
+        id: existing ? existing.id : Date.now() + i,
+        from,
+        to,
+        carrierOptions: existing ? existing.carrierOptions : [{
+          id: Date.now(), carrier: '', incoterm: '', currency: 'USD', cargoType: ''
+        }]
+      });
+    }
+    setTransitRoute(prev => ({ ...prev, segments: newSegments }));
   };
 
-  const handleRouteConfigChange = (e) => {
-    const { name, value } = e.target;
-    setRouteConfig(prev => ({
-      ...prev,
-      [name]: value
-    }));
+  // --- UI Event Handlers ---
+
+  const handleDirectRouteChange = (field, value) => {
+    setDirectRoute(prev => ({ ...prev, [field]: value }));
   };
 
-  // Direct Route Handlers
-  const handleDirectRouteChange = (section, field, value) => {
+  const addDirectOption = () => {
     setDirectRoute(prev => ({
       ...prev,
-      [section]: {
-        ...prev[section],
-        [field]: value
-      }
+      options: [...prev.options, {
+        id: Date.now(),
+        carrier: '', incoterm: '', currency: 'USD', cargoType: '',
+        equipment: '', units: '', netWeight: '', grossWeight: '', cbm: '', chargeableWeight: '', totalPieces: ''
+      }]
     }));
   };
 
-  // Transit Route Handlers
-  const handleTransitRouteChange = (section, field, value) => {
-    if (section === 'transitStops') {
-      // Handle transit stops array
-      return;
+  const updateDirectOption = (index, field, value) => {
+    const newOptions = [...directRoute.options];
+    newOptions[index] = { ...newOptions[index], [field]: value };
+    setDirectRoute(prev => ({ ...prev, options: newOptions }));
+  };
+
+  const removeDirectOption = (index) => {
+    if (directRoute.options.length > 1) {
+      const newOptions = directRoute.options.filter((_, i) => i !== index);
+      setDirectRoute(prev => ({ ...prev, options: newOptions }));
+      if (activeOptionIndex >= newOptions.length) setActiveOptionIndex(0);
     }
-    
-    setTransitRoute(prev => ({
-      ...prev,
-      [section]: {
-        ...prev[section],
-        [field]: value
-      }
-    }));
   };
 
   const addTransitStop = () => {
+    const id = Date.now();
     setTransitRoute(prev => ({
       ...prev,
-      transitStops: [
-        ...prev.transitStops,
-        {
-          id: Date.now(),
-          portId: '',
-          carrier: '',
-          incoterm: '',
-          currency: 'USD',
-          cargoType: ''
-        }
-      ]
+      transitStops: [...prev.transitStops, { id, portId: '' }]
     }));
+    setFreightCharges(prev => ({ ...prev, [`transit_${prev.transitStops.length + 1}`]: [] }));
   };
 
-  const removeTransitStop = (id) => {
-    setTransitRoute(prev => ({
-      ...prev,
-      transitStops: prev.transitStops.filter(stop => stop.id !== id)
-    }));
+  const updateTransitStop = (index, value) => {
+    const newStops = [...transitRoute.transitStops];
+    newStops[index].portId = value;
+    setTransitRoute(prev => ({ ...prev, transitStops: newStops }));
   };
 
-  const updateTransitStop = (id, field, value) => {
-    setTransitRoute(prev => ({
-      ...prev,
-      transitStops: prev.transitStops.map(stop =>
-        stop.id === id ? { ...stop, [field]: value } : stop
-      )
-    }));
+  const removeTransitStop = (index) => {
+    const newStops = transitRoute.transitStops.filter((_, i) => i !== index);
+    setTransitRoute(prev => ({ ...prev, transitStops: newStops }));
   };
 
-  const moveTransitStop = (id, direction) => {
-    setTransitRoute(prev => {
-      const stops = [...prev.transitStops];
-      const index = stops.findIndex(stop => stop.id === id);
-      
-      if (direction === 'up' && index > 0) {
-        [stops[index], stops[index - 1]] = [stops[index - 1], stops[index]];
-      } else if (direction === 'down' && index < stops.length - 1) {
-        [stops[index], stops[index + 1]] = [stops[index + 1], stops[index]];
-      }
-      
-      return { ...prev, transitStops: stops };
+  const updateTransitSegmentOption = (segmentIndex, optionIndex, field, value) => {
+    const newSegments = [...transitRoute.segments];
+    newSegments[segmentIndex].carrierOptions[optionIndex][field] = value;
+    setTransitRoute(prev => ({ ...prev, segments: newSegments }));
+  };
+
+  const addTransitSegmentOption = (segmentIndex) => {
+    const newSegments = [...transitRoute.segments];
+    newSegments[segmentIndex].carrierOptions.push({
+      id: Date.now(), carrier: '', incoterm: '', currency: 'USD', cargoType: ''
     });
+    setTransitRoute(prev => ({ ...prev, segments: newSegments }));
   };
 
-  // Multimodal Segment Handlers
-  const addMultimodalSegment = () => {
-    setMultimodalSegments(prev => [
+  const addCharge = (type, locationKey) => {
+    const setter = type === 'freight' ? setFreightCharges : setHandlingCharges;
+    setter(prev => ({
       ...prev,
-      {
-        id: Date.now(),
-        selectedMode: '', // 'Air' | 'Sea' | 'Trucking' | 'Rail'
-        origin: '',
-        destination: '',
-        chargeableWeight: '',
-        weightBreaker: '',
-        pricingUnit: '', // 'Per KG' | 'Per CBM' | 'Per Container' | 'Per Shipment'
-        charge: '',
-        currency: 'USD'
-      }
-    ]);
-  };
-
-  const removeMultimodalSegment = (id) => {
-    setMultimodalSegments(prev => prev.filter(seg => seg.id !== id));
-  };
-
-  const updateMultimodalSegment = (id, field, value) => {
-    setMultimodalSegments(prev =>
-      prev.map(seg => (seg.id === id ? { ...seg, [field]: value } : seg))
-    );
-  };
-
-  // Route Plan Data Handlers
-  const handleRoutePlanChange = (section, field, value) => {
-    if (section === 'transitPoints') {
-      return; // Handle separately
-    }
-    
-    setRoutePlanData(prev => ({
-      ...prev,
-      [section]: {
-        ...prev[section],
-        [field]: value
-      }
+      [locationKey]: [...(prev[locationKey] || []), {
+        id: Date.now(), chargeName: '', uom: '', chargeAmount: '', total: 0, currency: 'USD'
+      }]
     }));
   };
 
-  const addRoutePlanTransitPoint = () => {
-    setRoutePlanData(prev => ({
+  const updateCharge = (type, locationKey, id, field, value) => {
+    const setter = type === 'freight' ? setFreightCharges : setHandlingCharges;
+    setter(prev => ({
       ...prev,
-      transitPoints: [
-        ...prev.transitPoints,
-        {
-          id: Date.now(),
-          airportPortCode: '',
-          carrier1: '',
-          equipment: '',
-          units: '',
-          netWeight: '',
-          grossWeight: '',
-          cbm: '',
-          chargeableWeight: '',
-          totalPieces: ''
-        }
-      ]
-    }));
-  };
-
-  const removeRoutePlanTransitPoint = (id) => {
-    setRoutePlanData(prev => ({
-      ...prev,
-      transitPoints: prev.transitPoints.filter(pt => pt.id !== id)
-    }));
-  };
-
-  const updateRoutePlanTransitPoint = (id, field, value) => {
-    setRoutePlanData(prev => ({
-      ...prev,
-      transitPoints: prev.transitPoints.map(pt =>
-        pt.id === id ? { ...pt, [field]: value } : pt
-      )
-    }));
-  };
-
-  // Freight Charges Handlers
-  const addFreightCharge = () => {
-    const columns = ['origin'];
-    
-    if (quoteData.freightCategory === 'transit') {
-      transitRoute.transitStops.forEach((_, idx) => {
-        columns.push(`transit${idx + 1}`);
-      });
-    }
-    
-    columns.push('destination');
-
-    const newCharge = {
-      id: Date.now(),
-      chargeName: '',
-      uom: ''
-    };
-
-    columns.forEach(col => {
-      newCharge[col] = '';
-    });
-
-    setFreightCharges(prev => [...prev, newCharge]);
-  };
-
-  const removeFreightCharge = (id) => {
-    setFreightCharges(prev => prev.filter(charge => charge.id !== id));
-  };
-
-  const updateFreightCharge = (id, field, value) => {
-    setFreightCharges(prev =>
-      prev.map(charge => (charge.id === id ? { ...charge, [field]: value } : charge))
-    );
-  };
-
-  // Additional Charges Handlers
-  const addAdditionalCharge = () => {
-    setAdditionalCharges(prev => [
-      ...prev,
-      {
-        id: Date.now(),
-        name: '',
-        description: '',
-        quantity: 1,
-        rate: 0,
-        currency: 'USD',
-        amount: 0
-      }
-    ]);
-  };
-
-  const removeAdditionalCharge = (id) => {
-    setAdditionalCharges(prev => prev.filter(charge => charge.id !== id));
-  };
-
-  const updateAdditionalCharge = (id, field, value) => {
-    setAdditionalCharges(prev =>
-      prev.map(charge => {
+      [locationKey]: prev[locationKey].map(charge => {
         if (charge.id === id) {
           const updated = { ...charge, [field]: value };
-          // Auto-calculate amount
-          if (field === 'quantity' || field === 'rate') {
-            updated.amount = (updated.quantity || 0) * (updated.rate || 0);
+          if (field === 'uom' || field === 'chargeAmount') {
+            updated.total = (parseFloat(updated.chargeAmount) || 0); 
           }
           return updated;
         }
         return charge;
       })
-    );
+    }));
   };
 
-  // Terms Handlers
-  const addCustomTerm = () => {
-    setCustomTerms(prev => [...prev, '']);
+  const removeCharge = (type, locationKey, id) => {
+    const setter = type === 'freight' ? setFreightCharges : setHandlingCharges;
+    setter(prev => ({
+      ...prev,
+      [locationKey]: prev[locationKey].filter(c => c.id !== id)
+    }));
   };
 
-  const updateCustomTerm = (index, value) => {
-    setCustomTerms(prev =>
-      prev.map((term, idx) => (idx === index ? value : term))
-    );
+  // --- PDF LOGIC (Updated with Logo) ---
+
+  const preparePdfData = (optionIndex = 0) => {
+    const selectedCustomer = dropdownOptions.customers.find(c => c.value === quoteData.customerId);
+    const selectedOption = directRoute.options[optionIndex] || directRoute.options[0];
+    
+    const lkrCharges = [];
+    const usdCharges = [];
+    let lkrTotal = 0;
+    let usdTotal = 0;
+
+    const processHandlingCharges = (chargeList) => {
+      if(!chargeList) return;
+      chargeList.forEach(c => {
+        const item = { 
+          name: c.chargeName, 
+          amount: parseFloat(c.chargeAmount) || 0, 
+          unit: c.uom ? `per ${c.uom}` : 'per Shipment'
+        };
+        
+        if (c.currency === 'LKR') {
+          lkrCharges.push(item);
+          lkrTotal += item.amount;
+        } else {
+          usdCharges.push(item);
+          usdTotal += item.amount;
+        }
+      });
+    };
+
+    processHandlingCharges(handlingCharges.origin);
+    processHandlingCharges(handlingCharges.destination);
+
+    const combinedFreightCharges = [...freightCharges.origin, ...freightCharges.destination];
+    const fmt = (num) => num ? parseFloat(num).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}) : "0.00";
+
+    return {
+      company: {
+        name: "Scanwell Logistics Colombo (Pvt) Ltd.",
+        address: "67/1 Hudson Road Colombo 3 Sri Lanka.",
+        phone: "+94 11 2426600/4766400"
+      },
+      meta: {
+        quoteNumber: quoteData.quoteId,
+        serviceType: quoteData.freightMode || "LCL - Sea Import",
+        terms: dropdownOptions.creditTerms.find(t => t.value === quoteData.creditTermsId)?.label || "Credit Terms"
+      },
+      customer: {
+        name: quoteData.customerName || selectedCustomer?.label || "",
+        address: selectedCustomer?.address || ""
+      },
+      shipment: {
+        pol: quoteData.freightCategory === 'transit' ? transitRoute.portOfLoading : directRoute.portOfLoading,
+        pod: quoteData.freightCategory === 'transit' ? transitRoute.portOfDischarge : directRoute.portOfDischarge,
+        deliveryTerms: selectedOption.incoterm,
+        pcs: selectedOption.totalPieces,
+        volume: fmt(selectedOption.cbm),
+        grossWeight: fmt(selectedOption.grossWeight),
+        chargeableWeight: fmt(selectedOption.chargeableWeight)
+      },
+      freightTable: combinedFreightCharges.length > 0 ? combinedFreightCharges.map(fc => ({
+        carrier: selectedOption.carrier || "TBA",
+        equip: selectedOption.equipment || "",
+        containers: selectedOption.units || "0",
+        rate: `${fmt(fc.chargeAmount)} per ${fc.uom || 'Unit'}`,
+        currency: fc.currency,
+        surcharge: "",
+        tt: "10", // Mock
+        freq: "WEEKLY", // Mock
+        route: quoteData.freightCategory ? quoteData.freightCategory.toUpperCase() : "DIRECT",
+        comments: ""
+      })) : [{
+        carrier: selectedOption.carrier || "TBA",
+        equip: selectedOption.equipment || "",
+        containers: selectedOption.units || "0",
+        rate: "0.00",
+        currency: selectedOption.currency || "USD",
+        surcharge: "",
+        tt: "TBA",
+        freq: "TBA",
+        route: "DIRECT",
+        comments: ""
+      }],
+      otherCharges: {
+        lkr: { items: lkrCharges, total: lkrTotal },
+        usd: { items: usdCharges, total: usdTotal }
+      },
+      terms: [
+        ...termsConditions.filter(t => t.selected).map(t => t.text),
+        ...customTerms.filter(t => t.selected).map(t => t.text)
+      ],
+      generatedBy: quoteData.createdBy
+    };
   };
 
-  const removeCustomTerm = (index) => {
-    setCustomTerms(prev => prev.filter((_, idx) => idx !== index));
-  };
+  const handleGeneratePDF = (specificOptionIndex = null) => {
+    const indexToUse = specificOptionIndex !== null ? specificOptionIndex : activeOptionIndex;
+    const data = preparePdfData(indexToUse);
+    
+    const doc = new jsPDF('p', 'mm', 'a4');
+    const pageWidth = doc.internal.pageSize.getWidth();
+    
+    // --- 1. Header Section ---
+    // LOGO REPLACEMENT
+    doc.addImage(logo, 'PNG', 15, 10, 45, 12);
 
-  // ============================================================================
-  // VALIDATION
-  // ============================================================================
+    // Company Text (Right side)
+    doc.setTextColor(50, 80, 120);
+    doc.setFontSize(10);
+    doc.setFont(undefined, 'bold');
+    doc.text(data.company.name, pageWidth - 15, 20, { align: 'right' });
+    
+    doc.setTextColor(0);
+    doc.setFontSize(8);
+    doc.setFont(undefined, 'normal');
+    doc.text(data.company.address, pageWidth - 15, 25, { align: 'right' });
+    doc.text(`Office #${data.company.phone}`, pageWidth - 15, 29, { align: 'right' });
 
-  const validateStep1 = () => {
-    const newErrors = {};
+    // Title
+    doc.setFontSize(12);
+    doc.setFont(undefined, 'bold');
+    doc.text("QUOTATION", pageWidth / 2, 40, { align: 'center' });
 
-    if (!quoteData.freightMode) {
-      newErrors.freightMode = 'Please select a freight mode';
+    // --- 2. Meta Section ---
+    let currentY = 55;
+    doc.setFontSize(9);
+    doc.text(data.meta.quoteNumber, 15, currentY);
+    doc.text(data.meta.serviceType, pageWidth - 15, currentY, { align: 'right' });
+    doc.text(data.meta.terms, pageWidth - 15, currentY + 4, { align: 'right' });
+
+    // --- 3. Customer Section ---
+    currentY += 15;
+    doc.setFontSize(9);
+    doc.setFont(undefined, 'bold');
+    doc.text("Customer", 15, currentY);
+    doc.setFont(undefined, 'normal');
+    doc.text(data.customer.name, 15, currentY + 5);
+    const addressLines = doc.splitTextToSize(data.customer.address, 120);
+    doc.text(addressLines, 15, currentY + 9);
+    currentY += 9 + (addressLines.length * 4);
+
+    // --- 4. Pickup / Delivery Labels ---
+    currentY += 5;
+    doc.setFont(undefined, 'bold');
+    doc.text("Pickup Address", 15, currentY);
+    doc.text("Delivery Address", pageWidth - 15, currentY, { align: 'right' });
+    currentY += 4;
+    doc.setLineWidth(0.5);
+    doc.line(15, currentY, pageWidth - 15, currentY);
+
+    // --- 5. Shipment Details Grid ---
+    currentY += 5;
+    autoTable(doc, {
+      startY: currentY,
+      head: [['Port of Loading', 'Port of Discharge']],
+      body: [[data.shipment.pol, data.shipment.pod]],
+      theme: 'plain',
+      styles: { fontSize: 8, cellPadding: 1, textColor: 0 },
+      headStyles: { fontStyle: 'bold', fontSize: 8, textColor: 0 },
+      columnStyles: { 0: { cellWidth: 80 }, 1: { cellWidth: 80 } },
+      margin: { left: 15 }
+    });
+
+    autoTable(doc, {
+      startY: doc.lastAutoTable.finalY + 2,
+      head: [['Delivery Terms', 'Pcs', 'Volume', 'Gross Weight', 'Chargable Weight']],
+      body: [[
+        data.shipment.deliveryTerms,
+        data.shipment.pcs,
+        data.shipment.volume,
+        data.shipment.grossWeight,
+        data.shipment.chargeableWeight
+      ]],
+      theme: 'plain',
+      styles: { fontSize: 8, cellPadding: 1, textColor: 0 },
+      headStyles: { fontStyle: 'bold', fontSize: 8, textColor: 0 },
+      columnStyles: { 0: { cellWidth: 30 }, 1: { cellWidth: 20 }, 2: { cellWidth: 40 }, 3: { cellWidth: 40 }, 4: { cellWidth: 40 } },
+      margin: { left: 15 }
+    });
+
+    // --- 6. Freight Charges Table ---
+    currentY = doc.lastAutoTable.finalY + 5;
+    doc.setFont(undefined, 'bold');
+    doc.text("Freight Charges", 15, currentY);
+    doc.setLineWidth(0.1);
+    doc.line(15, currentY + 1, 38, currentY + 1);
+
+    autoTable(doc, {
+      startY: currentY + 3,
+      head: [['Carrier', 'Equip.', 'No of Containers', 'Rate Per', 'Cur', 'Surcharge', 'TT', 'Freq', 'Route', 'Comments']],
+      body: data.freightTable.map(row => [
+        row.carrier, row.equip, row.containers, row.rate, row.currency, row.surcharge, row.tt, row.freq, row.route, row.comments
+      ]),
+      theme: 'grid',
+      styles: { fontSize: 7, textColor: 0, lineColor: 0, lineWidth: 0.1 },
+      headStyles: { fillColor: false, textColor: 0, fontStyle: 'bold', lineWidth: 0.1 },
+      margin: { left: 15, right: 15 }
+    });
+
+    // --- 7. Other Charges Section ---
+    currentY = doc.lastAutoTable.finalY + 8;
+    doc.setFontSize(9);
+    doc.setFont(undefined, 'bold');
+    doc.text("OTHER CHARGES", 15, currentY);
+    doc.line(15, currentY + 1, 40, currentY + 1);
+    currentY += 6;
+
+    // LKR Section
+    if (data.otherCharges.lkr.items.length > 0) {
+        doc.setFontSize(8);
+        doc.setFont(undefined, 'bold');
+        doc.text("LKR", 15, currentY);
+        doc.line(15, currentY + 1, 20, currentY + 1);
+        
+        autoTable(doc, {
+            startY: currentY + 2,
+            body: data.otherCharges.lkr.items.map(i => [i.name, 'LKR', `${parseFloat(i.amount).toLocaleString('en-US', {minimumFractionDigits: 2})} ${i.unit}`, parseFloat(i.amount).toLocaleString('en-US', {minimumFractionDigits: 2})]),
+            theme: 'plain',
+            styles: { fontSize: 8, textColor: 0, cellPadding: 1 },
+            columnStyles: { 0: { cellWidth: 60 }, 1: { cellWidth: 20 }, 2: { cellWidth: 60, halign: 'right' }, 3: { cellWidth: 40, halign: 'right' } },
+            margin: { left: 15 }
+        });
+
+        let finalY = doc.lastAutoTable.finalY;
+        doc.setLineDash([1, 1], 0);
+        doc.line(15, finalY, pageWidth - 15, finalY);
+        doc.setLineDash([]);
+        doc.setFont(undefined, 'bold');
+        doc.text("TOTAL", 15, finalY + 4);
+        doc.text(parseFloat(data.otherCharges.lkr.total).toLocaleString('en-US', {minimumFractionDigits: 2}), pageWidth - 15, finalY + 4, { align: 'right' });
+        doc.setLineWidth(0.3);
+        doc.line(15, finalY + 5, pageWidth - 15, finalY + 5);
+        currentY = finalY + 10;
     }
 
-    if (!quoteData.freightCategory) {
-      newErrors.freightCategory = 'Please select a freight category';
+    // USD Section
+    if (data.otherCharges.usd.items.length > 0) {
+        doc.setFontSize(8);
+        doc.setFont(undefined, 'bold');
+        doc.text("USD", 15, currentY);
+        doc.setLineWidth(0.1);
+        doc.line(15, currentY + 1, 20, currentY + 1);
+
+         autoTable(doc, {
+            startY: currentY + 2,
+            body: data.otherCharges.usd.items.map(i => [i.name, 'USD', `${parseFloat(i.amount).toLocaleString('en-US', {minimumFractionDigits: 2})} ${i.unit}`, parseFloat(i.amount).toLocaleString('en-US', {minimumFractionDigits: 2})]),
+            theme: 'plain',
+            styles: { fontSize: 8, textColor: 0, cellPadding: 1 },
+            columnStyles: { 0: { cellWidth: 60 }, 1: { cellWidth: 20 }, 2: { cellWidth: 60, halign: 'right' }, 3: { cellWidth: 40, halign: 'right' } },
+            margin: { left: 15 }
+        });
+
+        let finalY = doc.lastAutoTable.finalY;
+        doc.setLineDash([1, 1], 0);
+        doc.line(15, finalY, pageWidth - 15, finalY);
+        doc.setLineDash([]);
+        doc.setFont(undefined, 'bold');
+        doc.text("TOTAL", 15, finalY + 4);
+        doc.text(parseFloat(data.otherCharges.usd.total).toLocaleString('en-US', {minimumFractionDigits: 2}), pageWidth - 15, finalY + 4, { align: 'right' });
+        doc.setLineWidth(0.3);
+        doc.line(15, finalY + 5, pageWidth - 15, finalY + 5);
+        currentY = finalY + 15;
     }
 
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const validateStep2 = () => {
-    const newErrors = {};
-
-    if (!quoteData.customerId) newErrors.customerId = 'Customer is required';
-    if (!quoteData.pickupLocationId) newErrors.pickupLocationId = 'Pickup location is required';
-    if (!quoteData.deliveryLocationId) newErrors.deliveryLocationId = 'Delivery location is required';
-
-    // Validate route configuration based on freight category
-    if (quoteData.freightCategory === 'direct') {
-      if (!directRoute.portOfLoading.portId) newErrors.loadingPort = 'Port of loading is required';
-      if (!directRoute.portOfDischarge.portId) newErrors.dischargePort = 'Port of discharge is required';
-    } else if (quoteData.freightCategory === 'transit') {
-      if (!transitRoute.portOfLoading.portId) newErrors.loadingPort = 'Port of loading is required';
-      if (!transitRoute.portOfDischarge.portId) newErrors.dischargePort = 'Port of discharge is required';
-    } else if (quoteData.freightCategory === 'multimodal') {
-      if (multimodalSegments.length === 0) {
-        newErrors.multimodal = 'At least one segment is required';
-      }
+    // --- 8. Terms & Conditions ---
+    if (currentY > 250) {
+        doc.addPage();
+        currentY = 20;
     }
+    doc.setLineWidth(0.5);
+    doc.line(15, currentY, pageWidth - 15, currentY);
+    currentY += 5;
 
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
+    doc.setFontSize(7);
+    doc.setFont(undefined, 'normal');
+    data.terms.forEach(term => {
+        const lines = doc.splitTextToSize(`- ${term}`, pageWidth - 30);
+        doc.text(lines, 15, currentY);
+        currentY += (lines.length * 3) + 1;
+    });
 
-  // ============================================================================
-  // SUBMISSION
-  // ============================================================================
+    // --- 9. Footer ---
+    currentY += 10;
+    doc.text(`Quotation generated by - ${data.generatedBy}`, 15, currentY);
+    currentY += 4;
+    doc.setFont(undefined, 'italic');
+    doc.text("This is a Computer generated Document and no Signature required.", 15, currentY);
 
-  const handleSubmit = async () => {
-    if (!validateStep2()) {
-      return;
-    }
-
-    setIsSubmitting(true);
-
-    try {
-      // Prepare data structure for backend
-      const payload = {
-        quoteId: quoteData.quoteId,
-        customerId: quoteData.customerId,
-        pickupLocationId: quoteData.pickupLocationId,
-        deliveryLocationId: quoteData.deliveryLocationId,
-        creditTermsId: quoteData.creditTermsId,
-        createdDate: quoteData.createdDate,
-        clientId: quoteData.clientId,
-        days: parseInt(quoteData.days) || 0,
-        freightMode: quoteData.freightMode, // 'Air Import', 'Air Export', 'Sea Import FCL', etc.
-        freightCategory: quoteData.freightCategory, // 'direct', 'transit', 'multimodal'
-        createdBy: quoteData.createdBy,
-        
-        // Route data based on freight category
-        routeData: quoteData.freightCategory === 'direct' ? directRoute :
-                   quoteData.freightCategory === 'transit' ? transitRoute :
-                   { segments: multimodalSegments },
-        
-        // Route plan table data
-        routePlanData: routePlanData,
-        
-        // Charges
-        freightCharges: freightCharges,
-        additionalCharges: additionalCharges,
-        
-        // Terms & Conditions
-        termsConditions: [...termsConditions, ...customTerms.filter(t => t.trim())],
-        
-        // Metadata
-        type: type // 'quote' or 'invoice'
-      };
-
-      console.log('Submitting quote data:', payload);
-
-      // TODO: Replace with actual API call
-      // const response = await QuotesInvoiceAPI.createQuote(payload);
-      
-      // Simulated success
-      setTimeout(() => {
-        alert('Quote created successfully!');
-        if (onSuccess) onSuccess();
-        onClose();
-      }, 1000);
-
-    } catch (error) {
-      console.error('Error submitting quote:', error);
-      alert('Failed to create quote. Please try again.');
-    } finally {
-      setIsSubmitting(false);
-    }
+    doc.save(`${data.meta.quoteNumber}.pdf`);
   };
 
   const handleSave = async () => {
-  try {
-    setIsSubmitting(true);
+  if (isSubmitting) return;
+  setIsSubmitting(true);
 
+  try {
+    // Prepare data exactly as backend expects
     const payload = {
+      sysID: editDocument?.sysID || null,
       quoteId: quoteData.quoteId,
-      customerId: parseInt(quoteData.customerId) || null,
+      customerId: quoteData.customerId,
       customerName: quoteData.customerName,
-      clientId: parseInt(quoteData.clientId) || null,
-      clientName: quoteData.clientName,
-      pickupLocationId: parseInt(quoteData.pickupLocationId) || null,
-      deliveryLocationId: parseInt(quoteData.deliveryLocationId) || null,
-      creditTermsId: parseInt(quoteData.creditTermsId) || null,
+      pickupLocationId: quoteData.pickupLocationId,
+      deliveryLocationId: quoteData.deliveryLocationId,
+      creditTermsId: quoteData.creditTermsId,
       createdDate: quoteData.createdDate,
-      daysValid: quoteData.days ? parseInt(quoteData.days) : null,
+      clientId: quoteData.clientId,
+      clientName: quoteData.clientName,
+      days: quoteData.days,
       freightMode: quoteData.freightMode,
       freightCategory: quoteData.freightCategory,
-      createdBy: quoteData.createdBy || "Current User",
+      createdBy: quoteData.createdBy,
 
-      // These come directly from your state
-      directRoute,
-      transitRoute,
-      multimodalSegments: multimodalSegments,
-      routePlan: routePlanData,
-      freightCharges: freightCharges,
-      additionalCharges: additionalCharges,
-      customTerms: customTerms
+      // Serialize complex objects as JSON strings (exactly as backend expects)
+      directRoute: quoteData.freightCategory === 'direct' 
+        ? JSON.stringify(directRoute) 
+        : null,
+
+      transitRoute: quoteData.freightCategory === 'transit'
+        ? JSON.stringify(transitRoute)
+        : null,
+
+      multimodalSegments: null, // You can implement later
+      routePlanData: null,
+
+      freightCharges: JSON.stringify(freightCharges),
+      handlingCharges: JSON.stringify(handlingCharges),
+      termsConditions: JSON.stringify(
+        termsConditions.filter(t => t.selected).map(t => t.text)
+      ),
+      customTerms: JSON.stringify(customTerms)
     };
+
+    console.log("this is payload: ", payload);
 
     let result;
     if (editDocument) {
-      result = await QuotesInvoiceAPI.updateQuote(editDocument.id, payload);
+      // Update existing
+      result = await updateQuote(payload);
+      alert("Quote updated successfully!");
     } else {
-      result = await QuotesInvoiceAPI.createQuote(payload);
+      // Create new
+      result = await createQuote(payload);
+      alert("Quote created successfully!");
     }
 
-    console.log("Quote saved!", result);
-    onSuccess?.(result);
+    console.log("Success:", result);
+
+    // Call success callback and close
+    if (onSuccess) onSuccess();
     onClose();
 
   } catch (error) {
-    console.error("Save failed:", error.response?.data || error.message);
-    alert("Failed to save quote. Check console.");
+    console.error("Error saving quote:", error);
+    const msg = error.response?.data || error.message || "Failed to save quote";
+    alert("Error: " + msg);
   } finally {
     setIsSubmitting(false);
   }
 };
 
-  // ============================================================================
-  // RENDER FUNCTIONS
-  // ============================================================================
+  // --- UI RENDER ---
 
-  // Step 1: Freight Mode & Category Selection
-  const renderFreightCategorySelector = () => {
-    const freightModes = [
-      {
-        id: 'Air Import',
-        name: 'Air Import',
-        icon: Plane,
-        description: 'Air freight import services',
-        color: 'from-sky-500 to-blue-600'
-      },
-      {
-        id: 'Air Export',
-        name: 'Air Export',
-        icon: Plane,
-        description: 'Air freight export services',
-        color: 'from-blue-500 to-indigo-600'
-      },
-      {
-        id: 'Sea Import FCL',
-        name: 'Sea Import FCL',
-        icon: Container,
-        description: 'Full Container Load import',
-        color: 'from-cyan-500 to-teal-600'
-      },
-      {
-        id: 'Sea Import LCL',
-        name: 'Sea Import LCL',
-        icon: Package,
-        description: 'Less than Container Load import',
-        color: 'from-teal-500 to-emerald-600'
-      },
-      {
-        id: 'Sea Export FCL',
-        name: 'Sea Export FCL',
-        icon: Container,
-        description: 'Full Container Load export',
-        color: 'from-indigo-500 to-purple-600'
-      },
-      {
-        id: 'Sea Export LCL',
-        name: 'Sea Export LCL',
-        icon: Package,
-        description: 'Less than Container Load export',
-        color: 'from-purple-500 to-pink-600'
-      }
+  const renderFreightModeSelection = () => {
+    const modes = [
+      { id: 'Air Import', icon: Plane, color: 'text-sky-600', bg: 'bg-sky-50' },
+      { id: 'Air Export', icon: Plane, color: 'text-blue-600', bg: 'bg-blue-50' },
+      { id: 'Sea Import FCL', icon: Container, color: 'text-teal-600', bg: 'bg-teal-50' },
+      { id: 'Sea Import LCL', icon: Package, color: 'text-emerald-600', bg: 'bg-emerald-50' },
+      { id: 'Sea Export FCL', icon: Ship, color: 'text-indigo-600', bg: 'bg-indigo-50' },
+      { id: 'Sea Export LCL', icon: Layers, color: 'text-purple-600', bg: 'bg-purple-50' }
     ];
 
-    const freightCategories = [
-      {
-        id: 'direct',
-        name: 'Direct',
-        icon: RouteIcon,
-        description: 'Direct route from origin to destination',
-        color: 'from-blue-500 to-blue-600'
-      },
-      {
-        id: 'transit',
-        name: 'Transit',
-        icon: Ship,
-        description: 'Route with multiple transit points',
-        color: 'from-purple-500 to-purple-600'
-      },
-      {
-        id: 'multimodal',
-        name: 'Multimodal',
-        icon: Truck,
-        description: 'Multiple modes of transportation',
-        color: 'from-emerald-500 to-emerald-600'
-      }
+    const categories = [
+      { id: 'direct', label: 'Direct', icon: RouteIcon },
+      { id: 'transit', label: 'Transit', icon: Layers },
+      { id: 'multimodal', label: 'MultiModal', icon: Truck }
     ];
 
     return (
       <div className="space-y-8">
-        {/* Freight Mode Selection */}
         <div>
-          <h2 className="text-2xl font-bold text-slate-800 mb-2">Step 1: Select Freight Mode</h2>
-          <p className="text-slate-600">Choose the freight mode for this quote</p>
+          <h2 className="text-xl font-bold text-slate-800">Step 1: Freight Configuration</h2>
+          <p className="text-slate-500 text-sm">Select mode and routing type</p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {freightModes.map((mode) => {
-            const Icon = mode.icon;
-            const isSelected = quoteData.freightMode === mode.id;
-            
-            return (
-              <button
-                key={mode.id}
-                onClick={() => {
-                  setQuoteData(prev => ({ 
-                    ...prev, 
-                    freightMode: mode.id,
-                    freightCategory: '' // Reset category when mode changes
-                  }));
-                  setErrors({});
-                }}
-                className={`p-4 rounded-lg border-2 transition-all transform hover:scale-105 ${
-                  isSelected
-                    ? 'border-teal-500 bg-teal-50 shadow-lg'
-                    : 'border-slate-200 bg-white hover:border-teal-300'
-                }`}
-              >
-                <div className={`w-12 h-12 rounded-lg bg-gradient-to-br ${mode.color} flex items-center justify-center mx-auto mb-3`}>
-                  <Icon className="w-6 h-6 text-white" />
-                </div>
-                <h3 className="text-base font-semibold text-slate-800 mb-1">{mode.name}</h3>
-                <p className="text-xs text-slate-600">{mode.description}</p>
-                {isSelected && (
-                  <div className="mt-3 flex items-center justify-center text-teal-600">
-                    <CheckCircle className="w-4 h-4" />
-                  </div>
-                )}
-              </button>
-            );
-          })}
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+          {modes.map(mode => (
+            <button
+              key={mode.id}
+              onClick={() => setQuoteData(p => ({ ...p, freightMode: mode.id }))}
+              className={`p-4 rounded-xl border-2 text-left transition-all ${
+                quoteData.freightMode === mode.id ? 'border-teal-500 ring-1 ring-teal-500' : 'border-slate-200 hover:border-teal-200'
+              }`}
+            >
+              <div className={`w-10 h-10 rounded-lg ${mode.bg} ${mode.color} flex items-center justify-center mb-3`}>
+                <mode.icon className="w-6 h-6" />
+              </div>
+              <span className="font-semibold text-slate-700">{mode.id}</span>
+            </button>
+          ))}
         </div>
 
-        {errors.freightMode && (
-          <div className="flex items-center gap-2 p-4 bg-red-50 border border-red-200 rounded-lg">
-            <AlertCircle className="w-5 h-5 text-red-500" />
-            <p className="text-sm text-red-700">{errors.freightMode}</p>
+        {quoteData.freightMode && (
+          <div className="pt-6 border-t border-slate-100">
+            <h3 className="text-lg font-semibold text-slate-800 mb-4">Select Routing Type</h3>
+            <div className="flex gap-4">
+              {categories.map(cat => (
+                <button
+                  key={cat.id}
+                  onClick={() => setQuoteData(p => ({ ...p, freightCategory: cat.id }))}
+                  className={`flex-1 p-4 rounded-xl border-2 flex flex-col items-center gap-2 transition-all ${
+                    quoteData.freightCategory === cat.id ? 'border-teal-500 bg-teal-50 text-teal-700' : 'border-slate-200 hover:bg-slate-50'
+                  }`}
+                >
+                  <cat.icon className="w-6 h-6" />
+                  <span className="font-medium">{cat.label}</span>
+                </button>
+              ))}
+            </div>
           </div>
         )}
 
-        {/* Freight Category Selection - Only show if mode is selected */}
-        {quoteData.freightMode && (
-          <>
-            <div className="pt-6 border-t border-slate-200">
-              <h2 className="text-2xl font-bold text-slate-800 mb-2">Step 2: Select Freight Category</h2>
-              <p className="text-slate-600">Choose the routing type for your shipment</p>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {freightCategories.map((category) => {
-                const Icon = category.icon;
-                const isSelected = quoteData.freightCategory === category.id;
-                
-                return (
-                  <button
-                    key={category.id}
-                    onClick={() => {
-                      setQuoteData(prev => ({ ...prev, freightCategory: category.id }));
-                      setErrors({});
-                    }}
-                    className={`p-4 rounded-lg border-2 transition-all transform hover:scale-105 ${
-                      isSelected
-                        ? 'border-teal-500 bg-teal-50 shadow-lg'
-                        : 'border-slate-200 bg-white hover:border-teal-300'
-                    }`}
-                  >
-                    <div className={`w-12 h-12 rounded-lg bg-gradient-to-br ${category.color} flex items-center justify-center mx-auto mb-3`}>
-                      <Icon className="w-6 h-6 text-white" />
-                    </div>
-                    <h3 className="text-base font-semibold text-slate-800 mb-1">{category.name}</h3>
-                    <p className="text-xs text-slate-600">{category.description}</p>
-                    {isSelected && (
-                      <div className="mt-3 flex items-center justify-center text-teal-600">
-                        <CheckCircle className="w-4 h-4" />
-                      </div>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-
-            {errors.freightCategory && (
-              <div className="flex items-center gap-2 p-4 bg-red-50 border border-red-200 rounded-lg">
-                <AlertCircle className="w-5 h-5 text-red-500" />
-                <p className="text-sm text-red-700">{errors.freightCategory}</p>
-              </div>
-            )}
-          </>
-        )}
-
-        <div className="flex justify-end pt-4">
+        <div className="flex justify-end">
           <button
-            onClick={() => {
-              if (validateStep1()) {
-                setStep(2);
-              }
-            }}
-            className="px-8 py-3 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-all font-medium flex items-center gap-2"
+            disabled={!quoteData.freightMode || !quoteData.freightCategory}
+            onClick={() => setStep(2)}
+            className="px-6 py-2 bg-teal-600 text-white rounded-lg disabled:opacity-50 hover:bg-teal-700 transition-colors"
           >
             Continue
-            <ChevronDown className="w-5 h-5 rotate-[-90deg]" />
           </button>
         </div>
       </div>
     );
   };
 
-  // Step 2: Quote Details & Route Configuration
-  const renderQuoteDetailsForm = () => {
-    return (
-      <div className="space-y-8">
-        <div>
-          <h2 className="text-2xl font-bold text-slate-800 mb-2">Quote Details</h2>
-          <p className="text-slate-600">Enter quote information and route configuration</p>
-        </div>
-
-        {/* Common Fields */}
-        <div className="bg-white rounded-lg border border-slate-200 p-6 space-y-6">
-          <h3 className="text-lg font-semibold text-slate-800 border-b border-slate-200 pb-3">
-            Basic Information
-          </h3>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <FormInput
-              label="Quote ID"
-              name="quoteId"
-              value={quoteData.quoteId}
-              onChange={handleQuoteDataChange}
-              disabled={true}
-              className="md:col-span-1"
-            />
-
-            <DynamicDropdown
-              label="Select Customer"
-              name="customerId"
-              value={quoteData.customerId}
-              onChange={handleQuoteDataChange}
-              options={dropdownOptions.customers}
-              placeholder="Choose customer"
-              required={true}
-              error={errors.customerId}
-              className="md:col-span-1"
-            />
-
-            <DynamicDropdown
-              label="Pickup Location"
-              name="pickupLocationId"
-              value={quoteData.pickupLocationId}
-              onChange={handleQuoteDataChange}
-              options={dropdownOptions.locations}
-              placeholder="Choose pickup location"
-              required={true}
-              error={errors.pickupLocationId}
-              className="md:col-span-1"
-            />
-
-            <DynamicDropdown
-              label="Delivery Location"
-              name="deliveryLocationId"
-              value={quoteData.deliveryLocationId}
-              onChange={handleQuoteDataChange}
-              options={dropdownOptions.locations}
-              placeholder="Choose delivery location"
-              required={true}
-              error={errors.deliveryLocationId}
-              className="md:col-span-1"
-            />
-
-            <DynamicDropdown
-              label="Credit Terms"
-              name="creditTermsId"
-              value={quoteData.creditTermsId}
-              onChange={handleQuoteDataChange}
-              options={dropdownOptions.creditTerms}
-              placeholder="Choose credit terms"
-              className="md:col-span-1"
-            />
-
-            <FormInput
-              label="Created Date"
-              name="createdDate"
-              value={quoteData.createdDate}
-              onChange={handleQuoteDataChange}
-              type="date"
-              disabled={true}
-              className="md:col-span-1"
-            />
-
-            <FormInput
-              label="Select Client (Auto-suggestion)"
-              name="clientName"
-              value={quoteData.clientName}
-              onChange={handleQuoteDataChange}
-              placeholder="Search client name"
-              className="md:col-span-1"
-            />
-
-            <FormInput
-              label="Days"
-              name="days"
-              value={quoteData.days}
-              onChange={handleQuoteDataChange}
-              type="number"
-              placeholder="Number of days"
-              className="md:col-span-1"
-            />
-
-            <div className="md:col-span-1 flex items-center">
-              <div className="px-4 py-2 bg-teal-50 border border-teal-200 rounded-lg">
-                <p className="text-sm font-medium text-teal-800">
-                  Freight Category: <span className="capitalize font-bold">{quoteData.freightCategory}</span>
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Route Configuration based on Freight Category */}
-        {quoteData.freightCategory === 'direct' && renderDirectRouteConfig()}
-        {quoteData.freightCategory === 'transit' && renderTransitRouteConfig()}
-        {quoteData.freightCategory === 'multimodal' && renderMultimodalConfig()}
-
-        {/* Route Plan Table */}
-        {(quoteData.freightCategory === 'direct' || quoteData.freightCategory === 'transit') && 
-          renderRoutePlanTable()}
-
-        {/* Navigation Buttons */}
-        <div className="flex justify-between pt-4">
-          <button
-            onClick={() => setStep(1)}
-            className="px-6 py-3 text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-all"
-          >
-            Back
-          </button>
-          <button
-            onClick={() => {
-              if (validateStep2()) {
-                setStep(3);
-              }
-            }}
-            className="px-8 py-3 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-all font-medium flex items-center gap-2"
-          >
-            Continue to Charges
-            <ChevronDown className="w-5 h-5 rotate-[-90deg]" />
-          </button>
-        </div>
+  const renderQuoteDetails = () => (
+    <div className="space-y-8">
+      {/* Header Info */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 bg-slate-50 p-6 rounded-xl border border-slate-200">
+        <FormInput label="Quote Number" value={quoteData.quoteId} disabled />
+        <FormInput label="Created Date" type="date" value={quoteData.createdDate} disabled />
+        <FormInput label="Valid Days" type="number" value={quoteData.days} onChange={e => setQuoteData({...quoteData, days: e.target.value})} />
+        
+        <DynamicDropdown
+          label="Customer"
+          value={quoteData.customerId}
+          options={dropdownOptions.customers}
+          onChange={e => {
+            const cust = dropdownOptions.customers.find(c => c.value === e.target.value);
+            setQuoteData({...quoteData, customerId: e.target.value, customerName: cust?.label || ''});
+          }}
+        />
+        <DynamicDropdown label="Pickup Location" value={quoteData.pickupLocationId} options={dropdownOptions.locations} onChange={e => setQuoteData({...quoteData, pickupLocationId: e.target.value})} />
+        <DynamicDropdown label="Delivery Location" value={quoteData.deliveryLocationId} options={dropdownOptions.locations} onChange={e => setQuoteData({...quoteData, deliveryLocationId: e.target.value})} />
+        <DynamicDropdown label="Credit Terms" value={quoteData.creditTermsId} options={dropdownOptions.creditTerms} onChange={e => setQuoteData({...quoteData, creditTermsId: e.target.value})} />
       </div>
-    );
-  };
 
-  // Direct Route Configuration
-  const renderDirectRouteConfig = () => {
-    const portOptions = routeConfig.mode === 'air' ? dropdownOptions.airports : dropdownOptions.ports;
-
-    return (
-      <div className="bg-white rounded-lg border border-slate-200 p-6 space-y-6">
-        <h3 className="text-lg font-semibold text-slate-800 border-b border-slate-200 pb-3">
-          Direct Route Configuration
-        </h3>
-
-        {/* Port of Loading */}
-        <div className="space-y-4">
-          <h4 className="font-medium text-slate-700 flex items-center gap-2">
-            <MapPin className="w-4 h-4 text-teal-600" />
-            Port of Loading
-          </h4>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 pl-6">
-            <DynamicDropdown
-              label="Port/Airport"
-              name="portId"
-              value={directRoute.portOfLoading.portId}
-              onChange={(e) => handleDirectRouteChange('portOfLoading', 'portId', e.target.value)}
-              options={portOptions}
-              placeholder="Select port"
-              required={true}
-              error={errors.loadingPort}
-            />
-            <DynamicDropdown
-              label="Carrier"
-              name="carrier"
-              value={directRoute.portOfLoading.carrier}
-              onChange={(e) => handleDirectRouteChange('portOfLoading', 'carrier', e.target.value)}
-              options={dropdownOptions.carriers}
-              placeholder="Select carrier"
-            />
-            <DynamicDropdown
-              label="Incoterm"
-              name="incoterm"
-              value={directRoute.portOfLoading.incoterm}
-              onChange={(e) => handleDirectRouteChange('portOfLoading', 'incoterm', e.target.value)}
-              options={dropdownOptions.incoterms}
-              placeholder="Select incoterm"
-            />
-            <DynamicDropdown
-              label="Currency"
-              name="currency"
-              value={directRoute.portOfLoading.currency}
-              onChange={(e) => handleDirectRouteChange('portOfLoading', 'currency', e.target.value)}
-              options={dropdownOptions.currencies}
-            />
-            <DynamicDropdown
-              label="Cargo Type"
-              name="cargoType"
-              value={directRoute.portOfLoading.cargoType}
-              onChange={(e) => handleDirectRouteChange('portOfLoading', 'cargoType', e.target.value)}
-              options={dropdownOptions.cargoTypes}
-              placeholder="Select cargo type"
-            />
-          </div>
-        </div>
-
-        {/* Port of Discharge */}
-        <div className="space-y-4">
-          <h4 className="font-medium text-slate-700 flex items-center gap-2">
-            <MapPin className="w-4 h-4 text-orange-600" />
-            Port of Discharge
-          </h4>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 pl-6">
-            <DynamicDropdown
-              label="Port/Airport"
-              name="portId"
-              value={directRoute.portOfDischarge.portId}
-              onChange={(e) => handleDirectRouteChange('portOfDischarge', 'portId', e.target.value)}
-              options={portOptions}
-              placeholder="Select port"
-              required={true}
-              error={errors.dischargePort}
-            />
-            <DynamicDropdown
-              label="Carrier"
-              name="carrier"
-              value={directRoute.portOfDischarge.carrier}
-              onChange={(e) => handleDirectRouteChange('portOfDischarge', 'carrier', e.target.value)}
-              options={dropdownOptions.carriers}
-              placeholder="Select carrier"
-            />
-            <DynamicDropdown
-              label="Incoterm"
-              name="incoterm"
-              value={directRoute.portOfDischarge.incoterm}
-              onChange={(e) => handleDirectRouteChange('portOfDischarge', 'incoterm', e.target.value)}
-              options={dropdownOptions.incoterms}
-              placeholder="Select incoterm"
-            />
-            <DynamicDropdown
-              label="Currency"
-              name="currency"
-              value={directRoute.portOfDischarge.currency}
-              onChange={(e) => handleDirectRouteChange('portOfDischarge', 'currency', e.target.value)}
-              options={dropdownOptions.currencies}
-            />
-            <DynamicDropdown
-              label="Cargo Type"
-              name="cargoType"
-              value={directRoute.portOfDischarge.cargoType}
-              onChange={(e) => handleDirectRouteChange('portOfDischarge', 'cargoType', e.target.value)}
-              options={dropdownOptions.cargoTypes}
-              placeholder="Select cargo type"
-            />
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  // Transit Route Configuration
-  const renderTransitRouteConfig = () => {
-    const portOptions = routeConfig.mode === 'air' ? dropdownOptions.airports : dropdownOptions.ports;
-
-    return (
-      <div className="bg-white rounded-lg border border-slate-200 p-6 space-y-6">
-        <div className="flex items-center justify-between border-b border-slate-200 pb-3">
-          <h3 className="text-lg font-semibold text-slate-800">
-            Transit Route Configuration
-          </h3>
-          <button
-            onClick={addTransitStop}
-            className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-all text-sm font-medium flex items-center gap-2"
-          >
-            <Plus className="w-4 h-4" />
-            Add Transit Stop
-          </button>
-        </div>
-
-        {/* Port of Loading */}
-        <div className="space-y-4">
-          <h4 className="font-medium text-slate-700 flex items-center gap-2">
-            <MapPin className="w-4 h-4 text-teal-600" />
-            Port of Loading
-          </h4>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 pl-6">
-            <DynamicDropdown
-              label="Port/Airport"
-              name="portId"
-              value={transitRoute.portOfLoading.portId}
-              onChange={(e) => handleTransitRouteChange('portOfLoading', 'portId', e.target.value)}
-              options={portOptions}
-              placeholder="Select port"
-              required={true}
-              error={errors.loadingPort}
-            />
-            <DynamicDropdown
-              label="Carrier"
-              name="carrier"
-              value={transitRoute.portOfLoading.carrier}
-              onChange={(e) => handleTransitRouteChange('portOfLoading', 'carrier', e.target.value)}
-              options={dropdownOptions.carriers}
-              placeholder="Select carrier"
-            />
-            <DynamicDropdown
-              label="Incoterm"
-              name="incoterm"
-              value={transitRoute.portOfLoading.incoterm}
-              onChange={(e) => handleTransitRouteChange('portOfLoading', 'incoterm', e.target.value)}
-              options={dropdownOptions.incoterms}
-              placeholder="Select incoterm"
-            />
-            <DynamicDropdown
-              label="Currency"
-              name="currency"
-              value={transitRoute.portOfLoading.currency}
-              onChange={(e) => handleTransitRouteChange('portOfLoading', 'currency', e.target.value)}
-              options={dropdownOptions.currencies}
-            />
-            <DynamicDropdown
-              label="Cargo Type"
-              name="cargoType"
-              value={transitRoute.portOfLoading.cargoType}
-              onChange={(e) => handleTransitRouteChange('portOfLoading', 'cargoType', e.target.value)}
-              options={dropdownOptions.cargoTypes}
-              placeholder="Select cargo type"
-            />
-          </div>
-        </div>
-
-        {/* Transit Stops */}
-        {transitRoute.transitStops.map((stop, index) => (
-          <div key={stop.id} className="space-y-4 bg-slate-50 rounded-lg p-4">
-            <div className="flex items-center justify-between">
-              <h4 className="font-medium text-slate-700 flex items-center gap-2">
-                <Ship className="w-4 h-4 text-purple-600" />
-                Transit {index + 1}
-              </h4>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => moveTransitStop(stop.id, 'up')}
-                  disabled={index === 0}
-                  className="p-1 text-slate-600 hover:bg-slate-200 rounded disabled:opacity-30 disabled:cursor-not-allowed"
-                  title="Move up"
-                >
-                  <ArrowUp className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => moveTransitStop(stop.id, 'down')}
-                  disabled={index === transitRoute.transitStops.length - 1}
-                  className="p-1 text-slate-600 hover:bg-slate-200 rounded disabled:opacity-30 disabled:cursor-not-allowed"
-                  title="Move down"
-                >
-                  <ArrowDown className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => removeTransitStop(stop.id)}
-                  className="p-1 text-red-600 hover:bg-red-50 rounded"
-                  title="Remove"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 pl-6">
-              <DynamicDropdown
-                label="Port/Airport"
-                name="portId"
-                value={stop.portId}
-                onChange={(e) => updateTransitStop(stop.id, 'portId', e.target.value)}
-                options={portOptions}
-                placeholder="Select port"
-              />
-              <DynamicDropdown
-                label="Carrier"
-                name="carrier"
-                value={stop.carrier}
-                onChange={(e) => updateTransitStop(stop.id, 'carrier', e.target.value)}
-                options={dropdownOptions.carriers}
-                placeholder="Select carrier"
-              />
-              <DynamicDropdown
-                label="Incoterm"
-                name="incoterm"
-                value={stop.incoterm}
-                onChange={(e) => updateTransitStop(stop.id, 'incoterm', e.target.value)}
-                options={dropdownOptions.incoterms}
-                placeholder="Select incoterm"
-              />
-              <DynamicDropdown
-                label="Currency"
-                name="currency"
-                value={stop.currency}
-                onChange={(e) => updateTransitStop(stop.id, 'currency', e.target.value)}
-                options={dropdownOptions.currencies}
-              />
-              <DynamicDropdown
-                label="Cargo Type"
-                name="cargoType"
-                value={stop.cargoType}
-                onChange={(e) => updateTransitStop(stop.id, 'cargoType', e.target.value)}
-                options={dropdownOptions.cargoTypes}
-                placeholder="Select cargo type"
-              />
-            </div>
-          </div>
-        ))}
-
-        {/* Port of Discharge */}
-        <div className="space-y-4">
-          <h4 className="font-medium text-slate-700 flex items-center gap-2">
-            <MapPin className="w-4 h-4 text-orange-600" />
-            Port of Discharge
-          </h4>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 pl-6">
-            <DynamicDropdown
-              label="Port/Airport"
-              name="portId"
-              value={transitRoute.portOfDischarge.portId}
-              onChange={(e) => handleTransitRouteChange('portOfDischarge', 'portId', e.target.value)}
-              options={portOptions}
-              placeholder="Select port"
-              required={true}
-              error={errors.dischargePort}
-            />
-            <DynamicDropdown
-              label="Carrier"
-              name="carrier"
-              value={transitRoute.portOfDischarge.carrier}
-              onChange={(e) => handleTransitRouteChange('portOfDischarge', 'carrier', e.target.value)}
-              options={dropdownOptions.carriers}
-              placeholder="Select carrier"
-            />
-            <DynamicDropdown
-              label="Incoterm"
-              name="incoterm"
-              value={transitRoute.portOfDischarge.incoterm}
-              onChange={(e) => handleTransitRouteChange('portOfDischarge', 'incoterm', e.target.value)}
-              options={dropdownOptions.incoterms}
-              placeholder="Select incoterm"
-            />
-            <DynamicDropdown
-              label="Currency"
-              name="currency"
-              value={transitRoute.portOfDischarge.currency}
-              onChange={(e) => handleTransitRouteChange('portOfDischarge', 'currency', e.target.value)}
-              options={dropdownOptions.currencies}
-            />
-            <DynamicDropdown
-              label="Cargo Type"
-              name="cargoType"
-              value={transitRoute.portOfDischarge.cargoType}
-              onChange={(e) => handleTransitRouteChange('portOfDischarge', 'cargoType', e.target.value)}
-              options={dropdownOptions.cargoTypes}
-              placeholder="Select cargo type"
-            />
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  // Multimodal Configuration
-  const renderMultimodalConfig = () => {
-    const modeOptions = ['Air', 'Sea', 'Trucking', 'Rail'];
-    const pricingUnits = ['Per KG', 'Per CBM', 'Per Container', 'Per Shipment'];
-
-    return (
-      <div className="bg-white rounded-lg border border-slate-200 p-6 space-y-6">
-        <div className="flex items-center justify-between border-b border-slate-200 pb-3">
-          <h3 className="text-lg font-semibold text-slate-800">
-            Multimodal Configuration
-          </h3>
-          <button
-            onClick={addMultimodalSegment}
-            className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-all text-sm font-medium flex items-center gap-2"
-          >
-            <Plus className="w-4 h-4" />
-            Add Segment
-          </button>
-        </div>
-
-        {multimodalSegments.length === 0 && (
-          <div className="text-center py-8 text-slate-500">
-            <Package className="w-12 h-12 mx-auto mb-3 opacity-30" />
-            <p>No segments added yet. Click "Add Segment" to begin.</p>
-          </div>
-        )}
-
-        <div className="space-y-4">
-          {multimodalSegments.map((segment, index) => (
-            <div key={segment.id} className="bg-slate-50 rounded-lg p-4 space-y-4">
-              <div className="flex items-center justify-between">
-                <h4 className="font-medium text-slate-700">Segment {index + 1}</h4>
-                <button
-                  onClick={() => removeMultimodalSegment(segment.id)}
-                  className="p-1 text-red-600 hover:bg-red-50 rounded"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                <DynamicDropdown
-                  label="Selected Mode"
-                  name="selectedMode"
-                  value={segment.selectedMode}
-                  onChange={(e) => updateMultimodalSegment(segment.id, 'selectedMode', e.target.value)}
-                  options={modeOptions}
-                  placeholder="Select mode"
-                />
-
-                <DynamicDropdown
-                  label="Origin"
-                  name="origin"
-                  value={segment.origin}
-                  onChange={(e) => updateMultimodalSegment(segment.id, 'origin', e.target.value)}
-                  options={segment.selectedMode === 'Air' ? dropdownOptions.airports : dropdownOptions.ports}
-                  placeholder="Select origin"
-                />
-
-                <DynamicDropdown
-                  label="Destination"
-                  name="destination"
-                  value={segment.destination}
-                  onChange={(e) => updateMultimodalSegment(segment.id, 'destination', e.target.value)}
-                  options={segment.selectedMode === 'Air' ? dropdownOptions.airports : dropdownOptions.ports}
-                  placeholder="Select destination"
-                />
-
-                <FormInput
-                  label="Chargeable Weight"
-                  name="chargeableWeight"
-                  value={segment.chargeableWeight}
-                  onChange={(e) => updateMultimodalSegment(segment.id, 'chargeableWeight', e.target.value)}
-                  type="number"
-                  placeholder="0.00"
-                />
-
-                <FormInput
-                  label="Weight Breaker"
-                  name="weightBreaker"
-                  value={segment.weightBreaker}
-                  onChange={(e) => updateMultimodalSegment(segment.id, 'weightBreaker', e.target.value)}
-                  placeholder="Weight breaker"
-                />
-
-                <DynamicDropdown
-                  label="Pricing Unit"
-                  name="pricingUnit"
-                  value={segment.pricingUnit}
-                  onChange={(e) => updateMultimodalSegment(segment.id, 'pricingUnit', e.target.value)}
-                  options={pricingUnits}
-                  placeholder="Select unit"
-                />
-
-                <FormInput
-                  label="Charge"
-                  name="charge"
-                  value={segment.charge}
-                  onChange={(e) => updateMultimodalSegment(segment.id, 'charge', e.target.value)}
-                  type="number"
-                  placeholder="0.00"
-                />
-
-                <DynamicDropdown
-                  label="Currency"
-                  name="currency"
-                  value={segment.currency}
-                  onChange={(e) => updateMultimodalSegment(segment.id, 'currency', e.target.value)}
-                  options={dropdownOptions.currencies}
-                />
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Multimodal Charges Summary */}
-        {multimodalSegments.length > 0 && (
-          <div className="overflow-x-auto">
-            <h4 className="font-semibold text-slate-700 mb-3">Charges Summary</h4>
-            <table className="w-full border-collapse">
-              <thead>
-                <tr className="bg-slate-100">
-                  <th className="border border-slate-300 px-4 py-2 text-left text-sm font-semibold text-slate-700">Mode</th>
-                  <th className="border border-slate-300 px-4 py-2 text-left text-sm font-semibold text-slate-700">Origin</th>
-                  <th className="border border-slate-300 px-4 py-2 text-left text-sm font-semibold text-slate-700">Destination</th>
-                  <th className="border border-slate-300 px-4 py-2 text-left text-sm font-semibold text-slate-700">Chg. Weight</th>
-                  <th className="border border-slate-300 px-4 py-2 text-left text-sm font-semibold text-slate-700">Weight Breaker</th>
-                  <th className="border border-slate-300 px-4 py-2 text-left text-sm font-semibold text-slate-700">Pricing Unit</th>
-                  <th className="border border-slate-300 px-4 py-2 text-right text-sm font-semibold text-slate-700">Charge</th>
-                  <th className="border border-slate-300 px-4 py-2 text-left text-sm font-semibold text-slate-700">Currency</th>
-                </tr>
-              </thead>
-              <tbody>
-                {multimodalSegments.map((segment) => (
-                  <tr key={segment.id} className="hover:bg-slate-50">
-                    <td className="border border-slate-300 px-4 py-2 text-sm text-slate-700">{segment.selectedMode}</td>
-                    <td className="border border-slate-300 px-4 py-2 text-sm text-slate-700">{segment.origin}</td>
-                    <td className="border border-slate-300 px-4 py-2 text-sm text-slate-700">{segment.destination}</td>
-                    <td className="border border-slate-300 px-4 py-2 text-sm text-slate-700">{segment.chargeableWeight}</td>
-                    <td className="border border-slate-300 px-4 py-2 text-sm text-slate-700">{segment.weightBreaker}</td>
-                    <td className="border border-slate-300 px-4 py-2 text-sm text-slate-700">{segment.pricingUnit}</td>
-                    <td className="border border-slate-300 px-4 py-2 text-sm text-slate-700 text-right">{parseFloat(segment.charge || 0).toFixed(2)}</td>
-                    <td className="border border-slate-300 px-4 py-2 text-sm text-slate-700">{segment.currency}</td>
-                  </tr>
-                ))}
-                <tr className="bg-slate-100 font-semibold">
-                  <td colSpan="6" className="border border-slate-300 px-4 py-2 text-sm text-slate-700 text-right">TOTAL:</td>
-                  <td className="border border-slate-300 px-4 py-2 text-sm text-slate-700 text-right">
-                    {multimodalSegments.reduce((sum, seg) => sum + parseFloat(seg.charge || 0), 0).toFixed(2)}
-                  </td>
-                  <td className="border border-slate-300 px-4 py-2 text-sm text-slate-700">USD</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        {errors.multimodal && (
-          <div className="flex items-center gap-2 p-4 bg-red-50 border border-red-200 rounded-lg">
-            <AlertCircle className="w-5 h-5 text-red-500" />
-            <p className="text-sm text-red-700">{errors.multimodal}</p>
-          </div>
-        )}
-      </div>
-    );
-  };
-
-  // Route Plan Table (Air/Sea) - Continued in Part 2 due to length
-  const renderRoutePlanTable = () => {
-    const isAir = routeConfig.mode === 'air';
-    const title = 'Route & Carrier Management';
-    const codeLabel = isAir ? 'Airport Code' : 'Port Code';
-
-    const columns = ['origin'];
-    routePlanData.transitPoints.forEach((_, idx) => {
-      columns.push(`transit${idx + 1}`);
-    });
-    columns.push('destination');
-
-    return (
-      <div className="bg-white rounded-lg border border-slate-200 p-6 space-y-6">
-        <div className="flex items-center justify-between border-b border-slate-200 pb-3">
-          <h3 className="text-lg font-semibold text-slate-800">{title}</h3>
-          {/* {quoteData.freightCategory === 'transit' && (
-            <button
-              onClick={addRoutePlanTransitPoint}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all text-sm font-medium flex items-center gap-2"
-            >
-              <Plus className="w-4 h-4" />
-              Add Transit Column
+      {/* --- Route Config --- */}
+      {quoteData.freightCategory === 'direct' && (
+        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+              <RouteIcon className="w-5 h-5 text-teal-600" /> Direct Route Configuration
+            </h3>
+            <button onClick={addDirectOption} className="text-sm bg-teal-50 text-teal-700 px-3 py-1 rounded-md hover:bg-teal-100 flex items-center gap-1">
+              <Plus className="w-4 h-4" /> Add Carrier Option
             </button>
-          )} */}
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="w-full border-collapse min-w-[1000px]">
-            <thead>
-              <tr className="bg-slate-100">
-                <th className="border border-slate-300 px-4 py-2 text-left text-sm font-semibold text-slate-700 w-40">
-                  Field
-                </th>
-                <th className="border border-slate-300 px-4 py-2 text-center text-sm font-semibold text-slate-700">
-                  Origin
-                </th>
-                {routePlanData.transitPoints.map((_, idx) => (
-                  <th key={idx} className="border border-slate-300 px-4 py-2 text-center text-sm font-semibold text-slate-700">
-                    Transit {idx + 1}
-                    <button
-                      onClick={() => removeRoutePlanTransitPoint(routePlanData.transitPoints[idx].id)}
-                      className="ml-2 p-1 text-red-600 hover:bg-red-50 rounded inline-flex"
-                    >
-                      <X className="w-3 h-3" />
-                    </button>
-                  </th>
-                ))}
-                <th className="border border-slate-300 px-4 py-2 text-center text-sm font-semibold text-slate-700">
-                  Destination
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {/* Airport/Port Codes */}
-              <tr>
-                <td className="border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 bg-slate-50">
-                  {codeLabel}
-                </td>
-                <td className="border border-slate-300 px-2 py-2">
-                  <DynamicDropdown
-                    label=""
-                    name="airportPortCode"
-                    value={routePlanData.origin.airportPortCode}
-                    onChange={(e) => handleRoutePlanChange('origin', 'airportPortCode', e.target.value)}
-                    options={isAir ? dropdownOptions.airports : dropdownOptions.ports}
-                    placeholder="Select"
-                    className="w-full"
-                  />
-                </td>
-                {routePlanData.transitPoints.map((pt) => (
-                  <td key={pt.id} className="border border-slate-300 px-2 py-2">
-                    <DynamicDropdown
-                      label=""
-                      name="airportPortCode"
-                      value={pt.airportPortCode}
-                      onChange={(e) => updateRoutePlanTransitPoint(pt.id, 'airportPortCode', e.target.value)}
-                      options={isAir ? dropdownOptions.airports : dropdownOptions.ports}
-                      placeholder="Select"
-                      className="w-full"
-                    />
-                  </td>
-                ))}
-                <td className="border border-slate-300 px-2 py-2">
-                  <DynamicDropdown
-                    label=""
-                    name="airportPortCode"
-                    value={routePlanData.destination.airportPortCode}
-                    onChange={(e) => handleRoutePlanChange('destination', 'airportPortCode', e.target.value)}
-                    options={isAir ? dropdownOptions.airports : dropdownOptions.ports}
-                    placeholder="Select"
-                    className="w-full"
-                  />
-                </td>
-              </tr>
-
-              {/* Carrier Option 1 */}
-              <tr>
-                <td className="border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 bg-slate-50">
-                  Carrier Option 1
-                </td>
-                <td className="border border-slate-300 px-2 py-2">
-                  <DynamicDropdown
-                    label=""
-                    name="carrier1"
-                    value={routePlanData.origin.carrier1}
-                    onChange={(e) => handleRoutePlanChange('origin', 'carrier1', e.target.value)}
-                    options={dropdownOptions.carriers}
-                    placeholder="Select"
-                    className="w-full"
-                  />
-                </td>
-                {routePlanData.transitPoints.map((pt) => (
-                  <td key={pt.id} className="border border-slate-300 px-2 py-2">
-                    <DynamicDropdown
-                      label=""
-                      name="carrier1"
-                      value={pt.carrier1}
-                      onChange={(e) => updateRoutePlanTransitPoint(pt.id, 'carrier1', e.target.value)}
-                      options={dropdownOptions.carriers}
-                      placeholder="Select"
-                      className="w-full"
-                    />
-                  </td>
-                ))}
-                <td className="border border-slate-300 px-2 py-2">
-                  <DynamicDropdown
-                    label=""
-                    name="carrier1"
-                    value={routePlanData.destination.carrier1}
-                    onChange={(e) => handleRoutePlanChange('destination', 'carrier1', e.target.value)}
-                    options={dropdownOptions.carriers}
-                    placeholder="Select"
-                    className="w-full"
-                  />
-                </td>
-              </tr>
-
-              {/* Equipment */}
-              <tr>
-                <td className="border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 bg-slate-50">
-                  Equipment
-                </td>
-                <td className="border border-slate-300 px-2 py-2">
-                  <DynamicDropdown
-                    label=""
-                    name="equipment"
-                    value={routePlanData.origin.equipment}
-                    onChange={(e) => handleRoutePlanChange('origin', 'equipment', e.target.value)}
-                    options={dropdownOptions.equipment}
-                    placeholder="Select"
-                    className="w-full"
-                  />
-                </td>
-                {routePlanData.transitPoints.map((pt) => (
-                  <td key={pt.id} className="border border-slate-300 px-2 py-2">
-                    <DynamicDropdown
-                      label=""
-                      name="equipment"
-                      value={pt.equipment}
-                      onChange={(e) => updateRoutePlanTransitPoint(pt.id, 'equipment', e.target.value)}
-                      options={dropdownOptions.equipment}
-                      placeholder="Select"
-                      className="w-full"
-                    />
-                  </td>
-                ))}
-                <td className="border border-slate-300 px-2 py-2">
-                  <DynamicDropdown
-                    label=""
-                    name="equipment"
-                    value={routePlanData.destination.equipment}
-                    onChange={(e) => handleRoutePlanChange('destination', 'equipment', e.target.value)}
-                    options={dropdownOptions.equipment}
-                    placeholder="Select"
-                    className="w-full"
-                  />
-                </td>
-              </tr>
-
-              {/* Units, Weights, CBM, etc. */}
-              {[
-                { key: 'units', label: 'Units' },
-                { key: 'netWeight', label: 'Net Weight' },
-                { key: 'grossWeight', label: 'Gross Weight' },
-                { key: 'cbm', label: 'CBM' },
-                { key: 'chargeableWeight', label: 'Chargeable Weight' },
-                { key: 'totalPieces', label: 'Total Pieces' }
-              ].map((field) => (
-                <tr key={field.key}>
-                  <td className="border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 bg-slate-50">
-                    {field.label}
-                  </td>
-                  <td className="border border-slate-300 px-2 py-2">
-                    <FormInput
-                      label=""
-                      name={field.key}
-                      value={routePlanData.origin[field.key]}
-                      onChange={(e) => handleRoutePlanChange('origin', field.key, e.target.value)}
-                      type="number"
-                      placeholder="0.00"
-                      className="w-full"
-                    />
-                  </td>
-                  {routePlanData.transitPoints.map((pt) => (
-                    <td key={pt.id} className="border border-slate-300 px-2 py-2">
-                      <FormInput
-                        label=""
-                        name={field.key}
-                        value={pt[field.key]}
-                        onChange={(e) => updateRoutePlanTransitPoint(pt.id, field.key, e.target.value)}
-                        type="number"
-                        placeholder="0.00"
-                        className="w-full"
-                      />
-                    </td>
-                  ))}
-                  <td className="border border-slate-300 px-2 py-2">
-                    <FormInput
-                      label=""
-                      name={field.key}
-                      value={routePlanData.destination[field.key]}
-                      onChange={(e) => handleRoutePlanChange('destination', field.key, e.target.value)}
-                      type="number"
-                      placeholder="0.00"
-                      className="w-full"
-                    />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    );
-  };
-
-  // Step 3: Charges & Terms
-  const renderChargesAndTerms = () => {
-    return (
-      <div className="space-y-8">
-        <div>
-          <h2 className="text-2xl font-bold text-slate-800 mb-2">Charges & Terms</h2>
-          <p className="text-slate-600">Add freight charges, additional charges, and terms & conditions</p>
-        </div>
-
-        {/* Freight Charges Table */}
-        {quoteData.freightCategory !== 'multimodal' && renderFreightChargesTable()}
-
-        {/* Additional Charges */}
-        {renderAdditionalCharges()}
-
-        {/* Terms & Conditions */}
-        {renderTermsAndConditions()}
-
-        {/* Navigation Buttons */}
-        <div className="flex justify-between pt-4 border-t border-slate-200">
-          <button
-            onClick={() => setStep(2)}
-            className="px-6 py-3 text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-all"
-          >
-            Back
-          </button>
-          <button
-            onClick={handleSave}
-            disabled={isSubmitting}
-            className="px-8 py-3 bg-teal-600 text-white rounded-lg hover:bg-teal-700 disabled:bg-teal-400 transition-all font-medium flex items-center gap-2"
-          >
-            {isSubmitting ? (
-              <>
-                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                Creating...
-              </>
-            ) : (
-              <>
-                <Save className="w-5 h-5" />
-                Create Quote
-              </>
-            )}
-          </button>
-        </div>
-
-        <div className="text-center text-sm text-slate-500 pt-4 border-t border-slate-200">
-          <p className="italic">This is an automated created quote hence does not require a signature.</p>
-          <p className="mt-2">Created By: <span className="font-medium text-slate-700">{quoteData.createdBy || 'System User'}</span></p>
-        </div>
-      </div>
-    );
-  };
-
-  // Freight Charges Table
-  const renderFreightChargesTable = () => {
-    const columns = ['origin'];
-    
-    if (quoteData.freightCategory === 'transit') {
-      transitRoute.transitStops.forEach((_, idx) => {
-        columns.push(`transit${idx + 1}`);
-      });
-    }
-    
-    columns.push('destination');
-
-    return (
-      <div className="bg-white rounded-lg border border-slate-200 p-6 space-y-4">
-        <div className="flex items-center justify-between border-b border-slate-200 pb-3">
-          <h3 className="text-lg font-semibold text-slate-800">Freight Charges</h3>
-          <button
-            onClick={addFreightCharge}
-            className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-all text-sm font-medium flex items-center gap-2"
-          >
-            <Plus className="w-4 h-4" />
-            Add Charge
-          </button>
-        </div>
-
-        {freightCharges.length === 0 ? (
-          <div className="text-center py-8 text-slate-500">
-            <DollarSign className="w-12 h-12 mx-auto mb-3 opacity-30" />
-            <p>No charges added yet. Click "Add Charge" to begin.</p>
           </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse min-w-[800px]">
-              <thead>
-                <tr className="bg-slate-100">
-                  <th className="border border-slate-300 px-4 py-2 text-left text-sm font-semibold text-slate-700">
-                    Charge Name
-                  </th>
-                  <th className="border border-slate-300 px-4 py-2 text-left text-sm font-semibold text-slate-700">
-                    UOM
-                  </th>
-                  {columns.map((col, idx) => (
-                    <th key={idx} className="border border-slate-300 px-4 py-2 text-center text-sm font-semibold text-slate-700 capitalize">
-                      {col.replace(/(\d+)/, ' $1')}
-                    </th>
-                  ))}
-                  <th className="border border-slate-300 px-4 py-2 text-center text-sm font-semibold text-slate-700 w-16">
-                    Action
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {freightCharges.map((charge) => (
-                  <tr key={charge.id} className="hover:bg-slate-50">
-                    <td className="border border-slate-300 px-2 py-2">
-                      <DynamicDropdown
-                        label=""
-                        name="chargeName"
-                        value={charge.chargeName}
-                        onChange={(e) => updateFreightCharge(charge.id, 'chargeName', e.target.value)}
-                        options={dropdownOptions.chargeNames}
-                        placeholder="Select"
-                        className="w-full"
-                      />
-                    </td>
-                    <td className="border border-slate-300 px-2 py-2">
-                      <FormInput
-                        label=""
-                        name="uom"
-                        value={charge.uom}
-                        onChange={(e) => updateFreightCharge(charge.id, 'uom', e.target.value)}
-                        placeholder="e.g., per KG"
-                        className="w-full"
-                      />
-                    </td>
-                    {columns.map((col, idx) => (
-                      <td key={idx} className="border border-slate-300 px-2 py-2">
-                        <FormInput
-                          label=""
-                          name={col}
-                          value={charge[col] || ''}
-                          onChange={(e) => updateFreightCharge(charge.id, col, e.target.value)}
-                          type="number"
-                          placeholder="0.00"
-                          className="w-full"
-                        />
-                      </td>
-                    ))}
-                    <td className="border border-slate-300 px-2 py-2 text-center">
-                      <button
-                        onClick={() => removeFreightCharge(charge.id)}
-                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+
+          <div className="grid grid-cols-2 gap-6 mb-6">
+            <DynamicDropdown label="Port of Loading" value={directRoute.portOfLoading} options={quoteData.freightMode.includes('Air') ? dropdownOptions.airports : dropdownOptions.ports} onChange={e => handleDirectRouteChange('portOfLoading', e.target.value)} />
+            <DynamicDropdown label="Port of Discharge" value={directRoute.portOfDischarge} options={quoteData.freightMode.includes('Air') ? dropdownOptions.airports : dropdownOptions.ports} onChange={e => handleDirectRouteChange('portOfDischarge', e.target.value)} />
           </div>
-        )}
-      </div>
-    );
-  };
 
-  // Additional Charges
-  const renderAdditionalCharges = () => {
-    const totalAmount = additionalCharges.reduce((sum, charge) => sum + parseFloat(charge.amount || 0), 0);
-
-    return (
-      <div className="bg-white rounded-lg border border-slate-200 p-6 space-y-4">
-        <div className="flex items-center justify-between border-b border-slate-200 pb-3">
-          <h3 className="text-lg font-semibold text-slate-800">Additional Charges</h3>
-          <button
-            onClick={addAdditionalCharge}
-            className="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-all text-sm font-medium flex items-center gap-2"
-          >
-            <Plus className="w-4 h-4" />
-            Add Charge
-          </button>
-        </div>
-
-        {additionalCharges.length === 0 ? (
-          <div className="text-center py-8 text-slate-500">
-            <Plus className="w-12 h-12 mx-auto mb-3 opacity-30" />
-            <p>No additional charges. Click "Add Charge" to add.</p>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {additionalCharges.map((charge) => (
-              <div key={charge.id} className="grid grid-cols-1 md:grid-cols-6 gap-4 p-4 bg-slate-50 rounded-lg items-end">
-                <FormInput
-                  label="Name"
-                  name="name"
-                  value={charge.name}
-                  onChange={(e) => updateAdditionalCharge(charge.id, 'name', e.target.value)}
-                  placeholder="Charge name"
-                  className="md:col-span-2"
-                />
-                <FormInput
-                  label="Quantity"
-                  name="quantity"
-                  value={charge.quantity}
-                  onChange={(e) => updateAdditionalCharge(charge.id, 'quantity', e.target.value)}
-                  type="number"
-                  placeholder="1"
-                />
-                <FormInput
-                  label="Rate"
-                  name="rate"
-                  value={charge.rate}
-                  onChange={(e) => updateAdditionalCharge(charge.id, 'rate', e.target.value)}
-                  type="number"
-                  placeholder="0.00"
-                />
-                <DynamicDropdown
-                  label="Currency"
-                  name="currency"
-                  value={charge.currency}
-                  onChange={(e) => updateAdditionalCharge(charge.id, 'currency', e.target.value)}
-                  options={dropdownOptions.currencies}
-                />
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">Amount</label>
-                  <div className="flex items-center gap-2">
-                    <div className="flex-1 px-4 py-2 bg-white border border-slate-300 rounded-lg text-slate-700">
-                      {parseFloat(charge.amount || 0).toFixed(2)}
-                    </div>
-                    <button
-                      onClick={() => removeAdditionalCharge(charge.id)}
-                      className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
+          <div className="space-y-4">
+            {directRoute.options.map((opt, idx) => (
+              <div key={opt.id} className="bg-slate-50 p-4 rounded-lg border border-slate-200">
+                <div className="flex justify-between mb-3">
+                  <span className="font-semibold text-slate-700 text-sm">Option {idx + 1}</span>
+                  {idx > 0 && <button onClick={() => removeDirectOption(idx)} className="text-red-500"><Trash2 className="w-4 h-4" /></button>}
+                </div>
+                <div className="grid grid-cols-4 gap-4">
+                  <DynamicDropdown label="Carrier" value={opt.carrier} options={dropdownOptions.carriers} onChange={e => updateDirectOption(idx, 'carrier', e.target.value)} />
+                  <DynamicDropdown label="Incoterm" value={opt.incoterm} options={dropdownOptions.incoterms} onChange={e => updateDirectOption(idx, 'incoterm', e.target.value)} />
+                  <DynamicDropdown label="Currency" value={opt.currency} options={dropdownOptions.currencies} onChange={e => updateDirectOption(idx, 'currency', e.target.value)} />
+                  <DynamicDropdown label="Cargo Type" value={opt.cargoType} options={dropdownOptions.cargoTypes} onChange={e => updateDirectOption(idx, 'cargoType', e.target.value)} />
                 </div>
               </div>
             ))}
-
-            <div className="flex justify-end p-4 bg-slate-100 rounded-lg">
-              <div className="text-lg font-bold text-slate-800">
-                Total Additional Charges: {totalAmount.toFixed(2)} USD
-              </div>
-            </div>
           </div>
-        )}
+        </div>
+      )}
+
+      {quoteData.freightCategory === 'transit' && (
+        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+          <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+            <Layers className="w-5 h-5 text-purple-600" /> Transit Route Configuration
+          </h3>
+          
+          <div className="grid grid-cols-2 gap-6 mb-4">
+            <DynamicDropdown label="Port of Loading" value={transitRoute.portOfLoading} options={quoteData.freightMode.includes('Air') ? dropdownOptions.airports : dropdownOptions.ports} onChange={e => setTransitRoute({...transitRoute, portOfLoading: e.target.value})} />
+            <DynamicDropdown label="Port of Discharge" value={transitRoute.portOfDischarge} options={quoteData.freightMode.includes('Air') ? dropdownOptions.airports : dropdownOptions.ports} onChange={e => setTransitRoute({...transitRoute, portOfDischarge: e.target.value})} />
+          </div>
+
+          <div className="mb-6">
+             <div className="flex justify-between items-center mb-2">
+               <label className="text-sm font-medium text-slate-700">Transit Stops</label>
+               <button onClick={addTransitStop} className="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded hover:bg-purple-200">Add Stop</button>
+             </div>
+             {transitRoute.transitStops.map((stop, idx) => (
+               <div key={stop.id} className="flex gap-4 items-end mb-2">
+                 <DynamicDropdown 
+                   className="flex-1"
+                   label={`Transit Stop ${idx + 1}`}
+                   value={stop.portId}
+                   options={quoteData.freightMode.includes('Air') ? dropdownOptions.airports : dropdownOptions.ports}
+                   onChange={e => updateTransitStop(idx, e.target.value)}
+                 />
+                 <button onClick={() => removeTransitStop(idx)} className="p-2 bg-red-50 text-red-600 rounded mb-[2px]"><Trash2 className="w-5 h-5" /></button>
+               </div>
+             ))}
+          </div>
+
+          {transitRoute.segments.length > 0 && (
+            <div className="space-y-4 border-t pt-4">
+              <h4 className="font-semibold text-slate-700">Route Segments & Carriers</h4>
+              {transitRoute.segments.map((seg, segIdx) => (
+                <div key={seg.id} className="bg-purple-50 p-4 rounded-lg">
+                  <div className="flex justify-between items-center mb-3">
+                    <span className="font-medium text-sm text-purple-800">
+                      Segment: {seg.from} ➔ {seg.to}
+                    </span>
+                    <button onClick={() => addTransitSegmentOption(segIdx)} className="text-xs text-purple-700 flex items-center gap-1"><Plus className="w-3 h-3"/> Add Option</button>
+                  </div>
+                  {seg.carrierOptions.map((opt, optIdx) => (
+                     <div key={opt.id} className="grid grid-cols-4 gap-3 mb-2 bg-white p-2 rounded border border-purple-100">
+                        <DynamicDropdown label="Carrier" value={opt.carrier} options={dropdownOptions.carriers} onChange={e => updateTransitSegmentOption(segIdx, optIdx, 'carrier', e.target.value)} />
+                        <DynamicDropdown label="Incoterm" value={opt.incoterm} options={dropdownOptions.incoterms} onChange={e => updateTransitSegmentOption(segIdx, optIdx, 'incoterm', e.target.value)} />
+                        <DynamicDropdown label="Currency" value={opt.currency} options={dropdownOptions.currencies} onChange={e => updateTransitSegmentOption(segIdx, optIdx, 'currency', e.target.value)} />
+                        <DynamicDropdown label="Cargo Type" value={opt.cargoType} options={dropdownOptions.cargoTypes} onChange={e => updateTransitSegmentOption(segIdx, optIdx, 'cargoType', e.target.value)} />
+                     </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* --- Destination, Carrier & Equipment Section --- */}
+      {(quoteData.freightCategory === 'direct' || quoteData.freightCategory === 'transit') && (
+        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+           <div className="border-b pb-4 mb-4">
+             <h3 className="text-lg font-bold text-slate-800">Destination, Carrier & Equipment Details</h3>
+             <p className="text-sm text-slate-500">
+               {quoteData.freightCategory === 'direct' 
+                 ? "Define measurements per carrier option." 
+                 : "Define overall shipment measurements (linked to Option ID)."}
+             </p>
+           </div>
+
+           {directRoute.options.length > 1 && (
+             <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
+               {directRoute.options.map((_, idx) => (
+                 <button
+                   key={idx}
+                   onClick={() => setActiveOptionIndex(idx)}
+                   className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap ${
+                     activeOptionIndex === idx 
+                       ? 'bg-teal-600 text-white shadow-md' 
+                       : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                   }`}
+                 >
+                   Option {idx + 1}
+                 </button>
+               ))}
+             </div>
+           )}
+
+           <div className="grid grid-cols-2 md:grid-cols-4 gap-6 animate-in fade-in">
+             <DynamicDropdown 
+                label="Equipment" 
+                value={directRoute.options[activeOptionIndex]?.equipment} 
+                options={dropdownOptions.equipment} 
+                onChange={e => updateDirectOption(activeOptionIndex, 'equipment', e.target.value)} 
+             />
+             <FormInput 
+                label={quoteData.freightMode.includes('Air') ? "Units (Kg)" : "Units/Containers"} 
+                type="number"
+                value={directRoute.options[activeOptionIndex]?.units} 
+                onChange={e => updateDirectOption(activeOptionIndex, 'units', e.target.value)} 
+             />
+             <FormInput 
+                label="Net Weight" 
+                type="number"
+                value={directRoute.options[activeOptionIndex]?.netWeight} 
+                onChange={e => updateDirectOption(activeOptionIndex, 'netWeight', e.target.value)} 
+             />
+             <FormInput 
+                label="Gross Weight" 
+                type="number"
+                value={directRoute.options[activeOptionIndex]?.grossWeight} 
+                onChange={e => updateDirectOption(activeOptionIndex, 'grossWeight', e.target.value)} 
+             />
+             <FormInput 
+                label={quoteData.freightMode.includes('Air') ? "Volume (m³)" : "CBM"} 
+                type="number"
+                value={directRoute.options[activeOptionIndex]?.cbm} 
+                onChange={e => updateDirectOption(activeOptionIndex, 'cbm', e.target.value)} 
+             />
+             <FormInput 
+                label="Chargeable Weight" 
+                type="number"
+                value={directRoute.options[activeOptionIndex]?.chargeableWeight} 
+                onChange={e => updateDirectOption(activeOptionIndex, 'chargeableWeight', e.target.value)} 
+             />
+             <FormInput 
+                label="Total Pieces" 
+                type="number"
+                value={directRoute.options[activeOptionIndex]?.totalPieces} 
+                onChange={e => updateDirectOption(activeOptionIndex, 'totalPieces', e.target.value)} 
+             />
+           </div>
+        </div>
+      )}
+
+      <div className="flex justify-between pt-6">
+        <button onClick={() => setStep(1)} className="px-6 py-2 border rounded-lg hover:bg-slate-50">Back</button>
+        <button onClick={() => setStep(3)} className="px-6 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700">Continue to Charges</button>
+      </div>
+    </div>
+  );
+
+  const renderChargesAndTerms = () => {
+    // Helper to render a charge table
+    const renderTable = (charges, locationKey, type) => (
+      <div className="mt-2">
+        <table className="w-full text-sm border-collapse">
+          <thead>
+            <tr className="bg-slate-100 text-left">
+              <th className="p-2 border">Charge Name</th>
+              <th className="p-2 border w-24">UOM</th>
+              <th className="p-2 border w-24">Amount</th>
+              <th className="p-2 border w-24">Currency</th>
+              <th className="p-2 border w-24">Total</th>
+              <th className="p-2 border w-10"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {charges.map(c => (
+              <tr key={c.id}>
+                <td className="p-1 border">
+                  <DynamicDropdown 
+                     className="mb-0" 
+                     value={c.chargeName} 
+                     options={dropdownOptions.chargeNames} 
+                     onChange={e => updateCharge(type, locationKey, c.id, 'chargeName', e.target.value)} 
+                  />
+                </td>
+                <td className="p-1 border"><input type="text" className="w-full p-1 border rounded" value={c.uom} onChange={e => updateCharge(type, locationKey, c.id, 'uom', e.target.value)} /></td>
+                <td className="p-1 border"><input type="number" className="w-full p-1 border rounded" value={c.chargeAmount} onChange={e => updateCharge(type, locationKey, c.id, 'chargeAmount', e.target.value)} /></td>
+                <td className="p-1 border">
+                  <select className="w-full p-1 border rounded" value={c.currency} onChange={e => updateCharge(type, locationKey, c.id, 'currency', e.target.value)}>
+                    <option value="USD">USD</option>
+                    <option value="LKR">LKR</option>
+                  </select>
+                </td>
+                <td className="p-2 border font-medium text-right">{(parseFloat(c.chargeAmount) || 0).toFixed(2)}</td>
+                <td className="p-1 border text-center"><button onClick={() => removeCharge(type, locationKey, c.id)} className="text-red-500"><Trash2 className="w-4 h-4" /></button></td>
+              </tr>
+            ))}
+            <tr>
+              <td colSpan="6" className="p-2 text-center">
+                <button onClick={() => addCharge(type, locationKey)} className="text-teal-600 text-xs font-bold flex items-center justify-center gap-1 mx-auto hover:underline">
+                  <Plus className="w-3 h-3" /> Add Charge
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     );
-  };
 
-  // Terms & Conditions
-  const renderTermsAndConditions = () => {
     return (
-      <div className="bg-white rounded-lg border border-slate-200 p-6 space-y-4">
-        <div className="flex items-center justify-between border-b border-slate-200 pb-3">
-          <h3 className="text-lg font-semibold text-slate-800">Terms & Conditions</h3>
-          <button
-            onClick={addCustomTerm}
-            className="px-4 py-2 bg-slate-600 text-white rounded-lg hover:bg-slate-700 transition-all text-sm font-medium flex items-center gap-2"
-          >
-            <Plus className="w-4 h-4" />
-            Add Custom Term
-          </button>
-        </div>
-
-        <div className="space-y-2">
-          <h4 className="text-sm font-medium text-slate-700">Standard Terms:</h4>
-          {termsConditions.map((term, index) => (
-            <div key={index} className="flex items-start gap-2 p-3 bg-slate-50 rounded-lg">
-              <span className="text-xs text-slate-500 mt-1">{index + 1}.</span>
-              <p className="text-sm text-slate-700 flex-1">{term}</p>
+      <div className="space-y-8">
+        {/* Freight Charges */}
+        <div className="bg-white p-6 rounded-xl border border-slate-200">
+          <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+            <DollarSign className="w-5 h-5 text-teal-600" /> Freight Charges
+          </h3>
+          
+          <div className="space-y-6">
+            <div>
+              <h4 className="font-semibold text-slate-700">Origin Charges (POL)</h4>
+              {renderTable(freightCharges.origin, 'origin', 'freight')}
             </div>
-          ))}
-        </div>
 
-        {customTerms.length > 0 && (
-          <div className="space-y-2">
-            <h4 className="text-sm font-medium text-slate-700">Custom Terms:</h4>
-            {customTerms.map((term, index) => (
-              <div key={index} className="flex items-start gap-2 p-3 bg-amber-50 rounded-lg">
-                <span className="text-xs text-amber-700 mt-1">{termsConditions.length + index + 1}.</span>
-                <textarea
-                  value={term}
-                  onChange={(e) => updateCustomTerm(index, e.target.value)}
-                  className="flex-1 px-3 py-2 border border-amber-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm resize-none"
-                  rows={2}
-                  placeholder="Enter custom term..."
-                />
-                <button
-                  onClick={() => removeCustomTerm(index)}
-                  className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
+            {quoteData.freightCategory === 'transit' && transitRoute.transitStops.map((stop, idx) => (
+              <div key={stop.id}>
+                <h4 className="font-semibold text-slate-700">Transit Charges: {stop.portId || `Stop ${idx+1}`}</h4>
+                {renderTable(freightCharges[`transit_${idx+1}`] || [], `transit_${idx+1}`, 'freight')}
               </div>
             ))}
+
+            <div>
+              <h4 className="font-semibold text-slate-700">Destination Charges (POD)</h4>
+              {renderTable(freightCharges.destination, 'destination', 'freight')}
+            </div>
           </div>
-        )}
+        </div>
+
+        {/* Handling Charges */}
+        <div className="bg-white p-6 rounded-xl border border-slate-200">
+          <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+            <Package className="w-5 h-5 text-purple-600" /> Handling Charges
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div>
+              <h4 className="font-semibold text-slate-700">Origin Handling</h4>
+              {renderTable(handlingCharges.origin, 'origin', 'handling')}
+            </div>
+            <div>
+              <h4 className="font-semibold text-slate-700">Destination Handling</h4>
+              {renderTable(handlingCharges.destination, 'destination', 'handling')}
+            </div>
+          </div>
+        </div>
+
+        {/* Terms */}
+        <div className="bg-white p-6 rounded-xl border border-slate-200">
+          <h3 className="text-lg font-bold text-slate-800 mb-4">Terms & Conditions</h3>
+          <div className="space-y-2 max-h-60 overflow-y-auto">
+            {termsConditions.map(term => (
+              <label key={term.id} className="flex items-start gap-3 p-2 hover:bg-slate-50 rounded cursor-pointer">
+                <input type="checkbox" checked={term.selected} onChange={() => setTermsConditions(termsConditions.map(t => t.id === term.id ? {...t, selected: !t.selected} : t))} className="mt-1" />
+                <span className="text-sm text-slate-700">{term.text}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="flex justify-between items-center pt-6 border-t">
+          <button onClick={() => setStep(2)} className="px-6 py-2 border rounded-lg hover:bg-slate-50">Back</button>
+          <div className="flex gap-3">
+             <button onClick={() => handleGeneratePDF()} className="px-4 py-2 bg-blue-600 text-white rounded-lg flex items-center gap-2 hover:bg-blue-700">
+               <Download className="w-4 h-4" /> PDF (Current Option)
+             </button>
+             {directRoute.options.length > 1 && (
+               <button onClick={() => directRoute.options.forEach((_, i) => handleGeneratePDF(i))} className="px-4 py-2 bg-slate-800 text-white rounded-lg flex items-center gap-2 hover:bg-slate-900">
+                 <Download className="w-4 h-4" /> PDF (All Options)
+               </button>
+             )}
+             <button onClick={handleSave} className="px-6 py-2 bg-teal-600 text-white rounded-lg flex items-center gap-2 hover:bg-teal-700">
+               <Save className="w-4 h-4" /> Save Quote
+             </button>
+          </div>
+        </div>
       </div>
     );
   };
 
-  // ============================================================================
-  // MAIN RENDER
-  // ============================================================================
-
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto backdrop-blur-sm">
       <div className="w-full max-w-7xl bg-white rounded-2xl shadow-2xl max-h-[95vh] flex flex-col my-8">
-        {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-slate-200 bg-gradient-to-r from-teal-50 to-emerald-50 rounded-t-2xl">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-lg bg-teal-600 flex items-center justify-center">
+            <div className="w-12 h-12 rounded-lg bg-teal-600 flex items-center justify-center shadow-lg shadow-teal-200">
               <FileText className="w-6 h-6 text-white" />
             </div>
             <div>
               <h1 className="text-2xl font-bold text-slate-800">
                 {editDocument ? 'Edit' : 'Create New'} {type === 'quote' ? 'Quote' : 'Invoice'}
               </h1>
-              <p className="text-sm text-slate-600">Multi-route freight quotation system</p>
+              <p className="text-sm text-slate-600">Complex Freight Logistics Wizard</p>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-white/70 rounded-lg transition-colors"
-          >
+          <button onClick={onClose} className="p-2 hover:bg-white/70 rounded-lg transition-colors">
             <X className="w-6 h-6 text-slate-500" />
           </button>
         </div>
 
-        {/* Step Indicator */}
-        <div className="px-6 pt-6 pb-4">
-          <div className="flex items-center gap-2">
-            <div className={`flex items-center justify-center w-10 h-10 rounded-full font-semibold ${
-              step >= 1 ? 'bg-teal-600 text-white' : 'bg-slate-200 text-slate-600'
-            }`}>
-              1
-            </div>
-            <div className={`h-1 flex-1 ${step >= 2 ? 'bg-teal-600' : 'bg-slate-200'}`} />
-            <div className={`flex items-center justify-center w-10 h-10 rounded-full font-semibold ${
-              step >= 2 ? 'bg-teal-600 text-white' : 'bg-slate-200 text-slate-600'
-            }`}>
-              2
-            </div>
-            <div className={`h-1 flex-1 ${step >= 3 ? 'bg-teal-600' : 'bg-slate-200'}`} />
-            <div className={`flex items-center justify-center w-10 h-10 rounded-full font-semibold ${
-              step >= 3 ? 'bg-teal-600 text-white' : 'bg-slate-200 text-slate-600'
-            }`}>
-              3
-            </div>
+        <div className="px-6 pt-6 pb-4 bg-slate-50/50">
+          <div className="flex items-center gap-2 max-w-2xl mx-auto">
+            <div className={`flex items-center justify-center w-8 h-8 rounded-full font-bold text-sm transition-colors ${step >= 1 ? 'bg-teal-600 text-white' : 'bg-slate-200 text-slate-600'}`}>1</div>
+            <div className={`h-1 flex-1 rounded ${step >= 2 ? 'bg-teal-600' : 'bg-slate-200'}`} />
+            <div className={`flex items-center justify-center w-8 h-8 rounded-full font-bold text-sm transition-colors ${step >= 2 ? 'bg-teal-600 text-white' : 'bg-slate-200 text-slate-600'}`}>2</div>
+            <div className={`h-1 flex-1 rounded ${step >= 3 ? 'bg-teal-600' : 'bg-slate-200'}`} />
+            <div className={`flex items-center justify-center w-8 h-8 rounded-full font-bold text-sm transition-colors ${step >= 3 ? 'bg-teal-600 text-white' : 'bg-slate-200 text-slate-600'}`}>3</div>
           </div>
-          <div className="flex justify-between mt-2 text-xs font-medium text-slate-600">
-            <span>Freight Mode & Category</span>
-            <span>Quote Details</span>
+          <div className="flex justify-between mt-2 text-xs font-medium text-slate-500 max-w-2xl mx-auto px-1">
+            <span>Mode & Type</span>
+            <span>Route & Details</span>
             <span>Charges & Terms</span>
           </div>
         </div>
 
-        {/* Content Area */}
-        <div className="flex-1 overflow-y-auto p-6">
-          {step === 1 && renderFreightCategorySelector()}
-          {step === 2 && renderQuoteDetailsForm()}
+        <div className="flex-1 overflow-y-auto p-6 scroll-smooth">
+          {step === 1 && renderFreightModeSelection()}
+          {step === 2 && renderQuoteDetails()}
           {step === 3 && renderChargesAndTerms()}
         </div>
       </div>

@@ -12,6 +12,10 @@ import {
   Link as LinkIcon,
 } from "lucide-react";
 
+import l1 from '../../assets/images/Info/Marine Traffic.jpg'
+import l2 from '../../assets/images/Info/Flight Schedules & Tracking ( Track-Trace).jpg'
+import l3 from '../../assets/images/Info/for Terminal Berthing Plan  JCT Vessel Cutoff Times.jpg'
+
 export default function InfoAndUpdatesSec({ modalOpen, onEdit }) {
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -28,19 +32,10 @@ export default function InfoAndUpdatesSec({ modalOpen, onEdit }) {
       // Sample data
       const sampleData = [
         {
-          id: 1,
-          title: "Sri Lanka Ports Authority",
-          link: "https://www.slpa.lk/",
-          logoUrl: "https://www.slpa.lk/images/logo.png",
-          description: "Live vessel tracking and port information",
-          addedDate: "2025-01-15",
-          addedBy: "Kavindu Tharaka",
-        },
-        {
           id: 2,
           title: "Marine Traffic",
           link: "https://www.marinetraffic.com/",
-          logoUrl: "https://www.marinetraffic.com/images/logo.png",
+          logoUrl: l1,
           description: "Global ship tracking and maritime intelligence",
           addedDate: "2025-01-14",
           addedBy: "Kavindu Tharaka",
@@ -49,7 +44,7 @@ export default function InfoAndUpdatesSec({ modalOpen, onEdit }) {
           id: 3,
           title: "Flight Radar 24",
           link: "https://www.flightradar24.com/",
-          logoUrl: "https://www.flightradar24.com/images/logo.png",
+          logoUrl: l2,
           description: "Real-time flight tracking worldwide",
           addedDate: "2025-01-13",
           addedBy: "Kavindu Tharaka",
@@ -58,7 +53,7 @@ export default function InfoAndUpdatesSec({ modalOpen, onEdit }) {
           id: 4,
           title: "JCT Terminals",
           link: "https://www.jctsl.lk/",
-          logoUrl: "https://www.jctsl.lk/images/logo.png",
+          logoUrl: l3,
           description: "Container terminal operations and schedules",
           addedDate: "2025-01-12",
           addedBy: "Kavindu Tharaka",

@@ -2,6 +2,8 @@ import { useState } from "react";
 import logo from '../../assets/images/logo.png';
 import { Eye, EyeOff, LogIn, Loader2, Lock, User } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { BASE_URL } from '../../config/apiConfig';
+import axios from "../../config/axios";
 
 export default function Login() {
   const navigate = useNavigate();
@@ -45,51 +47,49 @@ export default function Login() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
-    if (!validateForm()) {
-      return;
-    }
+    if (!validateForm()) return;
 
     setLoading(true);
+    setErrors({});
 
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-
-      // TODO: Replace with actual API call
-      /*
-      const response = await fetch('http://your-api-url/api/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          Username: formData.username,
-          Password: formData.password,
-        }),
+      const response = await axios.post(`${BASE_URL}/auth/login`, {
+        username: formData.username,
+        password: formData.password,
       });
 
-      if (!response.ok) {
-        throw new Error('Login failed');
+      // Backend now returns only user info (token is in HttpOnly cookie)
+      const { id, username } = response.data;
+      // Only store non-sensitive user info
+      localStorage.setItem("userRoleId", id);
+      localStorage.setItem("username", username);
+
+      // Optional: save as object
+      localStorage.setItem("user", JSON.stringify({ id, username }));
+
+      console.log("Login Success!", { userRoleId: id, username });
+
+      // Force full reload so AuthContext calls /auth/me and detects the cookie
+      window.location.href = "/dashboard";
+
+    } catch (error) {
+      console.error("Login failed:", error);
+
+      let errorMessage = "Invalid username or password. Please try again.";
+
+      if (error.response) {
+        errorMessage =
+          error.response.data?.message ||
+          error.response.data?.title ||
+          error.response.data ||
+          errorMessage;
+      } else if (error.request) {
+        errorMessage = "No response from server. Please check your connection.";
+      } else {
+        errorMessage = "Something went wrong. Please try again.";
       }
 
-      const data = await response.json();
-      
-      // Store token
-      localStorage.setItem('authToken', data.Token);
-      localStorage.setItem('user', JSON.stringify(data.User));
-      */
-
-      // For now, simulate successful login
-      console.log("Login attempt:", formData);
-
-      // Navigate to dashboard or home page
-      navigate("/dashboard");
-    } catch (error) {
-      console.error("Login error:", error);
-      setErrors({
-        submit: "Invalid username or password. Please try again.",
-      });
+      setErrors({ submit: errorMessage });
     } finally {
       setLoading(false);
     }
@@ -179,11 +179,10 @@ export default function Login() {
                   value={formData.username}
                   onChange={handleInputChange}
                   placeholder="Enter your username"
-                  className={`input-focus w-full pl-10 pr-4 py-3 border rounded-lg focus:outline-none focus:ring-2 transition-all duration-200 ${
-                    errors.username
-                      ? "border-red-300 focus:ring-red-500 focus:border-red-500"
-                      : "border-slate-300 focus:ring-blue-500 focus:border-blue-500"
-                  }`}
+                  className={`input-focus w-full pl-10 pr-4 py-3 border rounded-lg focus:outline-none focus:ring-2 transition-all duration-200 ${errors.username
+                    ? "border-red-300 focus:ring-red-500 focus:border-red-500"
+                    : "border-slate-300 focus:ring-blue-500 focus:border-blue-500"
+                    }`}
                   disabled={loading}
                 />
               </div>
@@ -207,11 +206,10 @@ export default function Login() {
                   value={formData.password}
                   onChange={handleInputChange}
                   placeholder="Enter your password"
-                  className={`input-focus w-full pl-10 pr-12 py-3 border rounded-lg focus:outline-none focus:ring-2 transition-all duration-200 ${
-                    errors.password
-                      ? "border-red-300 focus:ring-red-500 focus:border-red-500"
-                      : "border-slate-300 focus:ring-blue-500 focus:border-blue-500"
-                  }`}
+                  className={`input-focus w-full pl-10 pr-12 py-3 border rounded-lg focus:outline-none focus:ring-2 transition-all duration-200 ${errors.password
+                    ? "border-red-300 focus:ring-red-500 focus:border-red-500"
+                    : "border-slate-300 focus:ring-blue-500 focus:border-blue-500"
+                    }`}
                   disabled={loading}
                 />
                 <button

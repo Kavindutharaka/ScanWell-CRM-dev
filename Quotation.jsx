@@ -10,7 +10,7 @@ const Quotation = ({ data }) => {
       <div style={styles.header}>
         <div style={styles.logoSection}>
           {/* In a real scenario, use <img src={data.company.logoUrl} /> */}
-          <div style={styles.logoPlaceholder}>
+          <div  style={styles.logoPlaceholder}>
             <span style={{ color: '#0099cc', fontWeight: 'bold' }}>Scanwell Logo</span>
           </div>
         </div>

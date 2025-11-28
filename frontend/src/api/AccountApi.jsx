@@ -28,3 +28,9 @@ export const deleteAccount = async (id) => {
   const response = await axios.delete(`${BASE_URL}/Account/account/${id}`);
   return response.data;
 };
+
+const AccountApi = {
+  createNewAccount, deleteAccount, fetchAccountById, fetchAccounts, updateAccount
+};
+
+export default AccountApi;

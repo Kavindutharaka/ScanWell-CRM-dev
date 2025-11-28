@@ -1,9 +1,11 @@
-// File: Controllers/QuoteController.cs
+using System;
+using System.Collections.Generic;
+using System.Data;
+using System.Linq;
+using System.Threading.Tasks;
+using back_end.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
-using System.Text.Json;
-using back_end.Models;
-using System.Data;
 
 namespace back_end.Controllers
 {
@@ -12,213 +14,197 @@ namespace back_end.Controllers
     public class QuoteController : ControllerBase
     {
         private readonly IConfiguration _configuration;
-        private readonly string _connectionString;
+        string dbcon;
+        DataTable tb;
+        SqlConnection myCon;
+        SqlCommand myCom;
+        SqlDataReader myR;
 
         public QuoteController(IConfiguration configuration)
         {
             _configuration = configuration;
-            _connectionString = _configuration.GetConnectionString("DefaultConnection") 
-                ?? _configuration.GetSection("DBCon").Value;
+            dbcon = _configuration.GetSection("DBCon").Value;
+            myCon = new SqlConnection(dbcon);
         }
 
-        // GET: api/quote
-        [HttpGet]
-        public async Task<ActionResult> GetQuotes()
+        [HttpGet, Route("quote")]
+        public ActionResult getQuotes()
         {
-            var quotes = new List<Quote>();
-            string query = "SELECT * FROM Quotes ORDER BY CreatedAt DESC";
-
-            using (var connection = new SqlConnection(_connectionString))
+            string query = @"select * from [dbo].[quotes_save] order by SysID desc;";
+            tb = new DataTable();
+            using (myCon)
             {
-                await connection.OpenAsync();
-                using (var command = new SqlCommand(query, connection))
+                myCon.Open();
+                using (myCom = new SqlCommand(query, myCon))
                 {
-                    using (var reader = await command.ExecuteReaderAsync())
-                    {
-                        while (await reader.ReadAsync())
-                        {
-                            quotes.Add(new Quote
-                            {
-                                Id = reader.GetInt32("Id"),
-                                QuoteId = reader.GetString("QuoteId"),
-                                CustomerName = reader.GetString("CustomerName"),
-                                ClientName = reader.GetString("ClientName"),
-                                FreightMode = reader.GetString("FreightMode"),
-                                FreightCategory = reader.GetString("FreightCategory"),
-                                CreatedDate = reader.GetDateTime("CreatedDate"),
-                                CreatedAt = reader.GetDateTime("CreatedAt")
-                                // Add more fields as needed for list view
-                            });
-                        }
-                    }
+                    myR = myCom.ExecuteReader();
+                    tb.Load(myR);
+                    myR.Close();
+                    myCon.Close();
+                }
+                return new OkObjectResult(tb);
+            }
+        }
+
+        [HttpGet, Route("quote/{id}")]
+        public ActionResult getQuoteById(string id)
+        {
+            string query = @"select * from [dbo].[quotes_save] where SysID = @id;";
+            tb = new DataTable();
+            using (myCon)
+            {
+                myCon.Open();
+                using (myCom = new SqlCommand(query, myCon))
+                {
+                    myCom.Parameters.AddWithValue("@id", id);
+                    myR = myCom.ExecuteReader();
+                    tb.Load(myR);
+                    myR.Close();
+                    myCon.Close();
                 }
             }
-
-            return Ok(quotes);
+            if (tb.Rows.Count == 0)
+            {
+                return NotFound("Quote not found.");
+            }
+            return new OkObjectResult(tb);
         }
 
-        // GET: api/quote/{id}
-        [HttpGet("{id}")]
-        public async Task<ActionResult<Quote>> GetQuote(int id)
+        [HttpPost, Route("quote")]
+        public IActionResult CreateQuote([FromBody] Quote quote)
         {
-            string query = "SELECT * FROM Quotes WHERE Id = @id";
-            Quote? quote = null;
+            string query = @"
+            INSERT INTO [dbo].[quotes_save] 
+            (quoteId, customerId, customerName, pickupLocationId, deliveryLocationId, creditTermsId, createdDate, clientId, clientName, days, freightMode, freightCategory, createdBy, directRoute, transitRoute, multimodalSegments, routePlanData, freightCharges, handlingCharges, termsConditions, customTerms)
+            VALUES 
+            (@quoteId, @customerId, @customerName, @pickupLocationId, @deliveryLocationId, @creditTermsId, @createdDate, @clientId, @clientName, @days, @freightMode, @freightCategory, @createdBy, @directRoute, @transitRoute, @multimodalSegments, @routePlanData, @freightCharges, @handlingCharges, @termsConditions, @customTerms)";
 
-            using (var connection = new SqlConnection(_connectionString))
+            using (myCon)
             {
-                await connection.OpenAsync();
-                using (var command = new SqlCommand(query, connection))
+                myCon.Open();
+                using (myCom = new SqlCommand(query, myCon))
                 {
-                    command.Parameters.AddWithValue("@id", id);
-                    using (var reader = await command.ExecuteReaderAsync())
-                    {
-                        if (await reader.ReadAsync())
-                        {
-                            quote = MapReaderToQuote(reader);
-                        }
-                    }
+                    myCom.Parameters.AddWithValue("@quoteId", quote.quoteId ?? (object)DBNull.Value);
+                    myCom.Parameters.AddWithValue("@customerId", quote.customerId ?? (object)DBNull.Value);
+                    myCom.Parameters.AddWithValue("@customerName", quote.customerName ?? (object)DBNull.Value);
+                    myCom.Parameters.AddWithValue("@pickupLocationId", quote.pickupLocationId ?? (object)DBNull.Value);
+                    myCom.Parameters.AddWithValue("@deliveryLocationId", quote.deliveryLocationId ?? (object)DBNull.Value);
+                    myCom.Parameters.AddWithValue("@creditTermsId", quote.creditTermsId ?? (object)DBNull.Value);
+                    myCom.Parameters.AddWithValue("@createdDate", quote.createdDate ?? (object)DBNull.Value);
+                    myCom.Parameters.AddWithValue("@clientId", quote.clientId ?? (object)DBNull.Value);
+                    myCom.Parameters.AddWithValue("@clientName", quote.clientName ?? (object)DBNull.Value);
+                    myCom.Parameters.AddWithValue("@days", quote.days ?? (object)DBNull.Value);
+                    myCom.Parameters.AddWithValue("@freightMode", quote.freightMode ?? (object)DBNull.Value);
+                    myCom.Parameters.AddWithValue("@freightCategory", quote.freightCategory ?? (object)DBNull.Value);
+                    myCom.Parameters.AddWithValue("@createdBy", quote.createdBy ?? (object)DBNull.Value);
+                    myCom.Parameters.AddWithValue("@directRoute", quote.directRoute ?? (object)DBNull.Value);
+                    myCom.Parameters.AddWithValue("@transitRoute", quote.transitRoute ?? (object)DBNull.Value);
+                    myCom.Parameters.AddWithValue("@multimodalSegments", quote.multimodalSegments ?? (object)DBNull.Value);
+                    myCom.Parameters.AddWithValue("@routePlanData", quote.routePlanData ?? (object)DBNull.Value);
+                    myCom.Parameters.AddWithValue("@freightCharges", quote.freightCharges ?? (object)DBNull.Value);
+                    myCom.Parameters.AddWithValue("@handlingCharges", quote.handlingCharges ?? (object)DBNull.Value);
+                    myCom.Parameters.AddWithValue("@termsConditions", quote.termsConditions ?? (object)DBNull.Value);
+                    myCom.Parameters.AddWithValue("@customTerms", quote.customTerms ?? (object)DBNull.Value);
+
+                    myCom.ExecuteNonQuery();
                 }
+                myCon.Close();
             }
 
-            if (quote == null) return NotFound("Quote not found.");
-
-            return Ok(quote);
+            return Ok("Quote added successfully.");
         }
 
-        // POST: api/quote
-        [HttpPost]
-        public async Task<ActionResult> CreateQuote([FromBody] Quote quote)
+        [HttpPut, Route("quote")]
+        public IActionResult UpdateQuote([FromBody] Quote quote)
         {
-            if (!ModelState.IsValid) return BadRequest(ModelState);
+            if (string.IsNullOrEmpty(quote.sysID))
+                return BadRequest("Quote ID is required for update.");
 
-            string insertQuery = @"
-                INSERT INTO Quotes (
-                    QuoteId, CustomerId, CustomerName, ClientId, ClientName,
-                    PickupLocationId, DeliveryLocationId, CreditTermsId,
-                    CreatedDate, DaysValid, FreightMode, FreightCategory, CreatedBy,
-                    DirectRouteJson, TransitRouteJson, MultimodalSegmentsJson,
-                    RoutePlanJson, FreightChargesJson, AdditionalChargesJson, CustomTermsJson,
-                    CreatedAt
-                ) VALUES (
-                    @QuoteId, @CustomerId, @CustomerName, @ClientId, @ClientName,
-                    @PickupLocationId, @DeliveryLocationId, @CreditTermsId,
-                    @CreatedDate, @DaysValid, @FreightMode, @FreightCategory, @CreatedBy,
-                    @DirectRouteJson, @TransitRouteJson, @MultimodalSegmentsJson,
-                    @RoutePlanJson, @FreightChargesJson, @AdditionalChargesJson, @CustomTermsJson,
-                    GETDATE()
-                )";
+            string query = @"
+            UPDATE [dbo].[quotes_save] SET
+                quoteId = @quoteId,
+                customerId = @customerId,
+                customerName = @customerName,
+                pickupLocationId = @pickupLocationId,
+                deliveryLocationId = @deliveryLocationId,
+                creditTermsId = @creditTermsId,
+                createdDate = @createdDate,
+                clientId = @clientId,
+                clientName = @clientName,
+                days = @days,
+                freightMode = @freightMode,
+                freightCategory = @freightCategory,
+                createdBy = @createdBy,
+                directRoute = @directRoute,
+                transitRoute = @transitRoute,
+                multimodalSegments = @multimodalSegments,
+                routePlanData = @routePlanData,
+                freightCharges = @freightCharges,
+                handlingCharges = @handlingCharges,
+                termsConditions = @termsConditions,
+                customTerms = @customTerms
+            WHERE SysID = @id";
 
-            using (var connection = new SqlConnection(_connectionString))
+            using (myCon)
             {
-                await connection.OpenAsync();
-                using (var command = new SqlCommand(insertQuery, connection))
+                myCon.Open();
+                using (myCom = new SqlCommand(query, myCon))
                 {
-                    command.Parameters.AddWithValue("@QuoteId", quote.QuoteId);
-                    command.Parameters.AddWithValue("@CustomerId", (object?)quote.CustomerId ?? DBNull.Value);
-                    command.Parameters.AddWithValue("@CustomerName", quote.CustomerName ?? (object)DBNull.Value);
-                    command.Parameters.AddWithValue("@ClientId", (object?)quote.ClientId ?? DBNull.Value);
-                    command.Parameters.AddWithValue("@ClientName", quote.ClientName ?? (object)DBNull.Value);
-                    command.Parameters.AddWithValue("@PickupLocationId", (object?)quote.PickupLocationId ?? DBNull.Value);
-                    command.Parameters.AddWithValue("@DeliveryLocationId", (object?)quote.DeliveryLocationId ?? DBNull.Value);
-                    command.Parameters.AddWithValue("@CreditTermsId", (object?)quote.CreditTermsId ?? DBNull.Value);
-                    command.Parameters.AddWithValue("@CreatedDate", quote.CreatedDate);
-                    command.Parameters.AddWithValue("@DaysValid", (object?)quote.DaysValid ?? DBNull.Value);
-                    command.Parameters.AddWithValue("@FreightMode", quote.FreightMode);
-                    command.Parameters.AddWithValue("@FreightCategory", quote.FreightCategory);
-                    command.Parameters.AddWithValue("@CreatedBy", quote.CreatedBy ?? "System");
+                    myCom.Parameters.AddWithValue("@id", quote.sysID);
+                    myCom.Parameters.AddWithValue("@quoteId", quote.quoteId ?? (object)DBNull.Value);
+                    myCom.Parameters.AddWithValue("@customerId", quote.customerId ?? (object)DBNull.Value);
+                    myCom.Parameters.AddWithValue("@customerName", quote.customerName ?? (object)DBNull.Value);
+                    myCom.Parameters.AddWithValue("@pickupLocationId", quote.pickupLocationId ?? (object)DBNull.Value);
+                    myCom.Parameters.AddWithValue("@deliveryLocationId", quote.deliveryLocationId ?? (object)DBNull.Value);
+                    myCom.Parameters.AddWithValue("@creditTermsId", quote.creditTermsId ?? (object)DBNull.Value);
+                    myCom.Parameters.AddWithValue("@createdDate", quote.createdDate ?? (object)DBNull.Value);
+                    myCom.Parameters.AddWithValue("@clientId", quote.clientId ?? (object)DBNull.Value);
+                    myCom.Parameters.AddWithValue("@clientName", quote.clientName ?? (object)DBNull.Value);
+                    myCom.Parameters.AddWithValue("@days", quote.days ?? (object)DBNull.Value);
+                    myCom.Parameters.AddWithValue("@freightMode", quote.freightMode ?? (object)DBNull.Value);
+                    myCom.Parameters.AddWithValue("@freightCategory", quote.freightCategory ?? (object)DBNull.Value);
+                    myCom.Parameters.AddWithValue("@createdBy", quote.createdBy ?? (object)DBNull.Value);
+                    myCom.Parameters.AddWithValue("@directRoute", quote.directRoute ?? (object)DBNull.Value);
+                    myCom.Parameters.AddWithValue("@transitRoute", quote.transitRoute ?? (object)DBNull.Value);
+                    myCom.Parameters.AddWithValue("@multimodalSegments", quote.multimodalSegments ?? (object)DBNull.Value);
+                    myCom.Parameters.AddWithValue("@routePlanData", quote.routePlanData ?? (object)DBNull.Value);
+                    myCom.Parameters.AddWithValue("@freightCharges", quote.freightCharges ?? (object)DBNull.Value);
+                    myCom.Parameters.AddWithValue("@handlingCharges", quote.handlingCharges ?? (object)DBNull.Value);
+                    myCom.Parameters.AddWithValue("@termsConditions", quote.termsConditions ?? (object)DBNull.Value);
+                    myCom.Parameters.AddWithValue("@customTerms", quote.customTerms ?? (object)DBNull.Value);
 
-                    // Serialize complex objects to JSON
-                    command.Parameters.AddWithValue("@DirectRouteJson", quote.DirectRouteJson ?? (object)DBNull.Value);
-                    command.Parameters.AddWithValue("@TransitRouteJson", quote.TransitRouteJson ?? (object)DBNull.Value);
-                    command.Parameters.AddWithValue("@MultimodalSegmentsJson", quote.MultimodalSegmentsJson ?? (object)DBNull.Value);
-                    command.Parameters.AddWithValue("@RoutePlanJson", quote.RoutePlanJson ?? (object)DBNull.Value);
-                    command.Parameters.AddWithValue("@FreightChargesJson", quote.FreightChargesJson ?? (object)DBNull.Value);
-                    command.Parameters.AddWithValue("@AdditionalChargesJson", quote.AdditionalChargesJson ?? (object)DBNull.Value);
-                    command.Parameters.AddWithValue("@CustomTermsJson", quote.CustomTermsJson ?? (object)DBNull.Value);
+                    int rowsAffected = myCom.ExecuteNonQuery();
 
-                    await command.ExecuteNonQueryAsync();
+                    if (rowsAffected == 0)
+                        return NotFound("Quote not found.");
                 }
-            }
-
-            return Ok(new { message = "Quote created successfully", quoteId = quote.QuoteId });
-        }
-
-        // PUT: api/quote/{id}
-        [HttpPut("{id}")]
-        public async Task<ActionResult> UpdateQuote(int id, [FromBody] Quote quote)
-        {
-            if (id != quote.Id) return BadRequest("ID mismatch.");
-
-            string updateQuery = @"
-                UPDATE Quotes SET
-                    CustomerName = @CustomerName,
-                    ClientName = @ClientName,
-                    FreightMode = @FreightMode,
-                    FreightCategory = @FreightCategory,
-                    DirectRouteJson = @DirectRouteJson,
-                    TransitRouteJson = @TransitRouteJson,
-                    MultimodalSegmentsJson = @MultimodalSegmentsJson,
-                    RoutePlanJson = @RoutePlanJson,
-                    FreightChargesJson = @FreightChargesJson,
-                    AdditionalChargesJson = @AdditionalChargesJson,
-                    CustomTermsJson = @CustomTermsJson,
-                    UpdatedAt = GETDATE()
-                WHERE Id = @Id";
-
-            using (var connection = new SqlConnection(_connectionString))
-            {
-                await connection.OpenAsync();
-                using (var command = new SqlCommand(updateQuery, connection))
-                {
-                    command.Parameters.AddWithValue("@Id", id);
-                    command.Parameters.AddWithValue("@CustomerName", quote.CustomerName ?? (object)DBNull.Value);
-                    command.Parameters.AddWithValue("@ClientName", quote.ClientName ?? (object)DBNull.Value);
-                    command.Parameters.AddWithValue("@FreightMode", quote.FreightMode);
-                    command.Parameters.AddWithValue("@FreightCategory", quote.FreightCategory);
-                    command.Parameters.AddWithValue("@DirectRouteJson", quote.DirectRouteJson ?? (object)DBNull.Value);
-                    command.Parameters.AddWithValue("@TransitRouteJson", quote.TransitRouteJson ?? (object)DBNull.Value);
-                    command.Parameters.AddWithValue("@MultimodalSegmentsJson", quote.MultimodalSegmentsJson ?? (object)DBNull.Value);
-                    command.Parameters.AddWithValue("@RoutePlanJson", quote.RoutePlanJson ?? (object)DBNull.Value);
-                    command.Parameters.AddWithValue("@FreightChargesJson", quote.FreightChargesJson ?? (object)DBNull.Value);
-                    command.Parameters.AddWithValue("@AdditionalChargesJson", quote.AdditionalChargesJson ?? (object)DBNull.Value);
-                    command.Parameters.AddWithValue("@CustomTermsJson", quote.CustomTermsJson ?? (object)DBNull.Value);
-
-                    int rows = await command.ExecuteNonQueryAsync();
-                    if (rows == 0) return NotFound("Quote not found.");
-                }
+                myCon.Close();
             }
 
             return Ok("Quote updated successfully.");
         }
 
-        private Quote MapReaderToQuote(SqlDataReader reader)
+        [HttpDelete, Route("quote/{id}")]
+        public IActionResult DeleteQuote(string id)
         {
-            return new Quote
+            string query = @"DELETE FROM [dbo].[quotes_save] WHERE SysID = @id";
+
+            using (myCon)
             {
-                Id = reader.GetInt32("Id"),
-                QuoteId = reader.GetString("QuoteId"),
-                CustomerId = reader.IsDBNull("CustomerId") ? null : reader.GetInt32("CustomerId"),
-                CustomerName = reader.IsDBNull("CustomerName") ? "" : reader.GetString("CustomerName"),
-                ClientId = reader.IsDBNull("ClientId") ? null : reader.GetInt32("ClientId"),
-                ClientName = reader.IsDBNull("ClientName") ? "" : reader.GetString("ClientName"),
-                PickupLocationId = reader.IsDBNull("PickupLocationId") ? null : reader.GetInt32("PickupLocationId"),
-                DeliveryLocationId = reader.IsDBNull("DeliveryLocationId") ? null : reader.GetInt32("DeliveryLocationId"),
-                CreditTermsId = reader.IsDBNull("CreditTermsId") ? null : reader.GetInt32("CreditTermsId"),
-                CreatedDate = reader.GetDateTime("CreatedDate"),
-                DaysValid = reader.IsDBNull("DaysValid") ? null : reader.GetInt32("DaysValid"),
-                FreightMode = reader.GetString("FreightMode"),
-                FreightCategory = reader.GetString("FreightCategory"),
-                CreatedBy = reader.IsDBNull("CreatedBy") ? "Unknown" : reader.GetString("CreatedBy"),
-                DirectRouteJson = reader.IsDBNull("DirectRouteJson") ? null : reader.GetString("DirectRouteJson"),
-                TransitRouteJson = reader.IsDBNull("TransitRouteJson") ? null : reader.GetString("TransitRouteJson"),
-                MultimodalSegmentsJson = reader.IsDBNull("MultimodalSegmentsJson") ? null : reader.GetString("MultimodalSegmentsJson"),
-                RoutePlanJson = reader.IsDBNull("RoutePlanJson") ? null : reader.GetString("RoutePlanJson"),
-                FreightChargesJson = reader.IsDBNull("FreightChargesJson") ? null : reader.GetString("FreightChargesJson"),
-                AdditionalChargesJson = reader.IsDBNull("AdditionalChargesJson") ? null : reader.GetString("AdditionalChargesJson"),
-                CustomTermsJson = reader.IsDBNull("CustomTermsJson") ? null : reader.GetString("CustomTermsJson"),
-                CreatedAt = reader.GetDateTime("CreatedAt"),
-                UpdatedAt = reader.IsDBNull("UpdatedAt") ? null : reader.GetDateTime("UpdatedAt")
-            };
+                myCon.Open();
+                using (myCom = new SqlCommand(query, myCon))
+                {
+                    myCom.Parameters.AddWithValue("@id", id);
+
+                    int rowsAffected = myCom.ExecuteNonQuery();
+
+                    if (rowsAffected == 0)
+                        return NotFound("Quote not found.");
+                }
+                myCon.Close();
+            }
+
+            return Ok("Quote deleted successfully.");
         }
     }
 }
