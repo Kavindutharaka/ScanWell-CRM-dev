@@ -1,6 +1,8 @@
 import { X, UserCheck, Mail, Phone, MapPin, Briefcase, Building, User, FileText } from "lucide-react";
 import { useState, useEffect } from "react";
 import { createEmployee, updateEmployee } from "../../api/PMApi";
+import { fetchDepartment } from "../../api/DepartmentApi";
+import { fetchPosition } from "../../api/PositionApi";
 
 
 export default function EmployeeForm({ onClose, editEmployee = null, onSuccess }) {
@@ -20,6 +22,8 @@ export default function EmployeeForm({ onClose, editEmployee = null, onSuccess }
 
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [departments, setDepartments] = useState([]);
+  const [positions, setPositions] = useState([]);
 
   // Populate form when editing
   useEffect(() => {
@@ -40,6 +44,23 @@ export default function EmployeeForm({ onClose, editEmployee = null, onSuccess }
       });
     }
   }, [editEmployee]);
+
+  // Fetch departments and positions from backend
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [departmentsData, positionsData] = await Promise.all([
+          fetchDepartment(),
+          fetchPosition()
+        ]);
+        setDepartments(departmentsData || []);
+        setPositions(positionsData || []);
+      } catch (error) {
+        console.error('Error fetching departments and positions:', error);
+      }
+    };
+    fetchData();
+  }, []);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -123,73 +144,6 @@ export default function EmployeeForm({ onClose, editEmployee = null, onSuccess }
       setIsSubmitting(false);
     }
   };
-
-  const departmentOptions = [
-    { value: 'Operations', label: 'Operations' },
-    { value: 'Warehouse', label: 'Warehouse' },
-    { value: 'Transport', label: 'Transport' },
-    { value: 'Dispatch', label: 'Dispatch' },
-    { value: 'Customer Service', label: 'Customer Service' },
-    { value: 'Supply Chain', label: 'Supply Chain' },
-    { value: 'Inventory', label: 'Inventory Management' },
-    { value: 'Logistics', label: 'Logistics' },
-    { value: 'Quality Control', label: 'Quality Control' },
-    { value: 'Procurement', label: 'Procurement' },
-    { value: 'Fleet Management', label: 'Fleet Management' },
-    { value: 'HR', label: 'Human Resources' },
-    { value: 'Finance', label: 'Finance' },
-    { value: 'IT', label: 'Information Technology' },
-    { value: 'Safety', label: 'Safety & Compliance' },
-    { value: 'Customs', label: 'Customs' }
-  ];
-
-  const positionOptions = [
-    // Operations
-    { value: 'Operations Manager', label: 'Operations Manager' },
-    { value: 'Operations Supervisor', label: 'Operations Supervisor' },
-    { value: 'Logistics Coordinator', label: 'Logistics Coordinator' },
-    { value: 'Supply Chain Analyst', label: 'Supply Chain Analyst' },
-    
-    // Warehouse
-    { value: 'Warehouse Manager', label: 'Warehouse Manager' },
-    { value: 'Warehouse Supervisor', label: 'Warehouse Supervisor' },
-    { value: 'Forklift Operator', label: 'Forklift Operator' },
-    { value: 'Warehouse Associate', label: 'Warehouse Associate' },
-    { value: 'Inventory Specialist', label: 'Inventory Specialist' },
-    { value: 'Picker/Packer', label: 'Picker/Packer' },
-    
-    // Transportation
-    { value: 'Fleet Manager', label: 'Fleet Manager' },
-    { value: 'Truck Driver', label: 'Truck Driver' },
-    { value: 'Delivery Driver', label: 'Delivery Driver' },
-    { value: 'Route Planner', label: 'Route Planner' },
-    { value: 'Transportation Coordinator', label: 'Transportation Coordinator' },
-    
-    // Dispatch
-    { value: 'Dispatch Manager', label: 'Dispatch Manager' },
-    { value: 'Dispatcher', label: 'Dispatcher' },
-    { value: 'Load Planner', label: 'Load Planner' },
-    
-    // Customer Service
-    { value: 'Customer Service Manager', label: 'Customer Service Manager' },
-    { value: 'Customer Service Representative', label: 'Customer Service Representative' },
-    { value: 'Account Manager', label: 'Account Manager' },
-    
-    // Quality & Safety
-    { value: 'Quality Control Inspector', label: 'Quality Control Inspector' },
-    { value: 'Safety Manager', label: 'Safety Manager' },
-    { value: 'Compliance Officer', label: 'Compliance Officer' },
-    { value: 'Customs Officer', label: 'Customs Officer' },
-    
-    // Administrative
-    { value: 'Procurement Specialist', label: 'Procurement Specialist' },
-    { value: 'Data Analyst', label: 'Data Analyst' },
-    { value: 'Systems Administrator', label: 'Systems Administrator' },
-    { value: 'HR Specialist', label: 'HR Specialist' },
-    { value: 'HR Assistant', label: 'HR Assistant' },
-    { value: 'Accountant', label: 'Accountant' },
-    { value: 'Senior Software Engineer', label: 'Senior Software Engineer' }
-  ];
 
   const statusOptions = [
     { value: 'Active', label: 'Active' },
@@ -369,9 +323,9 @@ export default function EmployeeForm({ onClose, editEmployee = null, onSuccess }
                   }`}
                 >
                   <option value="">Select position</option>
-                  {positionOptions.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
+                  {positions.map((option) => (
+                    <option key={option.sysID} value={option.p_name}>
+                      {option.p_name}
                     </option>
                   ))}
                 </select>
@@ -398,9 +352,9 @@ export default function EmployeeForm({ onClose, editEmployee = null, onSuccess }
                   }`}
                 >
                   <option value="">Select department</option>
-                  {departmentOptions.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
+                  {departments.map((option) => (
+                    <option key={option.sysID} value={option.d_name}>
+                      {option.d_name}
                     </option>
                   ))}
                 </select>

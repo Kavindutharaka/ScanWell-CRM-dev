@@ -1,8 +1,9 @@
-// QuotesInvoiceSec.jsx
+// QuotesInvoiceSec.jsx - MINIMAL CHANGES - Only outcome fixes
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Search, Filter, Eye, Edit2, Trash2, Plane, Ship, Package, Container, Truck, Route as RouteIcon, Layers, MapPin, Calendar, User, DollarSign, ArrowRight } from 'lucide-react';
+import { Plus, Search, Filter, Eye, Edit2, Trash2, Plane, Ship, Package, Container, Truck, Route as RouteIcon, Layers, MapPin, Calendar, User, DollarSign, ArrowRight, Award, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
 import { fetchQuotes, deleteQuote } from '../../api/QuoteApi';
+import { fetchOutComeById, saveQuoteOutCome } from '../../api/QuotesOutComeApi';
 
 export default function QuotesInvoiceSec({ modalOpen }) {
   const navigate = useNavigate();
@@ -13,6 +14,164 @@ export default function QuotesInvoiceSec({ modalOpen }) {
   const [filterCategory, setFilterCategory] = useState('all');
   const [deleteModal, setDeleteModal] = useState({ show: false, quoteId: null, quoteNumber: '' });
 
+  const [winModalShow, setWinModalShow] = useState(false);
+  const [lostModalShow, setLostModalShow] = useState(false);
+  
+  // NEW: Outcome states
+  const [currentQuote, setCurrentQuote] = useState(null);
+  const [quoteOutcomes, setQuoteOutcomes] = useState({});
+  const [winForm, setWinForm] = useState({ wonAmount: '' });
+  const [lostForm, setLostForm] = useState({ lostReason: '', lostNote: '' });
+
+  const lostReasons = [
+    'High Prices',
+    'Late Submissions',
+    'Poor Transit Times',
+    'Destination free time',
+    'Flight cancelation',
+    'Others'
+  ];
+
+  // NEW: Load outcome for a quote
+  const loadQuoteOutcome = async (quoteId) => {
+    try {
+      const outcome = await fetchOutComeById(quoteId);
+      setQuoteOutcomes(prev => ({ ...prev, [quoteId]: outcome }));
+    } catch (error) {
+      setQuoteOutcomes(prev => ({ ...prev, [quoteId]: null }));
+    }
+  };
+
+  // FIXED: getOutcomeBadge function
+  const getOutcomeBadge = (quoteId) => {
+    const outcome = quoteOutcomes[quoteId];
+
+    // No outcome yet - show Win/Lost buttons
+    if (!outcome) {
+      return (
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => {
+              const quote = quotes.find(q => q.quoteId === quoteId);
+              setCurrentQuote(quote);
+              setWinForm({ wonAmount: '' });
+              setWinModalShow(true);
+            }}
+            className="flex items-center gap-1 px-3 py-1 bg-green-50 text-green-700 rounded-lg text-xs font-medium hover:bg-green-100 transition-colors"
+          >
+            <CheckCircle size={14} />
+            Win
+          </button>
+          <button
+            onClick={() => {
+              const quote = quotes.find(q => q.quoteId === quoteId);
+              setCurrentQuote(quote);
+              setLostForm({ lostReason: '', lostNote: '' });
+              setLostModalShow(true);
+            }}
+            className="flex items-center gap-1 px-3 py-1 bg-red-50 text-red-700 rounded-lg text-xs font-medium hover:bg-red-100 transition-colors"
+          >
+            <XCircle size={14} />
+            Lost
+          </button>
+        </div>
+      );
+    }
+
+    if (outcome.outcomeStatus === 'won') {
+      return (
+        <div className="flex flex-col gap-1">
+          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+            <Award size={14} />
+            Won
+          </span>
+          {outcome.wonAmount > 0 && (
+            <span className="text-xs text-gray-600 font-semibold">
+              LKR {parseFloat(outcome.wonAmount).toLocaleString()}
+            </span>
+          )}
+        </div>
+      );
+    }
+
+    if (outcome.outcomeStatus === 'lost') {
+      return (
+        <div className="flex flex-col gap-1">
+          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+            <AlertCircle size={14} />
+            Lost
+          </span>
+          {outcome.lostReason && (
+            <span className="text-xs text-gray-600">
+              {outcome.lostReason}
+            </span>
+          )}
+        </div>
+      );
+    }
+
+    return null;
+  };
+
+  // NEW: Save win handler
+  const handleSaveWin = async () => {
+    if (!winForm.wonAmount || parseFloat(winForm.wonAmount) <= 0) {
+      alert('Please enter a valid won amount');
+      return;
+    }
+
+    try {
+      const payload = {
+        quoteId: currentQuote.quoteId,
+        outcomeStatus: 'won',
+        wonAmount: parseFloat(winForm.wonAmount),
+        lostReason: null,
+        lostNote: null
+      };
+
+      await saveQuoteOutCome(payload);
+      await loadQuoteOutcome(currentQuote.quoteId);
+      setWinModalShow(false);
+      setCurrentQuote(null);
+      alert('Quote marked as won successfully!');
+    } catch (error) {
+      console.error('Error saving win outcome:', error);
+      alert('Failed to save win outcome');
+    }
+  };
+
+  // NEW: Save lost handler
+  const handleSaveLost = async () => {
+    if (!lostForm.lostReason) {
+      alert('Please select a reason');
+      return;
+    }
+
+    if (lostForm.lostReason === 'Others' && !lostForm.lostNote) {
+      alert('Please provide a note');
+      return;
+    }
+
+    try {
+      const payload = {
+        quoteId: currentQuote.quoteId,
+        outcomeStatus: 'lost',
+        wonAmount: 0,
+        lostReason: lostForm.lostReason,
+        lostNote: lostForm.lostReason === 'Others' ? lostForm.lostNote : null
+      };
+
+      await saveQuoteOutCome(payload);
+      await loadQuoteOutcome(currentQuote.quoteId);
+      setLostModalShow(false);
+      setCurrentQuote(null);
+      alert('Quote marked as lost successfully!');
+    } catch (error) {
+      console.error('Error saving lost outcome:', error);
+      alert('Failed to save lost outcome');
+    }
+  };
+
   useEffect(() => {
     loadQuotes();
   }, []);
@@ -22,6 +181,11 @@ export default function QuotesInvoiceSec({ modalOpen }) {
       setLoading(true);
       const data = await fetchQuotes();
       setQuotes(data);
+      
+      // Load outcomes for all quotes
+      data.forEach(quote => {
+        loadQuoteOutcome(quote.quoteId);
+      });
     } catch (error) {
       console.error('Error loading quotes:', error);
     } finally {
@@ -110,58 +274,58 @@ export default function QuotesInvoiceSec({ modalOpen }) {
   };
 
   // Updated to handle multimodal structure
- // QuotesInvoiceSec.jsx - Update getMultiModalRouteDisplay function
-const getMultiModalRouteDisplay = (quote) => {
-  try {
-    if (quote.freightType !== 'multimodal' || !quote.routes) {
-      return null;
-    }
+  // QuotesInvoiceSec.jsx - Update getMultiModalRouteDisplay function
+  const getMultiModalRouteDisplay = (quote) => {
+    try {
+      if (quote.freightType !== 'multimodal' || !quote.routes) {
+        return null;
+      }
 
-    const routeOptions = JSON.parse(quote.routes);
-    if (!routeOptions || !routeOptions[0] || !routeOptions[0].routes) {
-      return null;
-    }
+      const routeOptions = JSON.parse(quote.routes);
+      if (!routeOptions || !routeOptions[0] || !routeOptions[0].routes) {
+        return null;
+      }
 
-    const segments = routeOptions[0].routes;
-    
-    const getModeIcon = (mode) => {
-      if (mode === 'air') return '✈️';
-      if (mode === 'sea') return '🚢';
-      if (mode === 'trucking') return '🚛';
-      return '📦';
-    };
-    
-    return (
-      <div className="flex items-center gap-1 flex-wrap">
-        {segments.map((segment, idx) => (
-          <div key={idx} className="flex items-center gap-1">
-            {idx > 0 && <ArrowRight size={12} className="text-gray-400" />}
-            <span className="text-xs px-2 py-0.5 bg-gray-100 rounded flex items-center gap-1">
-              {getModeIcon(segment.mode)}
-              <span className="font-medium">{segment.origin || 'N/A'}</span>
-            </span>
-          </div>
-        ))}
-        <ArrowRight size={12} className="text-gray-400" />
-        <span className="text-xs px-2 py-0.5 bg-gray-100 rounded font-medium">
-          {segments[segments.length - 1]?.destination || 'N/A'}
-        </span>
-      </div>
-    );
-  } catch (error) {
-    console.error('Error parsing multimodal route:', error);
-    return <span className="text-xs text-gray-500">Multi-segment route</span>;
-  }
-};
+      const segments = routeOptions[0].routes;
+
+      const getModeIcon = (mode) => {
+        if (mode === 'air') return '✈️';
+        if (mode === 'sea') return '🚢';
+        if (mode === 'trucking') return '🚛';
+        return '📦';
+      };
+
+      return (
+        <div className="flex items-center gap-1 flex-wrap">
+          {segments.map((segment, idx) => (
+            <div key={idx} className="flex items-center gap-1">
+              {idx > 0 && <ArrowRight size={12} className="text-gray-400" />}
+              <span className="text-xs px-2 py-0.5 bg-gray-100 rounded flex items-center gap-1">
+                {getModeIcon(segment.mode)}
+                <span className="font-medium">{segment.origin || 'N/A'}</span>
+              </span>
+            </div>
+          ))}
+          <ArrowRight size={12} className="text-gray-400" />
+          <span className="text-xs px-2 py-0.5 bg-gray-100 rounded font-medium">
+            {segments[segments.length - 1]?.destination || 'N/A'}
+          </span>
+        </div>
+      );
+    } catch (error) {
+      console.error('Error parsing multimodal route:', error);
+      return <span className="text-xs text-gray-500">Multi-segment route</span>;
+    }
+  };
 
   // Updated to calculate total across all segments for multimodal
   const calculateTotalAmount = (quote) => {
     try {
       let total = 0;
-      
+
       if (quote.freightType === 'multimodal' && quote.routes) {
         const routeOptions = JSON.parse(quote.routes);
-        
+
         routeOptions.forEach(option => {
           if (option.routes && Array.isArray(option.routes)) {
             option.routes.forEach(segment => {
@@ -173,14 +337,14 @@ const getMultiModalRouteDisplay = (quote) => {
                   total += weight * charge;
                 });
               }
-              
+
               // Origin handling
               if (segment.originHandling && Array.isArray(segment.originHandling)) {
                 segment.originHandling.forEach(charge => {
                   total += parseFloat(charge.total) || 0;
                 });
               }
-              
+
               // Destination handling
               if (segment.destinationHandling && Array.isArray(segment.destinationHandling)) {
                 segment.destinationHandling.forEach(charge => {
@@ -190,10 +354,10 @@ const getMultiModalRouteDisplay = (quote) => {
             });
           }
         });
-        
+
         return total.toFixed(2);
       }
-      
+
       // For direct and transit quotes
       if (quote.freightCharges) {
         const charges = JSON.parse(quote.freightCharges);
@@ -201,28 +365,28 @@ const getMultiModalRouteDisplay = (quote) => {
           total += charges.reduce((sum, charge) => sum + (parseFloat(charge.total) || 0), 0);
         }
       }
-      
+
       if (quote.destinationCharges) {
         const charges = JSON.parse(quote.destinationCharges);
         if (Array.isArray(charges)) {
           total += charges.reduce((sum, charge) => sum + (parseFloat(charge.total) || 0), 0);
         }
       }
-      
+
       if (quote.originHandling) {
         const charges = JSON.parse(quote.originHandling);
         if (Array.isArray(charges)) {
           total += charges.reduce((sum, charge) => sum + (parseFloat(charge.total) || 0), 0);
         }
       }
-      
+
       if (quote.destinationHandling) {
         const charges = JSON.parse(quote.destinationHandling);
         if (Array.isArray(charges)) {
           total += charges.reduce((sum, charge) => sum + (parseFloat(charge.total) || 0), 0);
         }
       }
-      
+
       return total.toFixed(2);
     } catch (error) {
       console.error('Error calculating total:', error);
@@ -232,7 +396,7 @@ const getMultiModalRouteDisplay = (quote) => {
 
   const filteredQuotes = quotes.filter(quote => {
     const matchesSearch = quote.quoteNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         quote.customer?.toLowerCase().includes(searchTerm.toLowerCase());
+      quote.customer?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesTypeFilter = filterType === 'all' || quote.freightType === filterType;
     const matchesCategoryFilter = filterCategory === 'all' || quote.freightCategory === filterCategory;
     return matchesSearch && matchesTypeFilter && matchesCategoryFilter;
@@ -401,6 +565,9 @@ const getMultiModalRouteDisplay = (quote) => {
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
                       Status
                     </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Outcome
+                    </th>
                     <th className="px-6 py-3 text-right text-xs font-medium text-gray-600 uppercase tracking-wider">
                       Actions
                     </th>
@@ -468,18 +635,18 @@ const getMultiModalRouteDisplay = (quote) => {
                             <div className="flex items-center gap-2 text-sm">
                               <Calendar size={14} className="text-gray-400" />
                               <span className="text-gray-700">
-                                {new Date(quote.createdDate).toLocaleDateString('en-US', { 
-                                  month: 'short', 
-                                  day: 'numeric', 
-                                  year: 'numeric' 
+                                {new Date(quote.createdDate).toLocaleDateString('en-US', {
+                                  month: 'short',
+                                  day: 'numeric',
+                                  year: 'numeric'
                                 })}
                               </span>
                             </div>
                             {quote.rateValidity && (
                               <div className="text-xs text-gray-500">
-                                Valid till: {new Date(quote.rateValidity).toLocaleDateString('en-US', { 
-                                  month: 'short', 
-                                  day: 'numeric' 
+                                Valid till: {new Date(quote.rateValidity).toLocaleDateString('en-US', {
+                                  month: 'short',
+                                  day: 'numeric'
                                 })}
                               </div>
                             )}
@@ -495,6 +662,9 @@ const getMultiModalRouteDisplay = (quote) => {
                         </td>
                         <td className="px-6 py-4">
                           {getStatusBadge(quote.status)}
+                        </td>
+                        <td className="px-6 py-4">
+                          {getOutcomeBadge(quote.quoteId)}
                         </td>
                         <td className="px-6 py-4">
                           <div className="flex items-center justify-end gap-2">
@@ -541,8 +711,8 @@ const getMultiModalRouteDisplay = (quote) => {
                 <div key={quote.quoteId} className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex items-center gap-3">
-                      <div className={`w-12 h-12 rounded-lg ${freightIcon.bg} ${freightIcon.color} flex items-center justify-center`}>
-                        <FreightIconComponent size={24} />
+                      <div className={`w-10 h-10 rounded-lg ${freightIcon.bg} ${freightIcon.color} flex items-center justify-center`}>
+                        <FreightIconComponent size={20} />
                       </div>
                       <div>
                         <div className="font-semibold text-gray-900">{quote.quoteNumber}</div>
@@ -550,7 +720,7 @@ const getMultiModalRouteDisplay = (quote) => {
                           <span className={`text-xs px-2 py-0.5 rounded-full ${freightIcon.badge} capitalize`}>
                             {quote.freightCategory}
                           </span>
-                          <span className={`text-xs px-2 py-0.5 rounded-full ${typeIcon.badge} capitalize`}>
+                          <span className={`text-xs px-2 py-0.5 rounded-full ${typeIcon.badge}`}>
                             {quote.freightType}
                           </span>
                         </div>
@@ -560,36 +730,30 @@ const getMultiModalRouteDisplay = (quote) => {
                   </div>
 
                   <div className="space-y-2 mb-3">
-                    {quote.customer && (
-                      <div className="flex items-center gap-2 text-sm">
-                        <User size={16} className="text-gray-400" />
-                        <span className="text-gray-700">{quote.customer}</span>
-                      </div>
-                    )}
-                    
+                    <div className="flex items-center gap-2 text-sm">
+                      <User size={14} className="text-gray-400" />
+                      <span className="text-gray-700">{quote.customer || '-'}</span>
+                    </div>
                     {quote.freightType === 'multimodal' ? (
-                      <div className="text-sm">
-                        {getMultiModalRouteDisplay(quote)}
-                      </div>
+                      getMultiModalRouteDisplay(quote)
                     ) : (
-                      <div className="space-y-1">
+                      <>
                         <div className="flex items-center gap-2 text-sm">
-                          <MapPin size={16} className="text-green-500" />
-                          <span className="text-gray-700">{quote.portOfLoading || 'N/A'}</span>
+                          <MapPin size={14} className="text-green-500" />
+                          <span className="text-gray-600">{quote.portOfLoading || '-'}</span>
                         </div>
                         <div className="flex items-center gap-2 text-sm">
-                          <MapPin size={16} className="text-red-500" />
-                          <span className="text-gray-700">{quote.portOfDischarge || 'N/A'}</span>
+                          <MapPin size={14} className="text-red-500" />
+                          <span className="text-gray-600">{quote.portOfDischarge || '-'}</span>
                         </div>
-                      </div>
+                      </>
                     )}
-
-                    <div className="flex items-center justify-between text-sm pt-2 border-t border-gray-100">
+                    <div className="flex items-center justify-between text-sm">
                       <div className="flex items-center gap-2">
-                        <Calendar size={16} className="text-gray-400" />
+                        <Calendar size={14} className="text-gray-400" />
                         <span className="text-gray-600">
-                          {new Date(quote.createdDate).toLocaleDateString('en-US', { 
-                            month: 'short', 
+                          {new Date(quote.createdDate).toLocaleDateString('en-US', {
+                            month: 'short',
                             day: 'numeric',
                             year: 'numeric'
                           })}
@@ -602,14 +766,11 @@ const getMultiModalRouteDisplay = (quote) => {
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2 pt-3 border-t border-gray-100">
-                    <button
-                      onClick={() => handleView(quote)}
-                      className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-blue-600 bg-blue-50 rounded-lg text-sm font-medium hover:bg-blue-100"
-                    >
-                      <Eye size={16} />
-                      View
-                    </button>
+                  <div className="border-t border-gray-200 pt-3">
+                    {getOutcomeBadge(quote.quoteId)}
+                  </div>
+
+                  <div className="flex items-center gap-2 pt-3 border-t border-gray-100 mt-3">
                     <button
                       onClick={() => handleEdit(quote)}
                       className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-green-600 bg-green-50 rounded-lg text-sm font-medium hover:bg-green-100"
@@ -644,9 +805,9 @@ const getMultiModalRouteDisplay = (quote) => {
                 <p className="text-sm text-gray-500">This action cannot be undone</p>
               </div>
             </div>
-            
+
             <p className="text-gray-700 mb-6">
-              Are you sure you want to delete quote <span className="font-semibold">{deleteModal.quoteNumber}</span>? 
+              Are you sure you want to delete quote <span className="font-semibold">{deleteModal.quoteNumber}</span>?
               All associated data will be permanently removed.
             </p>
 
@@ -662,6 +823,129 @@ const getMultiModalRouteDisplay = (quote) => {
                 className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
               >
                 Delete Quote
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Win Modal */}
+      {winModalShow && currentQuote && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
+                <Award className="text-green-600" size={24} />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">Quote Won!</h3>
+                <p className="text-sm text-gray-500">Quote: {currentQuote.quoteNumber}</p>
+              </div>
+            </div>
+            
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Won Amount (LKR) <span className="text-red-500">*</span>
+              </label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">
+                  LKR
+                </span>
+                <input
+                  type="number"
+                  value={winForm.wonAmount}
+                  onChange={(e) => setWinForm({ ...winForm, wonAmount: e.target.value })}
+                  placeholder="0.00"
+                  className="w-full pl-14 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  step="0.01"
+                  min="0"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setWinModalShow(false);
+                  setCurrentQuote(null);
+                }}
+                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveWin}
+                className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Lost Modal */}
+      {lostModalShow && currentQuote && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
+                <AlertCircle className="text-red-600" size={24} />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">Quote Lost</h3>
+                <p className="text-sm text-gray-500">Quote: {currentQuote.quoteNumber}</p>
+              </div>
+            </div>
+            
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Reason <span className="text-red-500">*</span>
+              </label>
+              <select
+                value={lostForm.lostReason}
+                onChange={(e) => setLostForm({ ...lostForm, lostReason: e.target.value })}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+              >
+                <option value="">Select reason...</option>
+                {lostReasons.map((reason) => (
+                  <option key={reason} value={reason}>
+                    {reason}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {lostForm.lostReason === 'Others' && (
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Note <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  value={lostForm.lostNote}
+                  onChange={(e) => setLostForm({ ...lostForm, lostNote: e.target.value })}
+                  placeholder="Please provide details..."
+                  rows="3"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent resize-none"
+                />
+              </div>
+            )}
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setLostModalShow(false);
+                  setCurrentQuote(null);
+                }}
+                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveLost}
+                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+              >
+                Save
               </button>
             </div>
           </div>

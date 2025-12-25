@@ -91,12 +91,12 @@ export default function SideNav({ isOpen, onClose, scrollBottom = false }) {
       label: "RFQ",
       permissionKey: "RfqView"
     },
-    {
-      path: "/contacts",
-      icon: UsersRound,
-      label: "Contacts",
-      permissionKey: "ContactView"
-    },
+    // {
+    //   path: "/contacts",
+    //   icon: UsersRound,
+    //   label: "Contacts",
+    //   permissionKey: "ContactView"
+    // },
     {
       path: "/accounts",
       icon: CreditCard,

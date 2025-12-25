@@ -78,6 +78,11 @@ export default function DirectQuoteForm({ category, mode }) {
     termsConditions: []
   });
 
+
+  const customerAddressByID =()=>{
+
+  };
+
   useEffect(() => {
     if (quoteId) {
       loadQuoteData();
@@ -297,6 +302,7 @@ export default function DirectQuoteForm({ category, mode }) {
               <button
                 type="button"
                 onClick={() => {
+
                   const pdfData = {
                     quoteNumber: formData.quoteNumber,
                     freightCategory: category,

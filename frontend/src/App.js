@@ -32,7 +32,7 @@ function App() {
           {/* Protected Routes */}
           <Route element={<ProtectedRoute />}>
             <Route path="/dashboard" element={<SalesDashboard />} />
-            <Route path="/contacts" element={<ContactBoard />} />
+            {/* <Route path="/contacts" element={<ContactBoard />} /> */}
             <Route path="/mail-tracking" element={<MailTracking />} />
             <Route path="/quotes-invoices" element={<QuotesInvoice />} />
             <Route path="/quotes" element={<Quotes/>} />

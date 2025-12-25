@@ -12,12 +12,15 @@ import {
   ArrowUp,
   ArrowDown,
   LayoutGrid,
-  Info
+  Info,
+  TrendingUp,
+  Newspaper
 } from "lucide-react";
 
 export default function DashboardSec() {
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState("dashboard");
   
   // Sample data
   const dealStatusData = [
@@ -87,6 +90,15 @@ export default function DashboardSec() {
     );
   };
 
+  // ----------------------------------------------------------------------
+  // TAB NAVIGATION
+  // ----------------------------------------------------------------------
+  const tabs = [
+    { id: "dashboard", label: "Dashboard", icon: LayoutGrid },
+    { id: "marketplace", label: "MarketPlace Info", icon: TrendingUp },
+    { id: "newsfeed", label: "News Feed", icon: Newspaper }
+  ];
+
   return (
     <main className="w-full bg-[#f6f8fb] min-h-screen text-[#323338] font-sans selection:bg-[#0086C0] selection:text-white">
       <style jsx>{`
@@ -113,240 +125,238 @@ export default function DashboardSec() {
               <Star className="w-5 h-5" />
             </button>
           </div>
+        </div>
 
-          <div className="flex flex-wrap items-center gap-3">
-             <button className="flex items-center gap-2 px-3 py-1.5 bg-white hover:bg-slate-50 border border-[#d0d4e4] rounded text-sm text-[#323338] transition-colors">
-              <Download className="w-4 h-4" />
-              <span>Export</span>
-              <ChevronDown className="w-3 h-3" />
-            </button>
-            <button className="flex items-center gap-2 px-3 py-1.5 bg-white hover:bg-slate-50 border border-[#d0d4e4] rounded text-sm text-[#323338] transition-colors">
-              <Users className="w-4 h-4" />
-              <span>Invite</span>
-            </button>
-            <button className="p-1.5 text-[#676879] hover:bg-slate-100 rounded">
-              <MoreHorizontal className="w-5 h-5" />
-            </button>
+        {/* --- TAB NAVIGATION --- */}
+        <div className="mb-6">
+          <div className="flex gap-2 border-b border-[#d0d4e4]">
+            {tabs.map((tab) => {
+              const Icon = tab.icon;
+              const isActive = activeTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`
+                    flex items-center gap-2 px-6 py-3 font-medium transition-all relative
+                    ${isActive 
+                      ? 'text-[#0086C0] border-b-2 border-[#0086C0]' 
+                      : 'text-[#676879] hover:text-[#323338] hover:bg-white/50'
+                    }
+                  `}
+                >
+                  <Icon className="w-4 h-4" />
+                  {tab.label}
+                </button>
+              );
+            })}
           </div>
         </div>
 
-        {/* --- CONTROLS & FILTERS --- */}
-        <div className="flex flex-col sm:flex-row gap-4 mb-6 items-center">
-            {/* Add Widget Button (Teal) */}
-            <button className="flex items-center gap-2 px-4 py-2 bg-[#0073ea] hover:bg-[#0060b9] text-white rounded text-sm font-medium transition-colors shadow-sm">
-              <Plus className="w-4 h-4" />
-              Add widget
-            </button>
-
-            <div className="flex items-center gap-2 px-3 py-2 border border-[#d0d4e4] rounded bg-white text-sm text-[#323338]">
-                <LayoutGrid className="w-4 h-4 text-[#676879]" />
-                <span>1 connected board</span>
-            </div>
-
-            {/* Search */}
-            <div className="relative group">
-                <Search className="w-4 h-4 text-[#676879] absolute left-3 top-1/2 transform -translate-y-1/2 group-focus-within:text-[#0086C0]" />
-                <input
-                type="text"
-                placeholder="Type to filter"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 pr-4 py-2 bg-white border border-[#d0d4e4] rounded text-sm text-[#323338] focus:outline-none focus:border-[#0086C0] focus:ring-1 focus:ring-[#0086C0] transition-all placeholder-[#9699a6] w-48 shadow-sm"
-                />
-            </div>
-
-            <div className="h-6 w-px bg-[#d0d4e4] mx-1"></div>
-
-            <button className="flex items-center gap-2 text-[#676879] hover:text-[#323338] hover:bg-slate-100 rounded px-2 py-1 text-sm transition-colors">
-                <Users className="w-4 h-4" />
-                People
-            </button>
-            <button className="flex items-center gap-2 text-[#676879] hover:text-[#323338] hover:bg-slate-100 rounded px-2 py-1 text-sm transition-colors">
-                <Filter className="w-4 h-4" />
-                Filter
-            </button>
-        </div>
-
-        {/* --- DASHBOARD GRID --- */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          
-          {/* 1. ANNUAL TARGET (Gauge) */}
-          <Widget title="Annual Target" className="lg:col-span-1 h-64" loading={loading}>
-            <div className="flex flex-col items-center justify-end h-full relative pb-4">
-              {/* Gauge visual */}
-              <div className="relative w-48 h-24 overflow-hidden mb-2">
-                {/* Background arc */}
-                <div className="absolute top-0 left-0 w-48 h-48 rounded-full border-[20px] border-[#e6e9ef]"></div>
-                {/* Active arc (Simulated with rotation) */}
-                <div 
-                    className="absolute top-0 left-0 w-48 h-48 rounded-full border-[20px] border-transparent border-t-[#00C875] border-l-[#0086C0]"
-                    style={{ transform: 'rotate(45deg)', opacity: 1 }}
-                ></div>
-                
-                {/* Needle */}
-                <div className="absolute bottom-0 left-1/2 w-1 h-24 bg-[#323338] origin-bottom transform -rotate-12 rounded-full z-10 shadow-sm"></div>
-                {/* Center dot */}
-                <div className="absolute bottom-0 left-1/2 w-4 h-4 bg-[#323338] rounded-full transform -translate-x-1/2 translate-y-1/2 z-20 border-2 border-white"></div>
-              </div>
-
-              <div className="flex justify-between w-full mt-6 px-2">
-                <div className="text-center">
-                  <div className="text-[10px] text-[#676879] font-bold uppercase tracking-wider mb-1">ACTUAL</div>
-                  <div className="text-xl font-bold text-[#323338]">85K</div>
+        {/* --- TAB CONTENT --- */}
+        {activeTab === "dashboard" && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            
+            {/* 1. ANNUAL TARGET (Gauge) */}
+            <Widget title="Annual Target" className="lg:col-span-1 h-64" loading={loading}>
+              <div className="flex flex-col items-center justify-end h-full relative pb-4">
+                {/* Gauge visual */}
+                <div className="relative w-48 h-24 overflow-hidden mb-2">
+                  {/* Background arc */}
+                  <div className="absolute top-0 left-0 w-48 h-48 rounded-full border-[20px] border-[#e6e9ef]"></div>
+                  {/* Active arc (Simulated with rotation) */}
+                  <div 
+                      className="absolute top-0 left-0 w-48 h-48 rounded-full border-[20px] border-transparent border-t-[#00C875] border-l-[#0086C0]"
+                      style={{ transform: 'rotate(45deg)', opacity: 1 }}
+                  ></div>
+                  
+                  {/* Needle */}
+                  <div className="absolute bottom-0 left-1/2 w-1 h-24 bg-[#323338] origin-bottom transform -rotate-12 rounded-full z-10 shadow-sm"></div>
+                  {/* Center dot */}
+                  <div className="absolute bottom-0 left-1/2 w-4 h-4 bg-[#323338] rounded-full transform -translate-x-1/2 translate-y-1/2 z-20 border-2 border-white"></div>
                 </div>
-                <div className="text-center">
-                  <div className="text-[10px] text-[#676879] font-bold uppercase tracking-wider mb-1">TARGET</div>
-                  <div className="text-xl font-bold text-[#323338]">100K</div>
+
+                <div className="flex justify-between w-full mt-6 px-2">
+                  <div className="text-center">
+                    <div className="text-[10px] text-[#676879] font-bold uppercase tracking-wider mb-1">ACTUAL</div>
+                    <div className="text-xl font-bold text-[#323338]">85K</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-[10px] text-[#676879] font-bold uppercase tracking-wider mb-1">TARGET</div>
+                    <div className="text-xl font-bold text-[#323338]">100K</div>
+                  </div>
                 </div>
               </div>
-            </div>
-          </Widget>
+            </Widget>
 
-          {/* 2. MONTHLY TARGET (Battery/Bar) */}
-          <Widget title="Monthly Target" className="lg:col-span-1 h-64" loading={loading}>
-            <div className="flex flex-col justify-center h-full gap-8">
-              {/* Progress Bar */}
-              <div className="relative h-12 w-full bg-[#e6e9ef] rounded-md overflow-hidden flex">
-                <div 
-                    className="h-full bg-gradient-to-r from-[#0086C0] to-[#A25DDC]" 
-                    style={{ width: '100%' }}
-                ></div>
-                {/* Overflow indicator */}
-                <div className="absolute inset-0 flex items-center justify-center text-white font-bold text-lg drop-shadow-md">
-                   300%
+            {/* 2. MONTHLY TARGET (Battery/Bar) */}
+            <Widget title="Monthly Target" className="lg:col-span-1 h-64" loading={loading}>
+              <div className="flex flex-col justify-center h-full gap-8">
+                {/* Progress Bar */}
+                <div className="relative h-12 w-full bg-[#e6e9ef] rounded-md overflow-hidden flex">
+                  <div 
+                      className="h-full bg-gradient-to-r from-[#0086C0] to-[#A25DDC]" 
+                      style={{ width: '100%' }}
+                  ></div>
+                  {/* Overflow indicator */}
+                  <div className="absolute inset-0 flex items-center justify-center text-white font-bold text-lg drop-shadow-md">
+                     300%
+                  </div>
+                </div>
+
+                {/* Stats */}
+                <div className="flex justify-between w-full px-2">
+                  <div className="text-center">
+                    <div className="text-[10px] text-[#676879] font-bold uppercase tracking-wider mb-1">MONTHLY ACTUAL</div>
+                    <div className="text-xl font-bold text-[#00C875]">55K</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-[10px] text-[#676879] font-bold uppercase tracking-wider mb-1">THIS MONTH'S TARGET</div>
+                    <div className="text-xl font-bold text-[#323338]">10K</div>
+                  </div>
                 </div>
               </div>
+            </Widget>
 
-              {/* Stats */}
-              <div className="flex justify-between w-full px-2">
-                <div className="text-center">
-                  <div className="text-[10px] text-[#676879] font-bold uppercase tracking-wider mb-1">MONTHLY ACTUAL</div>
-                  <div className="text-xl font-bold text-[#00C875]">55K</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-[10px] text-[#676879] font-bold uppercase tracking-wider mb-1">THIS MONTH'S TARGET</div>
-                  <div className="text-xl font-bold text-[#323338]">10K</div>
+            {/* 3. AVERAGE DEAL VALUE (Big Number) */}
+            <Widget title="Average Sales Value" className="lg:col-span-1 h-64" loading={loading}>
+              <div className="flex flex-col items-center justify-center h-full">
+                <div className="text-5xl font-light text-[#323338] mb-2">$42,500</div>
+              </div>
+            </Widget>
+
+            {/* 4. ACTIVE DEALS (Big Number) */}
+            <Widget title="Active Sales - Forecasted Rev..." className="lg:col-span-1 h-64" loading={loading}>
+              <div className="flex flex-col items-center justify-center h-full">
+                <div className="text-5xl font-light text-[#323338] mb-2">$133,000</div>
+              </div>
+            </Widget>
+
+            {/* 5. DEAL STATUS (Pie Chart) */}
+            <Widget title="Sales status distribution" className="lg:col-span-2 min-h-[300px]" loading={loading}>
+              <div className="flex flex-col sm:flex-row items-center justify-center h-full gap-8">
+                {/* Pie Visual */}
+                <div className="relative w-48 h-48 flex-shrink-0">
+                  <svg viewBox="0 0 100 100" className="transform -rotate-90 w-full h-full">
+                    {/* Won: 50% - Green */}
+                    <circle 
+                      cx="50" cy="50" r="25" 
+                      fill="transparent" 
+                      stroke="#00C875" 
+                      strokeWidth="50" 
+                      strokeDasharray="78.5 78.5"
+                      strokeDashoffset="0"
+                    />
+                    {/* Discovery: 25% - Blue */}
+                    <circle 
+                      cx="50" cy="50" r="25" 
+                      fill="transparent" 
+                      stroke="#0086C0" 
+                      strokeWidth="50" 
+                      strokeDasharray="39.25 117.75"
+                      strokeDashoffset="-78.5"
+                    />
+                    {/* Working on it: 12.5% - Orange */}
+                    <circle 
+                      cx="50" cy="50" r="25" 
+                      fill="transparent" 
+                      stroke="#FDAB3D" 
+                      strokeWidth="50" 
+                      strokeDasharray="19.625 137.375"
+                      strokeDashoffset="-117.75"
+                    />
+                    {/* Proposal: 12.5% - Purple */}
+                    <circle 
+                      cx="50" cy="50" r="25" 
+                      fill="transparent" 
+                      stroke="#A25DDC" 
+                      strokeWidth="50" 
+                      strokeDasharray="19.625 137.375"
+                      strokeDashoffset="-137.375"
+                    />
+                  </svg>
+                </div>  
+
+                {/* Legend */}
+                <div className="grid grid-cols-2 gap-x-8 gap-y-4">
+                  {dealStatusData.map((item, idx) => (
+                      <div key={idx} className="flex items-center gap-3">
+                          <div className={`w-3 h-3 rounded-full ${item.color}`}></div>
+                          <div className="flex flex-col">
+                              <span className="text-sm text-[#323338]">{item.status}: <span className="text-[#676879]">{item.percentage}%</span></span>
+                          </div>
+                      </div>
+                  ))}
                 </div>
               </div>
-            </div>
-          </Widget>
+            </Widget>
 
-          {/* 3. AVERAGE DEAL VALUE (Big Number) */}
-          <Widget title="Average Sales Value" className="lg:col-span-1 h-64" loading={loading}>
-            <div className="flex flex-col items-center justify-center h-full">
-              <div className="text-5xl font-light text-[#323338] mb-2">$42,500</div>
-            </div>
-          </Widget>
+            {/* 6. ACTUAL REVENUE BY MONTH (Bar Chart) */}
+            <Widget title="Actual Revenue by Month (Deals won)" className="lg:col-span-2 min-h-[300px]" loading={loading}>
+              <div className="h-full w-full flex flex-col justify-end pt-8 px-4 relative">
+                  {/* Y-Axis Lines */}
+                  {[0, 10, 20, 30, 40, 50, 60].map((val, i) => (
+                      <div key={i} className="absolute w-full border-t border-slate-100" style={{ bottom: `${(val / 60) * 80 + 20}%`, left: 0 }}>
+                          <span className="absolute -left-0 -top-2.5 text-[10px] text-[#676879]">${val},000</span>
+                      </div>
+                  ))}
 
-          {/* 4. ACTIVE DEALS (Big Number) */}
-          <Widget title="Active Sales - Forecasted Rev..." className="lg:col-span-1 h-64" loading={loading}>
-            <div className="flex flex-col items-center justify-center h-full">
-              <div className="text-5xl font-light text-[#323338] mb-2">$133,000</div>
-            </div>
-          </Widget>
-
-          {/* 5. DEAL STATUS (Pie Chart) */}
-          <Widget title="Sales status distribution" className="lg:col-span-2 min-h-[300px]" loading={loading}>
-  <div className="flex flex-col sm:flex-row items-center justify-center h-full gap-8">
-    {/* Pie Visual */}
-    <div className="relative w-48 h-48 flex-shrink-0">
-      <svg viewBox="0 0 100 100" className="transform -rotate-90 w-full h-full">
-        {/* Won: 50% - Green */}
-        <circle 
-          cx="50" cy="50" r="25" 
-          fill="transparent" 
-          stroke="#00C875" 
-          strokeWidth="50" 
-          strokeDasharray="78.5 78.5"
-          strokeDashoffset="0"
-        />
-        {/* Discovery: 25% - Blue */}
-        <circle 
-          cx="50" cy="50" r="25" 
-          fill="transparent" 
-          stroke="#0086C0" 
-          strokeWidth="50" 
-          strokeDasharray="39.25 117.75"
-          strokeDashoffset="-78.5"
-        />
-        {/* Working on it: 12.5% - Orange */}
-        <circle 
-          cx="50" cy="50" r="25" 
-          fill="transparent" 
-          stroke="#FDAB3D" 
-          strokeWidth="50" 
-          strokeDasharray="19.625 137.375"
-          strokeDashoffset="-117.75"
-        />
-        {/* Proposal: 12.5% - Purple */}
-        <circle 
-          cx="50" cy="50" r="25" 
-          fill="transparent" 
-          stroke="#A25DDC" 
-          strokeWidth="50" 
-          strokeDasharray="19.625 137.375"
-          strokeDashoffset="-137.375"
-        />
-      </svg>
-    </div>  
-
-              {/* Legend */}
-              <div className="grid grid-cols-2 gap-x-8 gap-y-4">
-                {dealStatusData.map((item, idx) => (
-                    <div key={idx} className="flex items-center gap-3">
-                        <div className={`w-3 h-3 rounded-full ${item.color}`}></div>
-                        <div className="flex flex-col">
-                            <span className="text-sm text-[#323338]">{item.status}: <span className="text-[#676879]">{item.percentage}%</span></span>
-                        </div>
-                    </div>
-                ))}
+                  {/* Bars */}
+                  <div className="flex justify-around items-end h-[80%] z-10 pl-8">
+                      {monthlyData.map((data, idx) => (
+                          <div key={idx} className="flex flex-col items-center gap-2 group w-24">
+                              <div className="mb-1 text-xs text-[#323338] opacity-0 group-hover:opacity-100 transition-opacity font-medium">
+                                  ${data.value.toLocaleString()}
+                              </div>
+                              <div 
+                                  className="w-full bg-[#579BFC] hover:bg-[#4680d3] transition-all rounded-t-sm relative"
+                                  style={{ height: `${(data.value / 60000) * 100}%` }}
+                              ></div>
+                              <div className="text-xs text-[#676879] mt-2">{data.month}</div>
+                          </div>
+                      ))}
+                      {/* Placeholder for Nov to match image */}
+                      <div className="flex flex-col items-center gap-2 w-24 opacity-50">
+                          <div 
+                              className="w-full bg-[#e6e9ef] border border-dashed border-[#c3c6d4] rounded-t-sm"
+                              style={{ height: '5px' }}
+                          ></div>
+                          <div className="text-xs text-[#676879] mt-2">Nov</div>
+                      </div>
+                  </div>
+                  
+                  {/* Floating Help Button (Bottom Right of this widget) */}
+                  <div className="absolute bottom-4 right-4 z-20">
+                       <button className="bg-[#0086C0] hover:bg-[#0071a1] text-white text-xs px-3 py-1.5 rounded-full flex items-center gap-1 shadow-md">
+                          Help
+                       </button>
+                  </div>
               </div>
-            </div>
-          </Widget>
+            </Widget>
+          </div>
+        )}
 
-          {/* 6. ACTUAL REVENUE BY MONTH (Bar Chart) */}
-          <Widget title="Actual Revenue by Month (Deals won)" className="lg:col-span-2 min-h-[300px]" loading={loading}>
-            <div className="h-full w-full flex flex-col justify-end pt-8 px-4 relative">
-                {/* Y-Axis Lines */}
-                {[0, 10, 20, 30, 40, 50, 60].map((val, i) => (
-                    <div key={i} className="absolute w-full border-t border-slate-100" style={{ bottom: `${(val / 60) * 80 + 20}%`, left: 0 }}>
-                        <span className="absolute -left-0 -top-2.5 text-[10px] text-[#676879]">${val},000</span>
-                    </div>
-                ))}
-
-                {/* Bars */}
-                <div className="flex justify-around items-end h-[80%] z-10 pl-8">
-                    {monthlyData.map((data, idx) => (
-                        <div key={idx} className="flex flex-col items-center gap-2 group w-24">
-                            <div className="mb-1 text-xs text-[#323338] opacity-0 group-hover:opacity-100 transition-opacity font-medium">
-                                ${data.value.toLocaleString()}
-                            </div>
-                            <div 
-                                className="w-full bg-[#579BFC] hover:bg-[#4680d3] transition-all rounded-t-sm relative"
-                                style={{ height: `${(data.value / 60000) * 100}%` }}
-                            ></div>
-                            <div className="text-xs text-[#676879] mt-2">{data.month}</div>
-                        </div>
-                    ))}
-                    {/* Placeholder for Nov to match image */}
-                    <div className="flex flex-col items-center gap-2 w-24 opacity-50">
-                        <div 
-                            className="w-full bg-[#e6e9ef] border border-dashed border-[#c3c6d4] rounded-t-sm"
-                            style={{ height: '5px' }}
-                        ></div>
-                        <div className="text-xs text-[#676879] mt-2">Nov</div>
-                    </div>
-                </div>
-                
-                {/* Floating Help Button (Bottom Right of this widget) */}
-                <div className="absolute bottom-4 right-4 z-20">
-                     <button className="bg-[#0086C0] hover:bg-[#0071a1] text-white text-xs px-3 py-1.5 rounded-full flex items-center gap-1 shadow-md">
-                        Help
-                     </button>
-                </div>
+        {/* --- MARKETPLACE INFO --- */}
+        {activeTab === "marketplace" && (
+          <div className="bg-white rounded-lg border border-[#d0d4e4] shadow-sm p-8 min-h-[500px] flex items-center justify-center">
+            <div className="text-center">
+              <TrendingUp className="w-16 h-16 text-[#676879] mx-auto mb-4" />
+              <h2 className="text-2xl font-semibold text-[#323338] mb-2">MarketPlace Info</h2>
+              <p className="text-[#676879]">Content coming soon...</p>
             </div>
-          </Widget>
-        </div>
+          </div>
+        )}
+
+        {/* --- NEWS FEED --- */}
+        {activeTab === "newsfeed" && (
+          <div className="bg-white rounded-lg border border-[#d0d4e4] shadow-sm p-8 min-h-[500px] flex items-center justify-center">
+            <div className="text-center">
+              <Newspaper className="w-16 h-16 text-[#676879] mx-auto mb-4" />
+              <h2 className="text-2xl font-semibold text-[#323338] mb-2">News Feed</h2>
+              <p className="text-[#676879]">Content coming soon...</p>
+            </div>
+          </div>
+        )}
 
       </div>
     </main>

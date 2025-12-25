@@ -145,6 +145,9 @@ export default function AccountForm({ onClose, account = null, onSuccess, loadAc
     if (!formData.accountName.trim()) {
       newErrors.accountName = 'Account name is required';
     }
+    if (!formData.fmsCode.trim()) {
+      newErrors.fmsCode = 'FMS code is required';
+    }
     
     if (formData.domain && !formData.domain.match(/^https?:\/\/.+/)) {
       newErrors.domain = 'Please enter a valid URL (starting with http:// or https://)';
@@ -385,6 +388,9 @@ export default function AccountForm({ onClose, account = null, onSuccess, loadAc
                   className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent hover:border-slate-400 transition-all"
                   placeholder="Enter FMS code"
                 />
+                 {errors.fmsCode && (
+                  <p className="mt-1 text-sm text-red-600">{errors.fmsCode}</p>
+                )}
               </div>
 
               {/* Industry */}

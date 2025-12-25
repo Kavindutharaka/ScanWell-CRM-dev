@@ -69,6 +69,29 @@ namespace back_end.Controllers
             return new OkObjectResult(accountList);
         }
 
+        [HttpGet, Route("account/address/{id}")]
+        public ActionResult GetAccountAddressById()
+        {
+            string query = @"SELECT [description] FROM [dbo].[account_reg] ORDER BY [SysID] DESC;";
+
+            List<string> accountList = new List<string>();
+
+            using (myCon)
+            {
+                myCon.Open();
+                using (myCom = new SqlCommand(query, myCon))
+                using (myR = myCom.ExecuteReader())
+                {
+                    while (myR.Read())
+                    {
+                        accountList.Add(myR["accountName"].ToString());
+                    }
+                }
+            }
+
+            return new OkObjectResult(accountList);
+        }
+
 
         [HttpGet, Route("account/{id}")]
         public ActionResult getAccountById(string id)
