@@ -34,7 +34,7 @@ export const deleteQuote = async (id) => {
   return response.data;
 };
 
-// QuotesInvoiceAPI.js — add this at the very bottom
+// QuotesInvoiceAPI.js â€” add this at the very bottom
 const QuotesInvoiceAPI = {
   fetchQuotes,
   fetchQuoteById,

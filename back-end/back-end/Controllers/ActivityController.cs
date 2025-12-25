@@ -23,24 +23,40 @@ namespace back_end.Controllers
         }
 
         [HttpGet]
-        public ActionResult getActivities()
+public ActionResult getActivities()
+{
+    string query = @"
+        SELECT 
+            a.[id],
+            a.[activity_name],
+            a.[activity_type],
+            e.[fname] + ' ' + e.[lname] AS [owner_name],
+            a.[start_time],
+            a.[end_time],
+            a.[status],
+            a.[related_item]
+        FROM [dbo].[activity] AS a
+        LEFT JOIN [dbo].[emp_reg] AS e
+            ON a.[owner] = e.[SysID]
+        ORDER BY a.[id] DESC;";
+
+    DataTable table = new DataTable();
+    using (SqlConnection myCon = new SqlConnection(_dbConnectionString))
+    {
+        myCon.Open();
+        using (SqlCommand myCom = new SqlCommand(query, myCon))
         {
-            string query = "select * from [dbo].[activity];";
-            DataTable table = new DataTable();
-            using (SqlConnection myCon = new SqlConnection(_dbConnectionString))
+            using (SqlDataReader myR = myCom.ExecuteReader())
             {
-                myCon.Open();
-                using (SqlCommand myCom = new SqlCommand(query, myCon))
-                {
-                    using (SqlDataReader myR = myCom.ExecuteReader())
-                    {
-                        table.Load(myR);
-                    }
-                }
-                myCon.Close();
+                table.Load(myR);
             }
-            return Ok(table);
         }
+        myCon.Close();
+    }
+
+    return Ok(table);
+}
+
 
         [HttpPost]
         public ActionResult createActivity(Activitys activity)

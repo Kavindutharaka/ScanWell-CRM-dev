@@ -12,9 +12,7 @@ import {
   Link as LinkIcon,
 } from "lucide-react";
 
-import l1 from '../../assets/images/Info/Marine Traffic.jpg'
-import l2 from '../../assets/images/Info/Flight Schedules & Tracking ( Track-Trace).jpg'
-import l3 from '../../assets/images/Info/for Terminal Berthing Plan  JCT Vessel Cutoff Times.jpg'
+import ResourceApi from '../../api/ResourceApi'; // Adjust the import path as necessary
 
 export default function InfoAndUpdatesSec({ modalOpen, onEdit }) {
   const [loading, setLoading] = useState(false);
@@ -25,52 +23,40 @@ export default function InfoAndUpdatesSec({ modalOpen, onEdit }) {
     fetchInfoItems();
   }, []);
 
-  const fetchInfoItems = () => {
+  const fetchInfoItems = async () => {
     setLoading(true);
-    // Simulate API call
-    setTimeout(() => {
-      // Sample data
-      const sampleData = [
-        {
-          id: 2,
-          title: "Marine Traffic",
-          link: "https://www.marinetraffic.com/",
-          logoUrl: l1,
-          description: "Global ship tracking and maritime intelligence",
-          addedDate: "2025-01-14",
-          addedBy: "Kavindu Tharaka",
-        },
-        {
-          id: 3,
-          title: "Flight Radar 24",
-          link: "https://www.flightradar24.com/",
-          logoUrl: l2,
-          description: "Real-time flight tracking worldwide",
-          addedDate: "2025-01-13",
-          addedBy: "Kavindu Tharaka",
-        },
-        {
-          id: 4,
-          title: "JCT Terminals",
-          link: "https://www.jctsl.lk/",
-          logoUrl: l3,
-          description: "Container terminal operations and schedules",
-          addedDate: "2025-01-12",
-          addedBy: "Kavindu Tharaka",
-        },
-      ];
-      setInfoItems(sampleData);
+    try {
+      const response = await ResourceApi.fetchResources();
+      const items = response.map((item) => ({
+        id: item.sysID,
+        title: item.title,
+        link: item.link,
+        description: item.description,
+        logoUrl: item.logoUrl,
+        addedDate: item.addedDate,
+        addedBy: item.addedBy,
+      }));
+      setInfoItems(items);
+    } catch (error) {
+      console.error("Error fetching resources:", error);
+    } finally {
       setLoading(false);
-    }, 1500);
+    }
   };
 
   const handleRefresh = () => {
     fetchInfoItems();
   };
 
-  const handleDelete = (id) => {
+  const handleDelete = async (id) => {
+    console.log("this is the id pass to the delete: ", id);
     if (window.confirm("Are you sure you want to delete this item?")) {
-      setInfoItems(infoItems.filter(item => item.id !== id));
+      try {
+        await ResourceApi.deleteResource(id);
+        window.location.reload();
+      } catch (error) {
+        console.error("Error deleting resource:", error);
+      }
     }
   };
 
@@ -151,7 +137,7 @@ export default function InfoAndUpdatesSec({ modalOpen, onEdit }) {
               <Info className="w-8 h-8 text-blue-600" />
               <div>
                 <h1 className="text-2xl lg:text-3xl font-bold text-slate-800">
-                  Usefull Links
+                  Useful Links
                 </h1>
                 <p className="text-sm text-slate-500 mt-1">Quick access to important logistics resources</p>
               </div>
@@ -184,8 +170,8 @@ export default function InfoAndUpdatesSec({ modalOpen, onEdit }) {
           </div>
         </div>
 
-        {/* Table Container */}
-        <div className={`flex flex-col bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden ${!loading ? 'animate-fadeInUp' : 'opacity-0'}`} style={{ animationDelay: '250ms', animationFillMode: 'both' }}>
+        {/* Table Container - Desktop */}
+        <div className={`hidden md:flex flex-col bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden ${!loading ? 'animate-fadeInUp' : 'opacity-0'}`} style={{ animationDelay: '250ms', animationFillMode: 'both' }}>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-slate-700 border-collapse">
               <thead className="bg-slate-50 border-b border-slate-200 sticky top-0">
@@ -308,6 +294,116 @@ export default function InfoAndUpdatesSec({ modalOpen, onEdit }) {
               </tbody>
             </table>
           </div>
+        </div>
+
+        {/* Mobile Card View */}
+        <div className={`md:hidden space-y-4 ${!loading ? 'animate-fadeInUp' : 'opacity-0'}`} style={{ animationDelay: '250ms', animationFillMode: 'both' }}>
+          {loading ? (
+            // Loading skeletons for mobile
+            Array(4)
+              .fill(0)
+              .map((_, idx) => (
+                <div key={idx} className="bg-white border border-slate-200 rounded-lg shadow-sm p-4">
+                  <div className="flex items-start gap-4 mb-3">
+                    <div className="h-16 w-16 bg-slate-200 rounded-lg skeleton flex-shrink-0"></div>
+                    <div className="flex-1 space-y-2">
+                      <div className="h-5 bg-slate-200 rounded skeleton w-3/4"></div>
+                      <div className="h-4 bg-slate-200 rounded skeleton w-full"></div>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="h-4 bg-slate-200 rounded skeleton w-1/2"></div>
+                    <div className="h-4 bg-slate-200 rounded skeleton w-2/3"></div>
+                  </div>
+                </div>
+              ))
+          ) : filteredItems.length > 0 ? (
+            filteredItems.map((item) => (
+              <div key={item.id} className="bg-white border border-slate-200 rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200">
+                {/* Card Header with Logo and Title */}
+                <div className="p-4 border-b border-slate-100">
+                  <div className="flex items-start gap-4">
+                    <div className="h-16 w-16 bg-slate-100 rounded-lg flex items-center justify-center overflow-hidden border border-slate-200 flex-shrink-0">
+                      {item.logoUrl ? (
+                        <img 
+                          src={item.logoUrl} 
+                          alt={item.title}
+                          className="logo-img"
+                          onError={(e) => {
+                            e.target.style.display = 'none';
+                            e.target.parentElement.innerHTML = '<div class="text-slate-400"><svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg></div>';
+                          }}
+                        />
+                      ) : (
+                        <Image className="w-8 h-8 text-slate-400" />
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-base font-semibold text-slate-800 mb-1">{item.title}</h3>
+                      <p className="text-sm text-slate-600 line-clamp-2">{item.description}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Card Body with Details */}
+                <div className="p-4 space-y-3">
+                  {/* Link */}
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-slate-500 font-medium">Link</span>
+                    <a
+                      href={item.link}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-700 hover:underline font-medium"
+                    >
+                      <ExternalLink className="w-4 h-4" />
+                      Visit Website
+                    </a>
+                  </div>
+
+                  {/* Added Info */}
+                  <div className="grid grid-cols-2 gap-3 pt-2 border-t border-slate-100">
+                    <div>
+                      <span className="text-xs text-slate-500 block mb-1">Added Date</span>
+                      <span className="text-sm text-slate-700 font-medium">{item.addedDate}</span>
+                    </div>
+                    <div>
+                      <span className="text-xs text-slate-500 block mb-1">Added By</span>
+                      <span className="text-sm text-slate-700 font-medium">{item.addedBy}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Card Footer with Actions */}
+                <div className="px-4 py-3 bg-slate-50 border-t border-slate-100 flex items-center justify-end gap-2">
+                  <button
+                    onClick={() => onEdit(item)}
+                    className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-blue-600 hover:bg-blue-50 rounded-lg transition-colors duration-150"
+                  >
+                    <Edit className="w-4 h-4" />
+                    Edit
+                  </button>
+                  <button
+                    onClick={() => handleDelete(item.id)}
+                    className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors duration-150"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    Delete
+                  </button>
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="bg-white border border-slate-200 rounded-lg shadow-sm p-12">
+              <div className="flex flex-col items-center justify-center text-center">
+                <LinkIcon className="w-12 h-12 text-slate-300 mb-4" />
+                <p className="text-slate-500 font-medium">No resources found</p>
+                <p className="text-slate-400 text-sm mt-1">
+                  {searchQuery ? "Try adjusting your search" : "Start by adding a new link"}
+                </p>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Floating Refresh Button */}

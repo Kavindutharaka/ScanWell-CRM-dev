@@ -10,6 +10,11 @@ export const fetchUserRoles = async () => {
   return response.data;
 };
 
+export const fetchUserDetailsByRoleID = async (id) => {
+  const response = await axios.get(`${BASE_URL}/UserRole/employee-details/${id}`);
+  return response.data;
+};
+
 export const fetchUserRoleById = async (id) => {
   const response = await axios.get(`${BASE_URL}/UserRole/user-roles/${id}`);
   return response.data;
@@ -37,7 +42,8 @@ const UserRoleApi = {
   fetchUserRoleById,
   createUserRole,
   updateUserRole,
-  deleteUserRole
+  deleteUserRole,
+  fetchUserDetailsByRoleID
 };
 
 export default UserRoleApi;

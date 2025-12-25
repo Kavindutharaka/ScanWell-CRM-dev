@@ -232,21 +232,21 @@ export default function DashboardSec() {
           </Widget>
 
           {/* 3. AVERAGE DEAL VALUE (Big Number) */}
-          <Widget title="Average Deal Value" className="lg:col-span-1 h-64" loading={loading}>
+          <Widget title="Average Sales Value" className="lg:col-span-1 h-64" loading={loading}>
             <div className="flex flex-col items-center justify-center h-full">
               <div className="text-5xl font-light text-[#323338] mb-2">$42,500</div>
             </div>
           </Widget>
 
           {/* 4. ACTIVE DEALS (Big Number) */}
-          <Widget title="Active deals - Forecasted Rev..." className="lg:col-span-1 h-64" loading={loading}>
+          <Widget title="Active Sales - Forecasted Rev..." className="lg:col-span-1 h-64" loading={loading}>
             <div className="flex flex-col items-center justify-center h-full">
               <div className="text-5xl font-light text-[#323338] mb-2">$133,000</div>
             </div>
           </Widget>
 
           {/* 5. DEAL STATUS (Pie Chart) */}
-          <Widget title="Deal status distribution" className="lg:col-span-2 min-h-[300px]" loading={loading}>
+          <Widget title="Sales status distribution" className="lg:col-span-2 min-h-[300px]" loading={loading}>
   <div className="flex flex-col sm:flex-row items-center justify-center h-full gap-8">
     {/* Pie Visual */}
     <div className="relative w-48 h-48 flex-shrink-0">

@@ -4,15 +4,20 @@ import SideNav from "../../components/SideNav";
 import AccountForm from "./AccountForm";
 import AccountSec from "./AccountSec";
 import { fetchAccounts } from "../../api/AccountApi";
+import ContactForm from "./ContactForm";
 
 export default function Account() {
   const [openModal, setOpenModal] = useState(false);
+  const [openContactModal, setOpenContactModal] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [selectedAcoount, setSelectedAccount] = useState([]);
+  const [selectedAccount, setSelectedAccount] = useState(null);
 
   const [accounts, setAccounts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  // Contacts state - stores array of contact objects
+  const [contacts, setContacts] = useState([]);
 
   const modalOpen = () => {
     setOpenModal(true);
@@ -20,6 +25,8 @@ export default function Account() {
 
   const modalClose = () => {
     setOpenModal(false);
+    // Clear contacts when closing account modal
+    setContacts([]);
   };
 
   const handleMenuToggle = () => {
@@ -49,6 +56,23 @@ export default function Account() {
     }
   };
 
+  const closeContactModal = () => {
+    setOpenContactModal(false);
+  };
+
+  // Get existing contacts when editing an account
+  const getExistingContactsForEdit = () => {
+    try {
+      if (selectedAccount && selectedAccount.contactsJson) {
+        const parsed = JSON.parse(selectedAccount.contactsJson);
+        return Array.isArray(parsed) ? parsed : [];
+      }
+    } catch (e) {
+      console.error('Error parsing contactsJson:', e);
+    }
+    return [];
+  };
+
   return (
     <div className="h-screen bg-slate-50 flex flex-col overflow-hidden">
       {/* Fixed Header */}
@@ -67,17 +91,18 @@ export default function Account() {
 
         {/* Main content area - scrollable */}
         <main className="flex-1 overflow-y-auto">
-          <AccountSec modalOpen={modalOpen} 
-           setSelectedAccount={setSelectedAccount}
-           loading={loading}
-           error={error}
-           accounts={accounts}
-           loadAccounts={loadAccounts}
+          <AccountSec 
+            modalOpen={modalOpen} 
+            setSelectedAccount={setSelectedAccount}
+            loading={loading}
+            error={error}
+            accounts={accounts}
+            loadAccounts={loadAccounts}
           />
         </main>
       </div>
 
-      {/* Modal */}
+      {/* Account Modal */}
       {openModal && (
         <div className="fixed inset-0 z-50 overflow-y-auto">
           <div 
@@ -86,9 +111,31 @@ export default function Account() {
           />
           <div className="flex items-center justify-center min-h-screen p-4">
             <div className="relative w-full animate-fadeIn">
-              <AccountForm onClose={modalClose} 
-               account={selectedAcoount}
-               loadAccounts={loadAccounts}
+              <AccountForm 
+                onClose={modalClose} 
+                account={selectedAccount}
+                loadAccounts={loadAccounts}
+                setOpenContactModal={setOpenContactModal}
+                contacts={contacts}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Contact Modal */}
+      {openContactModal && (
+        <div className="fixed inset-0 z-50 overflow-y-auto">
+          <div 
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm transition-opacity"
+            onClick={closeContactModal}
+          />
+          <div className="flex items-center justify-center min-h-screen p-4">
+            <div className="relative w-full animate-fadeIn">
+              <ContactForm 
+                onClose={closeContactModal} 
+                setSecContacts={setContacts}
+                existingContacts={getExistingContactsForEdit()}
               />
             </div>
           </div>

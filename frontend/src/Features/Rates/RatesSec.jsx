@@ -82,25 +82,34 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
   const loadLinerRates = async (linerCode) => {
     setLinerLoading(true);
     try {
-      // Call your backend API endpoint that filters by category
-      // Example: const data = await RateAPI.fetchLinerRates(linerCode);
-      const response = await fetch(`${BASE_URL}/rates/liner?category=${linerCode}`);
+      // Call the new linear rates endpoint
+      const response = await fetch(`${BASE_URL}/rates/linear?category=${linerCode}`);
       const data = await response.json();
       
-      // Parse rateDataJson for each rate
-      const parsedData = data.map(rate => {
-        let parsedRateData = {};
-        if (rate.rateDataJson) {
-          try {
-            parsedRateData = JSON.parse(rate.rateDataJson);
-          } catch (e) {
-            console.error('Error parsing rateDataJson:', e);
-          }
-        }
-        return { ...rate, ...parsedRateData };
-      });
+      // Transform backend data (PascalCase) to frontend format (camelCase)
+      const transformedData = data.map(rate => ({
+        id: rate.Id || rate.id,
+        pol: rate.Pol || rate.pol,
+        pod: rate.Pod || rate.pod,
+        gp20Usd: rate.Gp20Usd || rate.gp20Usd || rate.gp20_usd,
+        hq40Usd: rate.Hq40Usd || rate.hq40Usd || rate.hq40_usd,
+        ttRouting: rate.TtRouting || rate.ttRouting || rate.tt_routing,
+        valid: rate.Valid || rate.valid,
+        category: rate.Category || rate.category,
+        // Map to display format
+        origin: rate.Pol || rate.pol,
+        destination: rate.Pod || rate.pod,
+        rate20GP: rate.Gp20Usd || rate.gp20Usd || rate.gp20_usd,
+        rate40HQ: rate.Hq40Usd || rate.hq40Usd || rate.hq40_usd,
+        transitTime: rate.TtRouting || rate.ttRouting || rate.tt_routing,
+        validateDate: rate.Valid || rate.valid,
+        freightType: 'SEA-EXPORT-FCL',
+        liner: rate.Category || rate.category,
+        route: `${rate.Pol || rate.pol || ''}-${rate.Pod || rate.pod || ''}`,
+        currency: 'USD'
+      }));
       
-      setLinerRates(parsedData);
+      setLinerRates(transformedData);
     } catch (err) {
       console.error('Error fetching liner rates:', err);
       setLinerRates([]);
@@ -317,11 +326,23 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
   const handleDelete = async (rateId) => {
     if (!window.confirm('Are you sure you want to delete this rate?')) return;
     try {
-      await RateAPI.deleteRate(rateId);
-      if (activeLiner) {
-        loadLinerRates(activeLiner);
+      // Use linear endpoint for liner rates, regular endpoint for others
+      const endpoint = activeLiner 
+        ? `${BASE_URL}/rates/linear/${rateId}`
+        : `${BASE_URL}/rates/${rateId}`;
+      
+      const response = await fetch(endpoint, {
+        method: 'DELETE'
+      });
+
+      if (response.ok) {
+        if (activeLiner) {
+          loadLinerRates(activeLiner);
+        } else {
+          loadRates();
+        }
       } else {
-        loadRates();
+        throw new Error('Delete failed');
       }
     } catch (err) {
       alert('Failed to delete rate.');
@@ -341,88 +362,155 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
   };
 
   const handleExcelUpload = async () => {
-    if (!excelFile || !activeLiner) return;
+    if (!excelFile || !activeLiner) {
+      alert('Please select an Excel file and ensure a shipping line is selected.');
+      return;
+    }
 
     setUploadProgress(true);
     try {
       // Parse Excel file
+      console.log('Starting Excel upload for:', activeLiner);
       const data = await excelFile.arrayBuffer();
       const workbook = XLSX.read(data, { type: "array" });
       const sheetName = workbook.SheetNames[0];
       const sheet = workbook.Sheets[sheetName];
       const excelData = XLSX.utils.sheet_to_json(sheet);
 
-      // Transform Excel data to match database structure
-      const transformedData = excelData.map(row => {
-        // Extract rate fields
-        const rateFields = {
-          rate45Minus: row.rate45Minus || row.Rate45Minus || null,
-          rate45MinusM: row.rate45MinusM || row.Rate45MinusM || null,
-          rate45Plus: row.rate45Plus || row.Rate45Plus || null,
-          rate100: row.rate100 || row.Rate100 || null,
-          rate300: row.rate300 || row.Rate300 || null,
-          rate500: row.rate500 || row.Rate500 || null,
-          rate1000: row.rate1000 || row.Rate1000 || null,
-          rate20GP: row.rate20GP || row.Rate20GP || null,
-          rate40GP: row.rate40GP || row.Rate40GP || null,
-          rate40HQ: row.rate40HQ || row.Rate40HQ || null,
-          lclRate: row.lclRate || row.LclRate || null,
-        };
+      console.log(`Parsed ${excelData.length} rows from Excel`);
+      console.log('Sample row:', excelData[0]);
+      console.log('Column headers detected:', Object.keys(excelData[0] || {}));
 
-        // Build the database object
+      // Validate that we have data
+      if (!excelData || excelData.length === 0) {
+        alert('Excel file is empty or could not be read. Please check the file format.');
+        setUploadProgress(false);
+        return;
+      }
+
+      // Transform Excel data to match new linear_rates database structure
+      // Excel format headers: POL, POD, 20GP USD, 40HQ-USD, TT/Routing, Valid
+      // This format is common for MSC, ONE, YML, UNIFEEDER, OOCL, RCL, CMA shipping lines
+      const transformedData = excelData.map((row, index) => {
+        // Extract POL (Port of Loading)
+        const pol = row.POL || row.pol || row.Origin || row.origin || null;
+        
+        // Extract POD (Port of Discharge)
+        const pod = row.POD || row.pod || row.Destination || row.destination || null;
+        
+        // Extract 20GP USD
+        const gp20Usd = row['20GP USD'] || row['20GP-USD'] || row['20GP_USD'] || row['20GP'] || row.gp20_usd || row.Gp20Usd || null;
+        
+        // Extract 40HQ-USD
+        const hq40Usd = row['40HQ-USD'] || row['40HQ USD'] || row['40HQ_USD'] || row['40HQ'] || row.hq40_usd || row.Hq40Usd || null;
+        
+        // Extract TT/Routing
+        const ttRouting = row['TT/Routing'] || row['TT-Routing'] || row['TT/ROUITNG'] || row.TTRouting || row.tt_routing || row.TtRouting || null;
+        
+        // Extract Valid date - handle Excel date format
+        let valid = row['VALID '] || row.Valid || row.valid || row.validateDate || row.ValidateDate || null;
+        
+        // If valid is an Excel serial number, convert it
+        if (typeof valid === 'number') {
+          // Excel serial date to JavaScript Date
+          const excelEpoch = new Date(1899, 11, 30);
+          const jsDate = new Date(excelEpoch.getTime() + valid * 86400000);
+          valid = jsDate.toISOString().split('T')[0]; // Format: YYYY-MM-DD
+        } else if (valid instanceof Date) {
+          valid = valid.toISOString().split('T')[0];
+        } else if (typeof valid === 'string' && valid.includes('/')) {
+          // Handle MM/DD/YYYY or DD/MM/YYYY format
+          const parts = valid.split('/');
+          if (parts.length === 3) {
+            // Assume MM/DD/YYYY format
+            valid = `${parts[2]}-${parts[0].padStart(2, '0')}-${parts[1].padStart(2, '0')}`;
+          }
+        }
+
+        // Log row if any required field is missing
+        if (!pol || !pod) {
+          console.warn(`Row ${index + 1} missing required fields:`, { pol, pod, gp20Usd, hq40Usd });
+        }
+
+        // Return simplified payload matching LinearRate model
         return {
-          freightType: row.freightType || row.FreightType || null,
-          origin: row.origin || row.Origin || null,
-          destination: row.destination || row.Destination || null,
-          airline: row.airline || row.Airline || null,
-          liner: row.liner || row.Liner || activeLiner,
-          route: row.route || row.Route || null,
-          surcharges: row.surcharges || row.Surcharges || null,
-          transitTime: row.transitTime || row.TransitTime || null,
-          transshipmentTime: row.transshipmentTime || row.TransshipmentTime || null,
-          frequency: row.frequency || row.Frequency || null,
-          routingType: row.routingType || row.RoutingType || null,
-          validateDate: row.validateDate || row.ValidateDate || null,
-          note: row.note || row.Note || null,
-          remark: row.remark || row.Remark || null,
-          owner: row.owner || row.Owner || null,
-          currency: row.currency || row.Currency || 'USD',
-          category: activeLiner, // Force category to match selected liner
-          rateDataJson: JSON.stringify(rateFields), // Stringify rate fields
+          Pol: pol,
+          Pod: pod,
+          Gp20Usd: gp20Usd ? parseFloat(gp20Usd) : null,
+          Hq40Usd: hq40Usd ? parseFloat(hq40Usd) : null,
+          TtRouting: ttRouting ? String(ttRouting) : null,
+          Valid: valid,
+          Category: activeLiner
         };
       });
+
+      // Filter out rows with missing critical data
+      const validRows = transformedData.filter(row => row.Pol && row.Pod);
+      
+      if (validRows.length === 0) {
+        alert('No valid rows found. Please ensure Excel has POL and POD columns filled.');
+        setUploadProgress(false);
+        return;
+      }
+
+      if (validRows.length < transformedData.length) {
+        const skipped = transformedData.length - validRows.length;
+        console.warn(`Skipping ${skipped} rows with missing POL or POD`);
+      }
 
       // Send to backend
-      // Example: await RateAPI.saveLinerRates(transformedData);
-      console.log("t data \n"+transformedData);
-      const response = await fetch(`${BASE_URL}/rates/liner/bulk`, {
+      console.log(`Uploading ${validRows.length} valid rates for ${activeLiner}`);
+      console.log('Sample transformed data:', validRows[0]);
+      
+      const response = await fetch(`${BASE_URL}/rates/linear/bulk`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ rates: transformedData }),
+        body: JSON.stringify({ Rates: validRows }),
       });
 
+      const responseData = await response.json();
+      console.log('Backend response:', responseData);
+
       if (response.ok) {
-        alert(`Successfully uploaded ${transformedData.length} rates for ${activeLiner}`);
+        const successMsg = responseData.failCount > 0 
+          ? `Uploaded ${responseData.successCount} rates. ${responseData.failCount} failed.`
+          : `Successfully uploaded ${responseData.successCount} rates for ${activeLiner}`;
+        alert(successMsg);
         setShowLinerModal(false);
         setExcelFile(null);
         loadLinerRates(activeLiner);
       } else {
-        throw new Error('Upload failed');
+        throw new Error(responseData.message || 'Upload failed');
       }
     } catch (err) {
       console.error('Error uploading Excel:', err);
-      alert('Failed to upload Excel file. Please check the format and try again.');
+      alert(`Failed to upload Excel file: ${err.message}\n\nPlease check the browser console for details.`);
     } finally {
       setUploadProgress(false);
     }
   };
 
   const getFreightTypeColor = (type) => {
-    const t = type?.toLowerCase();
-    if (t?.includes('air')) return 'bg-sky-500';
-    if (t?.includes('sea')) return 'bg-blue-600';
-    return 'bg-slate-500';
-  };
+  const t = type?.toUpperCase();
+  
+  // Air Freight
+  if (t?.includes('AIR-IMPORT')) return 'bg-yellow-500';
+  if (t?.includes('AIR-EXPORT')) return 'bg-yellow-300';
+  
+  // Sea FCL
+  if (t?.includes('SEA-IMPORT-FCL')) return 'bg-blue-600';
+  if (t?.includes('SEA-EXPORT-FCL')) return 'bg-indigo-600';
+  
+  // Sea LCL
+  if (t?.includes('SEA-IMPORT-LCL')) return 'bg-teal-600';
+  if (t?.includes('SEA-EXPORT-LCL')) return 'bg-cyan-600';
+  
+  // Fallback for generic types
+  if (t?.includes('AIR')) return 'bg-yellow-500';
+  if (t?.includes('SEA')) return 'bg-blue-500';
+  
+  return 'bg-slate-500';
+};
 
   const FreightTypeIcon = ({ type }) => {
     const t = type?.toLowerCase();
@@ -525,13 +613,13 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
             </button>
             <button 
               onClick={() => handleRegularTabClick('air')} 
-              className={`px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 ${activeTab === 'air' ? 'bg-sky-500 text-white shadow-md' : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'}`}
+              className={`px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 ${activeTab === 'air' ? 'bg-yellow-500 text-white shadow-md' : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'}`}
             >
               <Plane className="w-4 h-4" /> Air Freight
             </button>
             <button 
               onClick={() => handleRegularTabClick('sea')} 
-              className={`px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 ${activeTab === 'sea' ? 'bg-blue-600 text-white shadow-md' : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'}`}
+              className={`px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 ${activeTab === 'sea' ? 'bg-blue-500 text-white shadow-md' : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'}`}
             >
               <Ship className="w-4 h-4" /> Sea Freight
             </button>
@@ -617,75 +705,284 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
               const isAir = rate.freightType?.toLowerCase().includes('air');
               const isFCL = rate.freightType?.toLowerCase().includes('fcl');
               const isLCL = rate.freightType?.toLowerCase().includes('lcl');
+              const isLinerRate = activeLiner && rate.category; // This is a linear rate
 
               return (
                 <div key={rate.sysID || rate.id} className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden hover:shadow-md transition-shadow">
                   {/* Main Row */}
                   <div className="p-4">
-                    <div className="grid grid-cols-12 gap-4 items-center">
-                      <div className="col-span-2">
-                        <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium text-white ${activeLiner ? activeLinerDetails?.color || 'bg-blue-600' : getFreightTypeColor(rate.freightType)}`}>
-                          {activeLiner ? (
-                            <>
+                    {/* Linear Rates Display (Simplified) */}
+                    {isLinerRate ? (
+                      <>
+                        {/* Desktop Grid View */}
+                        <div className="hidden md:grid grid-cols-12 gap-4 items-center">
+                          {/* Shipping Line Badge */}
+                          <div className="col-span-2">
+                            <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium text-white ${activeLinerDetails?.color || 'bg-blue-600'}`}>
                               <Ship className="w-4 h-4" />
                               <span className="uppercase">{activeLiner}</span>
-                            </>
-                          ) : (
-                            <>
+                            </div>
+                          </div>
+
+                          {/* POL → POD Route */}
+                          <div className="col-span-3">
+                            <div className="flex items-center gap-3">
+                              <div className="flex items-center gap-1">
+                                <MapPin className="w-4 h-4 text-indigo-600" />
+                                <span className="font-bold">{rate.pol || rate.origin || '-'}</span>
+                              </div>
+                              <div className="flex-1 h-px bg-slate-300 relative">
+                                <div className="absolute inset-0 flex items-center justify-center">
+                                  <ArrowRight className="w-4 h-4 text-slate-400 bg-white" />
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <MapPin className="w-4 h-4 text-emerald-600" />
+                                <span className="font-bold">{rate.pod || rate.destination || '-'}</span>
+                              </div>
+                            </div>
+                            {/* Transit Time/Routing */}
+                            {(rate.ttRouting || rate.transitTime) && (
+                              <div className="mt-1 text-xs text-slate-500 flex items-center gap-1">
+                                <Clock className="w-3 h-3" />
+                                {rate.ttRouting || rate.transitTime}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* 20GP Rate */}
+                          <div className="col-span-2">
+                            <div className="text-sm font-semibold text-slate-600">20' GP</div>
+                            <div className="text-lg font-bold text-indigo-600">
+                              {rate.gp20Usd || rate.rate20GP ? formatCurrency(rate.gp20Usd || rate.rate20GP) : '-'}
+                            </div>
+                          </div>
+
+                          {/* 40HQ Rate */}
+                          <div className="col-span-2">
+                            <div className="text-sm font-semibold text-slate-600">40' HQ</div>
+                            <div className="text-lg font-bold text-emerald-600">
+                              {rate.hq40Usd || rate.rate40HQ ? formatCurrency(rate.hq40Usd || rate.rate40HQ) : '-'}
+                            </div>
+                          </div>
+
+                          {/* Currency */}
+                          <div className="col-span-1">
+                            <div className="text-sm font-semibold text-slate-700">USD</div>
+                            <div className="text-xs text-slate-500">Currency</div>
+                          </div>
+
+                          {/* Valid Date */}
+                          <div className="col-span-1">
+                            <div className="flex items-center gap-2 text-sm">
+                              <Calendar className="w-4 h-4 text-slate-400" />
+                              {formatDate(rate.valid || rate.validateDate)}
+                            </div>
+                          </div>
+
+                          {/* Actions */}
+                          <div className="col-span-1 flex items-center justify-end gap-2">
+                            <button
+                              onClick={() => handleDelete(rate.id)}
+                              className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                              title="Delete Rate"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Mobile Card View */}
+                        <div className="md:hidden space-y-3">
+                          {/* Header with Badge and Actions */}
+                          <div className="flex items-center justify-between">
+                            <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium text-white ${activeLinerDetails?.color || 'bg-blue-600'}`}>
+                              <Ship className="w-4 h-4" />
+                              <span className="uppercase">{activeLiner}</span>
+                            </div>
+                            <button
+                              onClick={() => handleDelete(rate.id)}
+                              className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                              title="Delete Rate"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+
+                          {/* Route */}
+                          <div className="bg-slate-50 rounded-lg p-3">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <MapPin className="w-4 h-4 text-indigo-600" />
+                              <span className="font-bold text-sm">{rate.pol || rate.origin || '-'}</span>
+                              <ArrowRight className="w-4 h-4 text-slate-400" />
+                              <MapPin className="w-4 h-4 text-emerald-600" />
+                              <span className="font-bold text-sm">{rate.pod || rate.destination || '-'}</span>
+                            </div>
+                            {(rate.ttRouting || rate.transitTime) && (
+                              <div className="mt-2 text-xs text-slate-500 flex items-center gap-1">
+                                <Clock className="w-3 h-3" />
+                                {rate.ttRouting || rate.transitTime}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Rates Grid */}
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-3">
+                              <div className="text-xs font-semibold text-indigo-600 mb-1">20' GP</div>
+                              <div className="text-lg font-bold text-indigo-700">
+                                {rate.gp20Usd || rate.rate20GP ? formatCurrency(rate.gp20Usd || rate.rate20GP) : '-'}
+                              </div>
+                            </div>
+                            <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3">
+                              <div className="text-xs font-semibold text-emerald-600 mb-1">40' HQ</div>
+                              <div className="text-lg font-bold text-emerald-700">
+                                {rate.hq40Usd || rate.rate40HQ ? formatCurrency(rate.hq40Usd || rate.rate40HQ) : '-'}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Footer with Currency and Date */}
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="text-slate-600 font-medium">USD</span>
+                            <div className="flex items-center gap-1 text-slate-500">
+                              <Calendar className="w-3 h-3" />
+                              {formatDate(rate.valid || rate.validateDate)}
+                            </div>
+                          </div>
+                        </div>
+                      </>
+                    ) : (
+                      /* Regular Rates Display (Full) */
+                      <>
+                        {/* Desktop Grid View */}
+                        <div className="hidden md:grid grid-cols-12 gap-4 items-center">
+                          <div className="col-span-2">
+                            <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium text-white ${getFreightTypeColor(rate.freightType)}`}>
                               <FreightTypeIcon type={rate.freightType} />
                               <span className="uppercase">{rate.freightType?.replace(/-/g, ' ')}</span>
-                            </>
-                          )}
+                            </div>
+                          </div>
+
+                          <div className="col-span-3">
+                            <div className="flex items-center gap-3">
+                              <div className="flex items-center gap-1"><MapPin className="w-4 h-4 text-indigo-600" /><span className="font-bold">{rate.origin || rate.Origin || '-'}</span></div>
+                              <div className="flex-1 h-px bg-slate-300 relative"><div className="absolute inset-0 flex items-center justify-center"><ArrowRight className="w-4 h-4 text-slate-400 bg-white" /></div></div>
+                              <div className="flex items-center gap-1"><MapPin className="w-4 h-4 text-emerald-600" /><span className="font-bold">{rate.destination || rate.Destination || '-'}</span></div>
+                            </div>
+                            <div className="mt-1 flex items-center gap-2">
+                              {getRoutingBadge(rate.routingType || rate.RoutingType)}
+                              {(rate.transitTime || rate.TransitTime) > 0 && <span className="text-xs text-slate-500 flex items-center gap-1"><Clock className="w-3 h-3" />{rate.transitTime || rate.TransitTime} days</span>}
+                            </div>
+                          </div>
+
+                          <div className="col-span-2">
+                            <div className="text-sm font-semibold">{rate.airline || rate.liner || rate.Airline || rate.Liner || '-'}</div>
+                            {(rate.frequency || rate.Frequency) && <div className="text-xs text-slate-500 mt-0.5">{rate.frequency || rate.Frequency}</div>}
+                          </div>
+
+                          <div className="col-span-1">
+                            <div className="text-sm font-semibold text-slate-700">{rate.currency || rate.Currency || 'USD'}</div>
+                            <div className="text-xs text-slate-500">Currency</div>
+                          </div>
+
+                          <div className="col-span-2">
+                            <div className="text-lg font-bold text-indigo-600">{formatCurrency(getQuickRate(rate))}</div>
+                            <div className="text-xs text-slate-500">
+                              {isAir && 'per kg (+45)'}
+                              {isFCL && 'per container'}
+                              {isLCL && 'per CBM'}
+                            </div>
+                          </div>
+
+                          <div className="col-span-1">
+                            <div className="flex items-center gap-2 text-sm"><Calendar className="w-4 h-4 text-slate-400" />{formatDate(rate.validateDate || rate.ValidateDate)}</div>
+                          </div>
+
+                          <div className="col-span-1 flex items-center justify-end gap-2">
+                            <button onClick={() => onEditRate(rate)} className="p-2 hover:bg-indigo-50 rounded-lg"><Edit className="w-4 h-4 text-slate-600 hover:text-indigo-600" /></button>
+                            <button onClick={() => handleDelete(rate.sysID || rate.id)} className="p-2 hover:bg-red-50 rounded-lg"><Trash2 className="w-4 h-4 text-slate-600 hover:text-red-600" /></button>
+                            <button onClick={() => toggleRow(rate.sysID || rate.id)} className="p-2 hover:bg-slate-100 rounded-lg">
+                              {isExpanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+                            </button>
+                          </div>
                         </div>
-                      </div>
 
-                      <div className="col-span-3">
-                        <div className="flex items-center gap-3">
-                          <div className="flex items-center gap-1"><MapPin className="w-4 h-4 text-indigo-600" /><span className="font-bold">{rate.origin || rate.Origin || '-'}</span></div>
-                          <div className="flex-1 h-px bg-slate-300 relative"><div className="absolute inset-0 flex items-center justify-center"><ArrowRight className="w-4 h-4 text-slate-400 bg-white" /></div></div>
-                          <div className="flex items-center gap-1"><MapPin className="w-4 h-4 text-emerald-600" /><span className="font-bold">{rate.destination || rate.Destination || '-'}</span></div>
+                        {/* Mobile Card View */}
+                        <div className="md:hidden space-y-3">
+                          {/* Header with Freight Type and Actions */}
+                          <div className="flex items-center justify-between">
+                            <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium text-white ${getFreightTypeColor(rate.freightType)}`}>
+                              <FreightTypeIcon type={rate.freightType} />
+                              <span className="uppercase">{rate.freightType?.replace(/-/g, ' ')}</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <button onClick={() => onEditRate(rate)} className="p-2 hover:bg-indigo-50 rounded-lg">
+                                <Edit className="w-4 h-4 text-slate-600 hover:text-indigo-600" />
+                              </button>
+                              <button onClick={() => handleDelete(rate.sysID || rate.id)} className="p-2 hover:bg-red-50 rounded-lg">
+                                <Trash2 className="w-4 h-4 text-slate-600 hover:text-red-600" />
+                              </button>
+                              <button onClick={() => toggleRow(rate.sysID || rate.id)} className="p-2 hover:bg-slate-100 rounded-lg">
+                                {isExpanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Route */}
+                          <div className="bg-slate-50 rounded-lg p-3">
+                            <div className="flex items-center gap-2 flex-wrap mb-2">
+                              <MapPin className="w-4 h-4 text-indigo-600" />
+                              <span className="font-bold text-sm">{rate.origin || rate.Origin || '-'}</span>
+                              <ArrowRight className="w-4 h-4 text-slate-400" />
+                              <MapPin className="w-4 h-4 text-emerald-600" />
+                              <span className="font-bold text-sm">{rate.destination || rate.Destination || '-'}</span>
+                            </div>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              {getRoutingBadge(rate.routingType || rate.RoutingType)}
+                              {(rate.transitTime || rate.TransitTime) > 0 && (
+                                <span className="text-xs text-slate-500 flex items-center gap-1">
+                                  <Clock className="w-3 h-3" />
+                                  {rate.transitTime || rate.TransitTime} days
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Carrier & Rate Info */}
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="bg-slate-50 rounded-lg p-3">
+                              <div className="text-xs text-slate-500 mb-1">Carrier</div>
+                              <div className="text-sm font-semibold">{rate.airline || rate.liner || rate.Airline || rate.Liner || '-'}</div>
+                              {(rate.frequency || rate.Frequency) && (
+                                <div className="text-xs text-slate-500 mt-1">{rate.frequency || rate.Frequency}</div>
+                              )}
+                            </div>
+                            <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-3">
+                              <div className="text-xs text-indigo-600 mb-1">
+                                {isAir && 'per kg (+45)'}
+                                {isFCL && 'per container'}
+                                {isLCL && 'per CBM'}
+                              </div>
+                              <div className="text-lg font-bold text-indigo-700">{formatCurrency(getQuickRate(rate))}</div>
+                            </div>
+                          </div>
+
+                          {/* Footer with Currency and Date */}
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="text-slate-600 font-medium">{rate.currency || rate.Currency || 'USD'}</span>
+                            <div className="flex items-center gap-1 text-slate-500">
+                              <Calendar className="w-3 h-3" />
+                              {formatDate(rate.validateDate || rate.ValidateDate)}
+                            </div>
+                          </div>
                         </div>
-                        <div className="mt-1 flex items-center gap-2">
-                          {getRoutingBadge(rate.routingType || rate.RoutingType)}
-                          {(rate.transitTime || rate.TransitTime) > 0 && <span className="text-xs text-slate-500 flex items-center gap-1"><Clock className="w-3 h-3" />{rate.transitTime || rate.TransitTime} days</span>}
-                        </div>
-                      </div>
+                      </>
+                    )}
+                  
 
-                      <div className="col-span-2">
-                        <div className="text-sm font-semibold">{rate.airline || rate.liner || rate.Airline || rate.Liner || activeLiner || '-'}</div>
-                        {(rate.frequency || rate.Frequency) && <div className="text-xs text-slate-500 mt-0.5">{rate.frequency || rate.Frequency}</div>}
-                      </div>
-
-                      <div className="col-span-1">
-                        <div className="text-sm font-semibold text-slate-700">{rate.currency || rate.Currency || 'USD'}</div>
-                        <div className="text-xs text-slate-500">Currency</div>
-                      </div>
-
-                      <div className="col-span-2">
-                        <div className="text-lg font-bold text-indigo-600">{formatCurrency(getQuickRate(rate))}</div>
-                        <div className="text-xs text-slate-500">
-                          {isAir && 'per kg (+45)'}
-                          {isFCL && 'per container'}
-                          {isLCL && 'per CBM'}
-                        </div>
-                      </div>
-
-                      <div className="col-span-1">
-                        <div className="flex items-center gap-2 text-sm"><Calendar className="w-4 h-4 text-slate-400" />{formatDate(rate.validateDate || rate.ValidateDate)}</div>
-                      </div>
-
-                      <div className="col-span-1 flex items-center justify-end gap-2">
-                        <button onClick={() => onEditRate(rate)} className="p-2 hover:bg-indigo-50 rounded-lg"><Edit className="w-4 h-4 text-slate-600 hover:text-indigo-600" /></button>
-                        <button onClick={() => handleDelete(rate.sysID || rate.id)} className="p-2 hover:bg-red-50 rounded-lg"><Trash2 className="w-4 h-4 text-slate-600 hover:text-red-600" /></button>
-                        <button onClick={() => toggleRow(rate.sysID || rate.id)} className="p-2 hover:bg-slate-100 rounded-lg">
-                          {isExpanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Expanded Details */}
-                  {isExpanded && (
+                  {/* Expanded Details - Only for Regular Rates */}
+                  {!isLinerRate && isExpanded && (
                     <div className="border-t border-slate-200 bg-slate-50 p-6">
                       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                         {/* Rate Breakdown */}
@@ -864,6 +1161,7 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
                       </div>
                     </div>
                   )}
+                  </div>
                 </div>
               );
             })}

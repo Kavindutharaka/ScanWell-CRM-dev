@@ -19,6 +19,7 @@ import HRSystemManagement from './Features/HRManagement/HRSystemManagement';
 import Info from './Features/InfoUpdates/InfoAndUpdates';
 import EmployeeRoleManagement from './Features/RoleBase/EmployeeRoleManagement';
 import Profile from './Features/Profile/Profile';
+import Quotes from './Features/Quotes/Quotes';
 
 function App() {
   return (
@@ -34,6 +35,7 @@ function App() {
             <Route path="/contacts" element={<ContactBoard />} />
             <Route path="/mail-tracking" element={<MailTracking />} />
             <Route path="/quotes-invoices" element={<QuotesInvoice />} />
+            <Route path="/quotes" element={<Quotes/>} />
             <Route path="/rates" element={<Rates />} />
             <Route path="/rfq" element={<RFQ />} />
             <Route path="/leads" element={<LeadPage />} />

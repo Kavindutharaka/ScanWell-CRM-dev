@@ -12,8 +12,8 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowLocalhost", policy =>
     {
-        policy.WithOrigins("http://localhost:3000", "https://scanwell.phvtech.com")
-              .AllowAnyHeader()
+        policy.WithOrigins("http://localhost:3000", "https://scanwell.phvtech.com", "https://crm.scanwellapps.com")
+              .AllowAnyHeader() 
               .AllowAnyMethod()
               .AllowCredentials();
     });
@@ -65,5 +65,5 @@ app.MapControllerRoute(
     name: "default",
     pattern: "{controller=Home}/{action=Index}/{id?}")
     .WithStaticAssets();
-
+app.MapFallbackToFile("index.html");
 app.Run();

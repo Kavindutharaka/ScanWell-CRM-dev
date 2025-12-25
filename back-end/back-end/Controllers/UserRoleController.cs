@@ -56,6 +56,30 @@ namespace back_end.Controllers
             return Ok(tb);
         }
 
+        [HttpGet("employee-details/{id}")]
+        public ActionResult GetUserByRoleId(int id)
+        {
+            string query = @"EXEC [dbo].[sp_getEmployeesByRoleId] @RoleId = @RoleId;";
+
+            DataTable tb = new DataTable();
+
+            using (myCon)
+            {
+                myCon.Open();
+                using (SqlCommand myCom = new SqlCommand(query, myCon))
+                {
+                    myCom.Parameters.AddWithValue("@RoleId", id);
+
+                    using (SqlDataReader myR = myCom.ExecuteReader())
+                    {
+                        tb.Load(myR);
+                    }
+                }
+            }
+
+            return Ok(tb);
+        }
+
         // GET: api/userrole/user-roles/5
         [HttpGet("user-roles/{id}")]
         public ActionResult GetById(int id)

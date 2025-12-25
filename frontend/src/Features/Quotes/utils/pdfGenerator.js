@@ -1,0 +1,867 @@
+// src/Features/Quotes/utils/pdfGenerator.js
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import logo from '../../../assets/images/logo.png';
+
+/**
+ * Add Freight Charges Table for Transit/MultiModal
+ * Handles freightChargesTables format with different field names
+ */
+function addFreightChargesTableTransit(doc, charges, yPos, isAir, segmentNum) {
+  // Filter out empty charges
+  const validCharges = charges.filter(c => c.chargeableWeight || c.weightBreaker || c.charge);
+  
+  if (validCharges.length === 0) {
+    return yPos;
+  }
+  
+  if (yPos > 230) {
+    doc.addPage();
+    yPos = 20;
+  }
+  
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9);
+  doc.text(`Freight Charges (Segment ${segmentNum})`, 15, yPos);
+  yPos += 3;
+  
+  const tableData = validCharges.map(charge => {
+    // Calculate total: chargeableWeight * charge
+    const weight = parseFloat(charge.chargeableWeight) || 0;
+    const rate = parseFloat(charge.charge) || 0;
+    const total = weight * rate;
+    
+    return [
+      charge.chargeableWeight || '',
+      charge.weightBreaker || '',
+      charge.pricingUnit || '',
+      charge.charge || '',
+      charge.currency || 'USD',
+      total.toFixed(2)
+    ];
+  });
+  
+  autoTable(doc, {
+    startY: yPos,
+    head: [['Chargeable Weight', 'Weight Breaker', 'Pricing Unit', 'Charge', 'Currency', 'Total']],
+    body: tableData,
+    theme: 'grid',
+    headStyles: { fillColor: [200, 200, 200], textColor: 0, fontSize: 8, fontStyle: 'bold' },
+    bodyStyles: { fontSize: 8 },
+    columnStyles: {
+      0: { cellWidth: 30 },
+      1: { cellWidth: 30 },
+      2: { cellWidth: 30 },
+      3: { cellWidth: 25 },
+      4: { cellWidth: 20 },
+      5: { cellWidth: 25 }
+    },
+    margin: { left: 15, right: 15 }
+  });
+  
+  return doc.lastAutoTable.finalY + 8;
+}
+
+/**
+ * Calculate total for transit/multimodal quotes with new structure
+ */
+function calculateTransitTotalNew(segments) {
+  let total = 0;
+  
+  segments.forEach(segment => {
+    // Freight charges
+    const freightCharges = segment.freightChargesTables || segment.freightCharges || [];
+    freightCharges.forEach(charge => {
+      const weight = parseFloat(charge.chargeableWeight) || 0;
+      const rate = parseFloat(charge.charge) || 0;
+      total += weight * rate;
+    });
+    
+    // Origin handling
+    if (segment.originHandling) {
+      segment.originHandling.forEach(charge => {
+        total += calculateChargeTotal(charge);
+      });
+    }
+    
+    // Destination handling
+    if (segment.destinationHandling) {
+      segment.destinationHandling.forEach(charge => {
+        total += calculateChargeTotal(charge);
+      });
+    }
+  });
+  
+  return total;
+}
+
+/**
+ * Calculate total for a charge
+ */
+const calculateChargeTotal = (charge) => {
+  // If total is already calculated and non-zero, use it
+  if (charge.total && parseFloat(charge.total) > 0) {
+    return parseFloat(charge.total);
+  }
+  
+  // Calculate: numberOfUnits * amount
+  const units = parseFloat(charge.numberOfUnits) || 1; // Default to 1 if empty
+  const amount = parseFloat(charge.amount) || 0;
+  
+  return units * amount;
+};
+
+/**
+ * Common header for all PDFs
+ */
+const addPDFHeader = (doc, quoteData) => {
+  let yPos = 15;
+  
+  // Logo - maintaining aspect ratio (logo is typically wider than tall)
+  doc.addImage(logo, 'PNG', 15, yPos, 35, 14);
+  
+  // Company Info
+  doc.setFontSize(11);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Scanwell Logistics Colombo (Pvt) Ltd.', 195, yPos + 2, { align: 'right' });
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  doc.text('67/1 Hudson Road Colombo 3 Sri Lanka.', 195, yPos + 7, { align: 'right' });
+  doc.text('Office #+94 11 2426600/4766400', 195, yPos + 12, { align: 'right' });
+  
+  yPos += 25;
+  
+  // Title
+  doc.setFontSize(16);
+  doc.setFont('helvetica', 'bold');
+  doc.text('QUOTATION', 105, yPos, { align: 'center' });
+  
+  return yPos + 12;
+};
+
+/**
+ * Add customer section
+ */
+const addCustomerSection = (doc, quoteData, yPos) => {
+  doc.setFontSize(11);
+  doc.setFont('helvetica', 'bold');
+  doc.text(quoteData.quoteNumber || 'N/A', 15, yPos);
+  
+  const isAir = quoteData.freightCategory === 'air';
+  const freightLabel = isAir ? 'Air' : 'Sea';
+  const modeLabel = quoteData.freightMode?.charAt(0).toUpperCase() + quoteData.freightMode?.slice(1);
+  const typeLabel = quoteData.freightType?.toUpperCase();
+  const typeText = `${freightLabel} ${modeLabel} ${typeLabel}`;
+  
+  doc.text(typeText, 195, yPos, { align: 'right' });
+  
+  yPos += 5;
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  doc.text('Credit Terms', 195, yPos, { align: 'right' });
+  
+  if (quoteData.rateValidity) {
+    yPos += 4;
+    const validityDate = new Date(quoteData.rateValidity).toLocaleDateString('en-GB');
+    doc.text(`Rate Validity: ${validityDate}, 05:30`, 195, yPos, { align: 'right' });
+  }
+  
+  yPos += 10;
+  
+  // Customer
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Customer', 15, yPos);
+  doc.setFont('helvetica', 'normal');
+  yPos += 4;
+  doc.text(quoteData.customer || 'N/A', 15, yPos);
+  
+  yPos += 8;
+  
+  // Addresses
+  doc.setFont('helvetica', 'bold');
+  doc.text('Pickup Address', 15, yPos);
+  doc.text('Delivery Address', 130, yPos);
+  doc.setFont('helvetica', 'normal');
+  yPos += 4;
+  doc.text(quoteData.pickupLocation || 'N/A', 15, yPos);
+  doc.text(quoteData.deliveryLocation || 'N/A', 130, yPos);
+  
+  yPos += 8;
+  
+  return yPos;
+};
+
+/**
+ * Generate PDF for Direct Quotes
+ */
+export const generateDirectQuotePDF = (quoteData) => {
+  const doc = new jsPDF();
+  let yPos = addPDFHeader(doc, quoteData);
+  
+  yPos = addCustomerSection(doc, quoteData, yPos);
+  
+  // Parse data - handle both old and new formats
+  const equipment = quoteData.equipment ? JSON.parse(quoteData.equipment) : {};
+  const terms = quoteData.termsConditions ? JSON.parse(quoteData.termsConditions) : [];
+  const isAir = quoteData.freightCategory === 'air';
+  
+  // Check for new carrierOptions format
+  let carrierOptions = [];
+  if (quoteData.carrierOptions) {
+    carrierOptions = JSON.parse(quoteData.carrierOptions);
+  } else {
+    // Old format - convert to new format
+    const carriers = quoteData.carriers ? JSON.parse(quoteData.carriers) : [];
+    const freightCharges = quoteData.freightCharges ? JSON.parse(quoteData.freightCharges) : [];
+    const destinationCharges = quoteData.destinationCharges ? JSON.parse(quoteData.destinationCharges) : [];
+    const originHandling = quoteData.originHandling ? JSON.parse(quoteData.originHandling) : [];
+    const destinationHandling = quoteData.destinationHandling ? JSON.parse(quoteData.destinationHandling) : [];
+    
+    // Create single option from old format
+    if (carriers.length > 0 || freightCharges.length > 0) {
+      carrierOptions = [{
+        carrier: carriers[0]?.carrier || '',
+        incoterm: carriers[0]?.incoterm || '',
+        currency: carriers[0]?.currency || '',
+        cargoType: carriers[0]?.cargoType || '',
+        freightCharges: freightCharges,
+        destinationCharges: destinationCharges,
+        originHandling: originHandling,
+        destinationHandling: destinationHandling
+      }];
+    }
+  }
+  
+  // Line separator
+  doc.line(15, yPos, 195, yPos);
+  yPos += 5;
+  
+  // Port Details
+  doc.setFont('helvetica', 'bold');
+  doc.text('Port of Loading', 15, yPos);
+  doc.text('Port of Discharge', 130, yPos);
+  doc.setFont('helvetica', 'normal');
+  yPos += 4;
+  doc.text(quoteData.portOfLoading || 'N/A', 15, yPos);
+  doc.text(quoteData.portOfDischarge || 'N/A', 130, yPos);
+  
+  yPos += 8;
+  
+  // Equipment
+  doc.setFont('helvetica', 'bold');
+  doc.text('Equipment', 15, yPos);
+  doc.text('Units', 70, yPos);
+  doc.text('Gross Weight', 95, yPos);
+  doc.text('Volume (m³)', 135, yPos);
+  doc.text('Chargeable Weight', 165, yPos);
+  
+  yPos += 4;
+  doc.setFont('helvetica', 'normal');
+  doc.text(equipment.equipment || 'N/A', 15, yPos);
+  doc.text(equipment.units || '0', 70, yPos);
+  doc.text(equipment.grossWeight || '0', 95, yPos);
+  doc.text(equipment.volume || '0', 135, yPos);
+  doc.text(equipment.chargeableWeight || '0', 165, yPos);
+  
+  yPos += 10;
+  
+  // Carrier Options or Old Format Charges
+  if (carrierOptions.length > 0) {
+    carrierOptions.forEach((option, optionIndex) => {
+      if (yPos > 240) {
+        doc.addPage();
+        yPos = 20;
+      }
+      
+      // Option Header (only if multiple options)
+      if (carrierOptions.length > 1) {
+        doc.setFillColor(230, 230, 230);
+        doc.rect(15, yPos - 3, 180, 7, 'F');
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(10);
+        doc.text(`${isAir ? 'Airline' : 'Carrier'} Option [${optionIndex + 1}]`, 18, yPos + 2);
+        yPos += 10;
+      }
+      
+      // Carrier Details (if exists)
+      if (option.carrier || option.incoterm || option.currency || option.cargoType) {
+        doc.setFontSize(9);
+        doc.setFont('helvetica', 'bold');
+        yPos += 2;
+        
+        doc.setFont('helvetica', 'normal');
+        let detailsText = [];
+        if (option.carrier) detailsText.push(`${isAir ? 'Airline' : 'Carrier'}: ${option.carrier}`);
+        if (option.incoterm) detailsText.push(`Incoterm: ${option.incoterm}`);
+        if (option.currency) detailsText.push(`Currency: ${option.currency}`);
+        if (option.cargoType) detailsText.push(`Cargo Type: ${option.cargoType}`);
+        
+        if (detailsText.length > 0) {
+          doc.text(detailsText.join('  |  '), 15, yPos);
+          yPos += 8;
+        }
+      }
+      
+      // Freight Charges
+      yPos = addFreightChargesTable(doc, option.freightCharges || [], yPos, isAir);
+      
+      // Destination Charges
+      yPos = addOtherChargesTable(doc, option.destinationCharges || [], 'Destination Charges (POD)', yPos);
+      
+      // Origin Handling
+      yPos = addOtherChargesTable(doc, option.originHandling || [], 'Origin Handling Charges', yPos);
+      
+      // Destination Handling
+      yPos = addOtherChargesTable(doc, option.destinationHandling || [], 'Destination Handling Charges', yPos);
+      
+      // Option Total
+      const optionTotal = calculateOptionTotal(option);
+      if (optionTotal > 0) {
+        doc.setFont('helvetica', 'bold');
+        doc.text(`Total Amount: USD ${optionTotal.toFixed(2)}`, 15, yPos);
+        yPos += 10;
+      }
+    });
+  }
+  
+  // Terms & Conditions
+  if (terms.length > 0) {
+    if (yPos > 240) {
+      doc.addPage();
+      yPos = 20;
+    }
+    
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Terms & Conditions:', 15, yPos);
+    yPos += 5;
+    
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    terms.forEach(term => {
+      const lines = doc.splitTextToSize(`- ${term}`, 170);
+      lines.forEach(line => {
+        if (yPos > 280) {
+          doc.addPage();
+          yPos = 20;
+        }
+        doc.text(line, 15, yPos);
+        yPos += 4;
+      });
+    });
+  }
+  
+  // Footer
+  yPos = 280;
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'italic');
+  doc.text('Quotation generated by - System', 15, yPos);
+  doc.text('This is a Computer generated Document and no Signature required.', 15, yPos + 4);
+  
+  // Save
+  doc.save(`${quoteData.quoteNumber || 'Quote'}.pdf`);
+};
+
+/**
+ * Add Freight Charges Table
+ */
+function addFreightChargesTable(doc, charges, yPos, isAir) {
+  // Filter out empty charges
+  const validCharges = charges.filter(c => c.carrier || c.unitType || c.amount);
+  
+  if (validCharges.length === 0) {
+    return yPos;
+  }
+  
+  if (yPos > 230) {
+    doc.addPage();
+    yPos = 20;
+  }
+  
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9);
+  doc.text('Freight Charges', 15, yPos);
+  yPos += 3;
+  
+  const tableData = validCharges.map(charge => {
+    const units = charge.numberOfUnits || '';
+    const total = calculateChargeTotal(charge);
+    
+    const row = [
+      charge.carrier || '',
+      charge.unitType || '',
+      units,
+      charge.amount || '',
+      charge.currency || '',
+      charge.transitTime || '',
+      charge.numberOfRouting || ''
+    ];
+    
+    if (isAir) {
+      row.push(charge.surcharge || '');
+      row.push(charge.frequency || '');
+    }
+    
+    row.push(total.toFixed(2));
+    return row;
+  });
+  
+  const headers = ['Carrier', 'Unit Type', 'Units', 'Amount', 'Currency', 'Transit', 'Routing'];
+  if (isAir) {
+    headers.push('Surcharge', 'Frequency');
+  }
+  headers.push('Total');
+  
+  autoTable(doc, {
+    startY: yPos,
+    head: [headers],
+    body: tableData,
+    theme: 'grid',
+    headStyles: { fillColor: [200, 200, 200], textColor: 0, fontSize: 8, fontStyle: 'bold' },
+    bodyStyles: { fontSize: 8 },
+    columnStyles: {
+      0: { cellWidth: isAir ? 18 : 22 },
+      1: { cellWidth: 18 },
+      2: { cellWidth: 12 },
+      3: { cellWidth: 15 },
+      4: { cellWidth: 18 },  // Currency - increased from 15 to 18
+      5: { cellWidth: 15 },
+      6: { cellWidth: isAir ? 18 : 22 }
+    },
+    margin: { left: 15, right: 15 }
+  });
+  
+  return doc.lastAutoTable.finalY + 8;
+}
+
+/**
+ * Add Other Charges Table (Destination, Origin Handling, etc.)
+ */
+function addOtherChargesTable(doc, charges, title, yPos) {
+  // Filter out empty charges
+  const validCharges = charges.filter(c => c.chargeName || c.amount);
+  
+  if (validCharges.length === 0) {
+    return yPos;
+  }
+  
+  if (yPos > 230) {
+    doc.addPage();
+    yPos = 20;
+  }
+  
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9);
+  doc.text(title, 15, yPos);
+  yPos += 3;
+  
+  const tableData = validCharges.map(charge => {
+    const units = charge.numberOfUnits || (charge.unitType === 'SHIPMENT' ? '1' : '');
+    const total = calculateChargeTotal(charge);
+    
+    return [
+      charge.chargeName || '',
+      charge.unitType || '',
+      units,
+      charge.amount || '',
+      charge.currency || '',
+      total.toFixed(2)
+    ];
+  });
+  
+  autoTable(doc, {
+    startY: yPos,
+    head: [['Charge Name', 'Unit Type', 'Units', 'Amount', 'Currency', 'Total']],
+    body: tableData,
+    theme: 'grid',
+    headStyles: { fillColor: [200, 200, 200], textColor: 0, fontSize: 8, fontStyle: 'bold' },
+    bodyStyles: { fontSize: 8 },
+    columnStyles: {
+      0: { cellWidth: 50 },
+      1: { cellWidth: 30 },
+      2: { cellWidth: 20 },
+      3: { cellWidth: 25 },
+      4: { cellWidth: 20 },
+      5: { cellWidth: 25 }
+    },
+    margin: { left: 15, right: 15 }
+  });
+  
+  return doc.lastAutoTable.finalY + 8;
+}
+
+/**
+ * Calculate option total
+ */
+function calculateOptionTotal(option) {
+  let total = 0;
+  
+  // Freight charges
+  if (option.freightCharges) {
+    option.freightCharges.forEach(charge => {
+      total += calculateChargeTotal(charge);
+    });
+  }
+  
+  // Destination charges
+  if (option.destinationCharges) {
+    option.destinationCharges.forEach(charge => {
+      total += calculateChargeTotal(charge);
+    });
+  }
+  
+  // Origin handling
+  if (option.originHandling) {
+    option.originHandling.forEach(charge => {
+      total += calculateChargeTotal(charge);
+    });
+  }
+  
+  // Destination handling
+  if (option.destinationHandling) {
+    option.destinationHandling.forEach(charge => {
+      total += calculateChargeTotal(charge);
+    });
+  }
+  
+  return total;
+}
+
+/**
+ * Generate PDF for Transit Quotes
+ */
+export const generateTransitQuotePDF = (quoteData) => {
+  const doc = new jsPDF();
+  let yPos = addPDFHeader(doc, quoteData);
+  
+  yPos = addCustomerSection(doc, quoteData, yPos);
+  
+  const equipment = quoteData.equipment ? JSON.parse(quoteData.equipment) : {};
+  const terms = quoteData.termsConditions ? JSON.parse(quoteData.termsConditions) : [];
+  
+  // Parse routes - handle nested structure
+  let routesData = [];
+  let allSegments = [];
+  
+  if (quoteData.routes) {
+    const parsedRoutes = JSON.parse(quoteData.routes);
+    if (Array.isArray(parsedRoutes) && parsedRoutes.length > 0) {
+      // Extract routes array from nested structure
+      if (parsedRoutes[0].routes) {
+        routesData = parsedRoutes[0].routes;
+        allSegments = parsedRoutes[0].routes;
+      }
+    }
+  }
+  
+  doc.line(15, yPos, 195, yPos);
+  yPos += 5;
+  
+  // Route Segments Display
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9);
+  doc.text('Route Segments', 15, yPos);
+  yPos += 5;
+  
+  doc.setFont('helvetica', 'normal');
+  if (routesData.length > 0) {
+    const routeText = routesData.map(r => r.origin || 'N/A').concat([routesData[routesData.length - 1]?.destination || 'N/A']).join(' → ');
+    const routeLines = doc.splitTextToSize(routeText, 170);
+    routeLines.forEach(line => {
+      doc.text(line, 15, yPos);
+      yPos += 4;
+    });
+  }
+  
+  yPos += 6;
+  
+  // Equipment (top level or first segment)
+  const topEquipment = equipment.equipment ? equipment : (allSegments[0]?.equipment || {});
+  doc.setFont('helvetica', 'bold');
+  doc.text('Equipment', 15, yPos);
+  doc.text('Units', 70, yPos);
+  doc.text('Gross Weight', 95, yPos);
+  doc.text('Volume (m³)', 135, yPos);
+  doc.text('Chargeable Weight', 165, yPos);
+  
+  yPos += 4;
+  doc.setFont('helvetica', 'normal');
+  doc.text(topEquipment.equipment || equipment.equipment || 'N/A', 15, yPos);
+  doc.text(equipment.units || topEquipment.units || '0', 70, yPos);
+  doc.text(topEquipment.grossWeight || equipment.grossWeight || '0', 95, yPos);
+  doc.text(topEquipment.volume || equipment.volume || '0', 135, yPos);
+  doc.text(topEquipment.chargeableWeight || equipment.chargeableWeight || '0', 165, yPos);
+  
+  yPos += 10;
+  
+  // Process each segment
+  allSegments.forEach((segment, index) => {
+    if (yPos > 240) {
+      doc.addPage();
+      yPos = 20;
+    }
+    
+    doc.setFillColor(200, 220, 240);
+    doc.rect(15, yPos - 3, 180, 7, 'F');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    
+    const segmentMode = segment.mode?.toUpperCase() || 'N/A';
+    const segmentRoute = `${segment.origin || 'N/A'} → ${segment.destination || 'N/A'}`;
+    doc.text(`Segment ${index + 1}: ${segmentMode} (${segmentRoute})`, 18, yPos + 2);
+    yPos += 10;
+    
+    // Segment Equipment Details
+    const segEquip = segment.equipment || {};
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Equipment', 15, yPos);
+    doc.text('Transit Time', 70, yPos);
+    doc.text('Net Weight', 105, yPos);
+    doc.text('Gross Weight', 135, yPos);
+    doc.text('Chargeable', 170, yPos);
+    
+    yPos += 4;
+    doc.setFont('helvetica', 'normal');
+    doc.text(segEquip.equipment || 'N/A', 15, yPos);
+    doc.text(segEquip.transitTime || 'N/A', 70, yPos);
+    doc.text(segEquip.netWeight || '0', 105, yPos);
+    doc.text(segEquip.grossWeight || '0', 135, yPos);
+    doc.text(segEquip.chargeableWeight || '0', 170, yPos);
+    
+    yPos += 8;
+    
+    // Freight Charges - handle freightChargesTables or freightCharges
+    const freightCharges = segment.freightChargesTables || segment.freightCharges || [];
+    yPos = addFreightChargesTableTransit(doc, freightCharges, yPos, segment.mode === 'air', index + 1);
+    
+    // Origin Handling
+    if (segment.originHandling && segment.originHandling.length > 0) {
+      yPos = addOtherChargesTable(doc, segment.originHandling, `Seg${index + 1}: Origin Handling`, yPos);
+    }
+    
+    // Destination Handling
+    if (segment.destinationHandling && segment.destinationHandling.length > 0) {
+      yPos = addOtherChargesTable(doc, segment.destinationHandling, `Seg${index + 1}: Destination Handling`, yPos);
+    }
+    
+    yPos += 5;
+  });
+  
+  // Calculate and show total
+  const grandTotal = calculateTransitTotalNew(allSegments);
+  if (yPos > 270) {
+    doc.addPage();
+    yPos = 20;
+  }
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(11);
+  doc.text(`Total Amount: USD ${grandTotal.toFixed(2)}`, 15, yPos);
+  
+  // Terms
+  if (terms.length > 0) {
+    yPos += 10;
+    if (yPos > 250) {
+      doc.addPage();
+      yPos = 20;
+    }
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Terms & Conditions:', 15, yPos);
+    yPos += 5;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    terms.forEach(term => {
+      const lines = doc.splitTextToSize(`- ${term}`, 170);
+      lines.forEach(line => {
+        if (yPos > 280) {
+          doc.addPage();
+          yPos = 20;
+        }
+        doc.text(line, 15, yPos);
+        yPos += 4;
+      });
+    });
+  }
+  
+  // Footer
+  const finalY = 280;
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'italic');
+  doc.text('Quotation generated by - System', 15, finalY);
+  doc.text('This is a Computer generated Document and no Signature required.', 15, finalY + 4);
+  
+  doc.save(`${quoteData.quoteNumber || 'Transit-Quote'}.pdf`);
+};
+
+/**
+ * Generate PDF for MultiModal Quotes
+ */
+export const generateMultiModalQuotePDF = (quoteData) => {
+  const doc = new jsPDF();
+  let yPos = addPDFHeader(doc, quoteData);
+  
+  yPos = addCustomerSection(doc, quoteData, yPos);
+  
+  const equipment = quoteData.equipment ? JSON.parse(quoteData.equipment) : {};
+  const terms = quoteData.termsConditions ? JSON.parse(quoteData.termsConditions) : [];
+  
+  // Parse routes - handle nested structure (same as transit)
+  let routesData = [];
+  let allSegments = [];
+  
+  if (quoteData.routes) {
+    const parsedRoutes = JSON.parse(quoteData.routes);
+    if (Array.isArray(parsedRoutes) && parsedRoutes.length > 0) {
+      if (parsedRoutes[0].routes) {
+        routesData = parsedRoutes[0].routes;
+        allSegments = parsedRoutes[0].routes;
+      }
+    }
+  }
+  
+  doc.line(15, yPos, 195, yPos);
+  yPos += 5;
+  
+  // Route Segments Display
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9);
+  doc.text('Route Segments', 15, yPos);
+  yPos += 5;
+  
+  doc.setFont('helvetica', 'normal');
+  if (routesData.length > 0) {
+    const routeText = routesData.map((r, idx) => {
+      const mode = r.mode?.toUpperCase() || 'N/A';
+      const route = `${r.origin || 'N/A'} → ${r.destination || 'N/A'}`;
+      return `Seg ${idx + 1}: ${mode} (${route})`;
+    }).join('  |  ');
+    
+    const routeLines = doc.splitTextToSize(routeText, 170);
+    routeLines.forEach(line => {
+      doc.text(line, 15, yPos);
+      yPos += 4;
+    });
+  }
+  
+  yPos += 6;
+  
+  // Equipment (top level or first segment)
+  const topEquipment = equipment.equipment ? equipment : (allSegments[0]?.equipment || {});
+  doc.setFont('helvetica', 'bold');
+  doc.text('Equipment', 15, yPos);
+  doc.text('Units', 70, yPos);
+  doc.text('Gross Weight', 95, yPos);
+  doc.text('Volume (m³)', 135, yPos);
+  doc.text('Chargeable Weight', 165, yPos);
+  
+  yPos += 4;
+  doc.setFont('helvetica', 'normal');
+  doc.text(topEquipment.equipment || equipment.equipment || 'N/A', 15, yPos);
+  doc.text(equipment.units || topEquipment.units || '0', 70, yPos);
+  doc.text(topEquipment.grossWeight || equipment.grossWeight || '0', 95, yPos);
+  doc.text(topEquipment.volume || equipment.volume || '0', 135, yPos);
+  doc.text(topEquipment.chargeableWeight || equipment.chargeableWeight || '0', 165, yPos);
+  
+  yPos += 10;
+  
+  // Process each segment
+  allSegments.forEach((segment, index) => {
+    if (yPos > 240) {
+      doc.addPage();
+      yPos = 20;
+    }
+    
+    doc.setFillColor(220, 200, 240);
+    doc.rect(15, yPos - 3, 180, 7, 'F');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    
+    const segmentMode = segment.mode?.toUpperCase() || 'N/A';
+    const segmentRoute = `${segment.origin || 'N/A'} → ${segment.destination || 'N/A'}`;
+    doc.text(`Segment ${index + 1}: ${segmentMode} (${segmentRoute})`, 18, yPos + 2);
+    yPos += 10;
+    
+    // Segment Equipment Details
+    const segEquip = segment.equipment || {};
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Equipment', 15, yPos);
+    doc.text('Transit Time', 70, yPos);
+    doc.text('Net Weight', 105, yPos);
+    doc.text('Gross Weight', 135, yPos);
+    doc.text('Chargeable', 170, yPos);
+    
+    yPos += 4;
+    doc.setFont('helvetica', 'normal');
+    doc.text(segEquip.equipment || 'N/A', 15, yPos);
+    doc.text(segEquip.transitTime || 'N/A', 70, yPos);
+    doc.text(segEquip.netWeight || '0', 105, yPos);
+    doc.text(segEquip.grossWeight || '0', 135, yPos);
+    doc.text(segEquip.chargeableWeight || '0', 170, yPos);
+    
+    yPos += 8;
+    
+    // Freight Charges - handle freightChargesTables or freightCharges
+    const freightCharges = segment.freightChargesTables || segment.freightCharges || [];
+    yPos = addFreightChargesTableTransit(doc, freightCharges, yPos, segment.mode === 'air', index + 1);
+    
+    // Origin Handling
+    if (segment.originHandling && segment.originHandling.length > 0) {
+      yPos = addOtherChargesTable(doc, segment.originHandling, `Seg${index + 1}: Origin Handling`, yPos);
+    }
+    
+    // Destination Handling
+    if (segment.destinationHandling && segment.destinationHandling.length > 0) {
+      yPos = addOtherChargesTable(doc, segment.destinationHandling, `Seg${index + 1}: Destination Handling`, yPos);
+    }
+    
+    yPos += 5;
+  });
+  
+  // Calculate and show total
+  const grandTotal = calculateTransitTotalNew(allSegments);
+  if (yPos > 270) {
+    doc.addPage();
+    yPos = 20;
+  }
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(11);
+  doc.text(`Total Amount: USD ${grandTotal.toFixed(2)}`, 15, yPos);
+  
+  // Terms
+  if (terms.length > 0) {
+    yPos += 10;
+    if (yPos > 250) {
+      doc.addPage();
+      yPos = 20;
+    }
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Terms & Conditions:', 15, yPos);
+    yPos += 5;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    terms.forEach(term => {
+      const lines = doc.splitTextToSize(`- ${term}`, 170);
+      lines.forEach(line => {
+        if (yPos > 280) {
+          doc.addPage();
+          yPos = 20;
+        }
+        doc.text(line, 15, yPos);
+        yPos += 4;
+      });
+    });
+  }
+  
+  // Footer
+  const finalY = 280;
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'italic');
+  doc.text('Quotation generated by - System', 15, finalY);
+  doc.text('This is a Computer generated Document and no Signature required.', 15, finalY + 4);
+  
+  doc.save(`${quoteData.quoteNumber || 'MultiModal-Quote'}.pdf`);
+};

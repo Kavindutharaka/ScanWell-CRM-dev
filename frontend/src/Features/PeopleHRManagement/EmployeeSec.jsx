@@ -34,6 +34,26 @@ export default function EmployeeSec({ modalOpen, employees, setSelectedEmployee}
     setTimeout(() => setLoading(false), 1500);
   };
 
+  // Filter employees with proper null handling
+  const filteredEmployees = employees.filter(emp => {
+    if (!searchQuery) return true;
+    
+    const query = searchQuery.toLowerCase();
+    
+    // Safely check each field with null handling
+    return (
+      (emp.fname || '').toLowerCase().includes(query) ||
+      (emp.lname || '').toLowerCase().includes(query) ||
+      (emp.email || '').toLowerCase().includes(query) ||
+      (emp.tp || '').toLowerCase().includes(query) ||
+      (emp.position || '').toLowerCase().includes(query) ||
+      (emp.department || '').toLowerCase().includes(query) ||
+      (emp.w_location || '').toLowerCase().includes(query) ||
+      (emp.a_manager || '').toLowerCase().includes(query) ||
+      (emp.status || '').toLowerCase().includes(query)
+    );
+  });
+
   return (
     <div className="w-full bg-gradient-to-br from-slate-50 to-emerald-50/30 min-h-full">
       {/* Add custom CSS for animations */}
@@ -169,7 +189,7 @@ export default function EmployeeSec({ modalOpen, employees, setSelectedEmployee}
           <EmployeeList 
             onOpen={modalOpen} 
             loading={loading}
-            employees={employees}
+            employees={filteredEmployees}
             delay={300}
             setSelectedEmployee={setSelectedEmployee}
           />

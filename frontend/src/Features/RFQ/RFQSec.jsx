@@ -207,7 +207,8 @@ export default function InfoAndUpdatesSec({ modalOpen, onEdit }) {
 
         {/* Table Container */}
         <div className={`flex flex-col bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden ${!loading ? 'animate-fadeInUp' : 'opacity-0'}`} style={{ animationDelay: '250ms', animationFillMode: 'both' }}>
-          <div className="overflow-x-auto">
+          {/* Desktop Table View */}
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-left text-slate-700 border-collapse">
               <thead className="bg-slate-50 border-b border-slate-200 sticky top-0">
                 <tr>
@@ -310,6 +311,106 @@ export default function InfoAndUpdatesSec({ modalOpen, onEdit }) {
                 )}
               </tbody>
             </table>
+          </div>
+
+          {/* Mobile Card View */}
+          <div className="md:hidden space-y-4 p-4">
+            {loading ? (
+              // Loading skeletons for mobile
+              Array(5)
+                .fill(0)
+                .map((_, idx) => (
+                  <div key={idx} className="bg-white border border-slate-200 rounded-lg shadow-sm p-4">
+                    <div className="space-y-3">
+                      <div className="h-5 bg-slate-200 rounded skeleton w-3/4"></div>
+                      <div className="h-4 bg-slate-200 rounded skeleton w-1/2"></div>
+                      <div className="h-4 bg-slate-200 rounded skeleton w-2/3"></div>
+                      <div className="flex gap-2">
+                        <div className="h-9 bg-slate-200 rounded skeleton flex-1"></div>
+                        <div className="h-9 bg-slate-200 rounded skeleton flex-1"></div>
+                      </div>
+                    </div>
+                  </div>
+                ))
+            ) : filteredItems.length > 0 ? (
+              filteredItems.map((item, index) => {
+                const expired = isExpired(item.valid_date);
+                return (
+                  <div 
+                    key={item.sysID} 
+                    className={`border border-slate-200 rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200 ${expired ? 'border-red-200 bg-red-50/50' : 'bg-white'}`}
+                    style={{ 
+                      animation: 'fadeInUp 0.4s ease-out',
+                      animationDelay: `${index * 50}ms`,
+                      animationFillMode: 'both'
+                    }}
+                  >
+                    {/* Card Header */}
+                    <div className={`p-4 border-b ${expired ? 'border-red-100 bg-red-100/50' : 'border-slate-100 bg-blue-50'}`}>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-xs font-medium text-blue-600">RFQ Number</span>
+                        {expired && (
+                          <span className="expired-badge">
+                            <AlertCircle className="w-3 h-3" />
+                            Expired
+                          </span>
+                        )}
+                      </div>
+                      <h3 className="text-base font-bold text-slate-900">
+                        {item.rfq_number || "N/A"}
+                      </h3>
+                    </div>
+
+                    {/* Card Body */}
+                    <div className="p-4 space-y-3">
+                      {/* Customer */}
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-slate-500">Customer</span>
+                        <span className="text-sm font-medium text-slate-900">
+                          {item.customer || "N/A"}
+                        </span>
+                      </div>
+
+                      {/* Valid Date */}
+                      <div className="flex items-center justify-between pt-2 border-t border-slate-100">
+                        <span className="text-xs text-slate-500">Valid Date</span>
+                        <span className={`text-sm font-semibold ${expired ? 'expired-date' : 'text-slate-900'}`}>
+                          {formatDate(item.valid_date)}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Card Footer - Actions */}
+                    <div className="px-4 py-3 bg-slate-50 border-t border-slate-100 flex items-center gap-2">
+                      <button
+                        onClick={() => handleView(item.sysID)}
+                        className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                      >
+                        <Eye className="w-4 h-4" />
+                        View Data
+                      </button>
+                      <button
+                        onClick={() => handleDownload(item)}
+                        className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                      >
+                        <Download className="w-4 h-4" />
+                        Download
+                      </button>
+                    </div>
+                  </div>
+                );
+              })
+            ) : (
+              <div className="bg-white border border-slate-200 rounded-lg shadow-sm p-12">
+                <div className="flex flex-col items-center justify-center text-center">
+                  <CircleDollarSign className="w-12 h-12 text-slate-300 mb-4" />
+                  <p className="text-slate-500 font-medium">No RFQ found</p>
+                  <p className="text-slate-400 text-sm mt-1">
+                    {searchQuery ? "Try adjusting your search" : "Start by adding a new RFQ"}
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 

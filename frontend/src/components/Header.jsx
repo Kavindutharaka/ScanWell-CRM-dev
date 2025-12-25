@@ -1,14 +1,47 @@
+import { useContext } from 'react';
 import logo from '../assets/images/logo.png';
+import appLogo from '../assets/images/app_logo.png';
 import { Bell, MessageSquareText, Menu, X, User, LogOut } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import { BASE_URL } from '../config/apiConfig';
 import axios from '../config/axios';
+import { AuthContext } from "../context/AuthContext";
+import { fetchUserDetailsByRoleID } from '../api/UserRoleApi';
 
 function Header({ onMenuToggle, isMobileMenuOpen }) {
   const [showNotifications, setShowNotifications] = useState(false);
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
+  const [userDetails, setUserDetails] = useState(null);
   const profileDropdownRef = useRef(null);
+
+  const { user } = useContext(AuthContext);
+
+  useEffect(() => {
+    console.log("Current user in header:", user);
+    getUserById(user.id);
+  }, [user]);
   
+  const getUserById = async (userId) => {
+    try {
+      const res = await fetchUserDetailsByRoleID(userId);
+      console.log("Fetched user data:", res);
+      // API returns an array, so take the first item
+      if (res && res.length > 0) {
+        setUserDetails(res[0]);
+      }
+    } catch (error) {
+      console.error("Error fetching user details:", error);
+    }
+  };
+
+  // Get initials from first and last name
+  const getInitials = () => {
+    if (!userDetails) return 'K';
+    const firstInitial = userDetails.firstName?.charAt(0).toUpperCase() || '';
+    const lastInitial = userDetails.lastName?.charAt(0).toUpperCase() || '';
+    return firstInitial + lastInitial;
+  };
+
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -59,15 +92,20 @@ function Header({ onMenuToggle, isMobileMenuOpen }) {
         {/* Logo */}
         <div className="flex items-center">
           <img 
-            src={logo} 
+            src={appLogo} 
             alt="Company Logo" 
-            className="h-8 w-auto transition-transform hover:scale-105" 
+            className="h-12 w-auto transition-transform hover:scale-105" 
           />
         </div>
       </div>
 
       {/* Right side - Actions and Profile */}
       <div className="flex items-center gap-2 md:gap-4">
+        {/* <img 
+          src={appLogo} 
+          alt="Sales Drive" 
+          className="h-7 w-auto" 
+        /> */}
         {/* Notifications */}
         <div className="relative group">
           <button
@@ -77,19 +115,19 @@ function Header({ onMenuToggle, isMobileMenuOpen }) {
           >
             <Bell className="w-5 h-5 text-slate-600 group-hover:text-slate-800" />
             {/* Notification badge */}
-            <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full flex items-center justify-center">
+            {/* <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full flex items-center justify-center">
               <span className="text-[10px] text-white font-medium">3</span>
-            </span>
+            </span> */}
           </button>
           
           {/* Tooltip */}
           <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-slate-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
-            Notifications (3)
+            Notifications
           </div>
         </div>
 
         {/* Messages */}
-        <div className="relative group">
+        {/* <div className="relative group">
           <button
             className="p-2 rounded-lg hover:bg-slate-100 transition-all duration-200 active:scale-95"
             aria-label="Messages"
@@ -97,11 +135,11 @@ function Header({ onMenuToggle, isMobileMenuOpen }) {
             <MessageSquareText className="w-5 h-5 text-slate-600 group-hover:text-slate-800" />
           </button>
           
-          {/* Tooltip */}
+         
           <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-slate-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
             Messages
           </div>
-        </div>
+        </div> */}
 
         {/* Profile */}
         <div className="relative" ref={profileDropdownRef}>
@@ -110,7 +148,7 @@ function Header({ onMenuToggle, isMobileMenuOpen }) {
             className="bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-full w-9 h-9 flex items-center justify-center shadow-sm hover:shadow-md transition-all duration-200 active:scale-95"
             aria-label="User profile"
           >
-            <span className="text-sm font-semibold">K</span>
+            <span className="text-sm font-semibold">{getInitials()}</span>
           </button>
           
           {/* Profile Dropdown */}
@@ -120,11 +158,13 @@ function Header({ onMenuToggle, isMobileMenuOpen }) {
               <div className="px-4 py-3 border-b border-slate-100">
                 <div className="flex items-center gap-3">
                   <div className="bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-full w-10 h-10 flex items-center justify-center">
-                    <span className="text-sm font-semibold">K</span>
+                    <span className="text-sm font-semibold">{getInitials()}</span>
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-slate-900 truncate">Kavindu</p>
-                    <p className="text-xs text-slate-500 truncate">kavindu@scanwell.lk</p>
+                    <p className="text-sm font-semibold text-slate-900 truncate">{user.username}</p>
+                    <p className="text-xs text-slate-500 truncate">
+                      {userDetails?.email || 'Loading...'}
+                    </p>
                   </div>
                 </div>
               </div>

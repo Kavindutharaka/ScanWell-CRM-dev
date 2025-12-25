@@ -266,150 +266,261 @@ export default function ContactBoardSec({ modalOpen, setSelectedData, loading, l
               </div>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-slate-50 border-b border-slate-200">
-                  <tr>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
-                      Contact
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
-                      Company & Title
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
-                      Type
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
-                      Priority
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
-                      Deal Value
-                    </th>
-                    <th className="px-6 py-4 text-right text-xs font-semibold text-slate-600 uppercase tracking-wider">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-200">
-                  {filteredContacts.map((contact, index) => (
-                    <tr 
+            <>
+              {/* Desktop Table View */}
+              <div className="hidden md:block overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-slate-50 border-b border-slate-200">
+                    <tr>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                        Contact
+                      </th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                        Company & Title
+                      </th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                        Type
+                      </th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                        Priority
+                      </th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                        Deal Value
+                      </th>
+                      <th className="px-6 py-4 text-right text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200">
+                    {filteredContacts.map((contact, index) => (
+                      <tr 
+                        key={contact.id} 
+                        className="hover:bg-slate-50 transition-colors"
+                        style={{ 
+                          animation: `fadeInUp 0.3s ease-out ${index * 0.05}s both` 
+                        }}
+                      >
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center flex-shrink-0">
+                              <span className="text-white font-semibold text-sm">
+                                {getInitials(contact.contactName)}
+                              </span>
+                            </div>
+                            <div>
+                              <p className="font-semibold text-slate-800">{contact.contactName || 'N/A'}</p>
+                              {contact.email && (
+                                <div className="flex items-center gap-2 text-sm text-slate-600">
+                                  <Mail className="w-3 h-3" />
+                                  <span>{contact.email}</span>
+                                </div>
+                              )}
+                              {contact.phone && (
+                                <div className="flex items-center gap-2 text-sm text-slate-600">
+                                  <Phone className="w-3 h-3" />
+                                  <span>{contact.phone}</span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex items-start gap-2">
+                            <Building className="w-4 h-4 text-slate-400 mt-0.5 flex-shrink-0" />
+                            <div>
+                              <p className="font-medium text-slate-800">{contact.accounts || 'N/A'}</p>
+                              {contact.title && (
+                                <p className="text-sm text-slate-600">{contact.title}</p>
+                              )}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          {contact.type ? (
+                            <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border ${getTypeColor(contact.type)}`}>
+                              {contact.type}
+                            </span>
+                          ) : (
+                            <span className="text-slate-400 text-sm">-</span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4">
+                          {contact.priority ? (
+                            <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border ${getPriorityColor(contact.priority)}`}>
+                              {contact.priority}
+                            </span>
+                          ) : (
+                            <span className="text-slate-400 text-sm">-</span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4">
+                          {contact.dealsValue ? (
+                            <span className="font-semibold text-slate-800">
+                              ${parseFloat(contact.dealsValue).toLocaleString()}
+                            </span>
+                          ) : (
+                            <span className="text-slate-400 text-sm">-</span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <button
+                              className="p-2 hover:bg-indigo-50 rounded-lg transition-colors group"
+                              title="Edit contact"
+                              onClick={()=>handleEdit(contact)}
+                            >
+                              <Edit className="w-4 h-4 text-slate-400 group-hover:text-indigo-600" />
+                            </button>
+                            {/* <button
+                              onClick={() => handleDelete(contact.id)}
+                              className={`p-2 rounded-lg transition-colors group ${
+                                deleteConfirm === contact.id 
+                                  ? 'bg-red-100' 
+                                  : 'hover:bg-red-50'
+                              }`}
+                              title={deleteConfirm === contact.id ? "Click again to confirm" : "Delete contact"}
+                            >
+                              <Trash2 className={`w-4 h-4 ${
+                                deleteConfirm === contact.id 
+                                  ? 'text-red-600' 
+                                  : 'text-slate-400 group-hover:text-red-600'
+                              }`} />
+                            </button> */}
+                            {/* <button
+                              className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
+                              title="More options"
+                            >
+                              <MoreVertical className="w-4 h-4 text-slate-400" />
+                            </button> */}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+
+                {filteredContacts.length === 0 && !loading && (
+                  <div className="text-center py-12">
+                    <UserCircle className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+                    <p className="text-slate-600 font-medium">No contacts found</p>
+                    <p className="text-slate-500 text-sm mt-1">
+                      {searchQuery 
+                        ? 'Try adjusting your search criteria' 
+                        : 'Click "New Contact" to add your first contact'}
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Mobile Card View */}
+              <div className="md:hidden space-y-4 p-4">
+                {filteredContacts.length > 0 ? (
+                  filteredContacts.map((contact, index) => (
+                    <div 
                       key={contact.id} 
-                      className="hover:bg-slate-50 transition-colors"
+                      className="bg-white border border-slate-200 rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200"
                       style={{ 
                         animation: `fadeInUp 0.3s ease-out ${index * 0.05}s both` 
                       }}
                     >
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center flex-shrink-0">
-                            <span className="text-white font-semibold text-sm">
-                              {getInitials(contact.contactName)}
-                            </span>
+                      {/* Card Header */}
+                      <div className="p-4 bg-gradient-to-br from-indigo-50 to-purple-50 border-b border-slate-200">
+                        <div className="flex items-start justify-between mb-3">
+                          <div className="flex items-center gap-3 flex-1">
+                            <div className="w-12 h-12 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center flex-shrink-0">
+                              <span className="text-white font-semibold">
+                                {getInitials(contact.contactName)}
+                              </span>
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <h3 className="font-bold text-slate-900 text-base mb-1">
+                                {contact.contactName || 'N/A'}
+                              </h3>
+                              {contact.title && (
+                                <p className="text-xs text-slate-600">{contact.title}</p>
+                              )}
+                            </div>
                           </div>
-                          <div>
-                            <p className="font-semibold text-slate-800">{contact.contactName || 'N/A'}</p>
-                            {contact.email && (
-                              <div className="flex items-center gap-2 text-sm text-slate-600">
-                                <Mail className="w-3 h-3" />
-                                <span>{contact.email}</span>
-                              </div>
-                            )}
-                            {contact.phone && (
-                              <div className="flex items-center gap-2 text-sm text-slate-600">
-                                <Phone className="w-3 h-3" />
-                                <span>{contact.phone}</span>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-start gap-2">
-                          <Building className="w-4 h-4 text-slate-400 mt-0.5 flex-shrink-0" />
-                          <div>
-                            <p className="font-medium text-slate-800">{contact.accounts || 'N/A'}</p>
-                            {contact.title && (
-                              <p className="text-sm text-slate-600">{contact.title}</p>
-                            )}
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        {contact.type ? (
-                          <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border ${getTypeColor(contact.type)}`}>
-                            {contact.type}
-                          </span>
-                        ) : (
-                          <span className="text-slate-400 text-sm">-</span>
-                        )}
-                      </td>
-                      <td className="px-6 py-4">
-                        {contact.priority ? (
-                          <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border ${getPriorityColor(contact.priority)}`}>
-                            {contact.priority}
-                          </span>
-                        ) : (
-                          <span className="text-slate-400 text-sm">-</span>
-                        )}
-                      </td>
-                      <td className="px-6 py-4">
-                        {contact.dealsValue ? (
-                          <span className="font-semibold text-slate-800">
-                            ${parseFloat(contact.dealsValue).toLocaleString()}
-                          </span>
-                        ) : (
-                          <span className="text-slate-400 text-sm">-</span>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <div className="flex items-center justify-end gap-2">
                           <button
-                            className="p-2 hover:bg-indigo-50 rounded-lg transition-colors group"
+                            className="p-2 hover:bg-white/50 rounded-lg transition-colors flex-shrink-0"
                             title="Edit contact"
                             onClick={()=>handleEdit(contact)}
                           >
-                            <Edit className="w-4 h-4 text-slate-400 group-hover:text-indigo-600" />
+                            <Edit className="w-4 h-4 text-indigo-600" />
                           </button>
-                          {/* <button
-                            onClick={() => handleDelete(contact.id)}
-                            className={`p-2 rounded-lg transition-colors group ${
-                              deleteConfirm === contact.id 
-                                ? 'bg-red-100' 
-                                : 'hover:bg-red-50'
-                            }`}
-                            title={deleteConfirm === contact.id ? "Click again to confirm" : "Delete contact"}
-                          >
-                            <Trash2 className={`w-4 h-4 ${
-                              deleteConfirm === contact.id 
-                                ? 'text-red-600' 
-                                : 'text-slate-400 group-hover:text-red-600'
-                            }`} />
-                          </button> */}
-                          {/* <button
-                            className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
-                            title="More options"
-                          >
-                            <MoreVertical className="w-4 h-4 text-slate-400" />
-                          </button> */}
                         </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                        
+                        {/* Badges */}
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {contact.type && (
+                            <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border ${getTypeColor(contact.type)}`}>
+                              {contact.type}
+                            </span>
+                          )}
+                          {contact.priority && (
+                            <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border ${getPriorityColor(contact.priority)}`}>
+                              {contact.priority}
+                            </span>
+                          )}
+                        </div>
+                      </div>
 
-              {filteredContacts.length === 0 && !loading && (
-                <div className="text-center py-12">
-                  <UserCircle className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-                  <p className="text-slate-600 font-medium">No contacts found</p>
-                  <p className="text-slate-500 text-sm mt-1">
-                    {searchQuery 
-                      ? 'Try adjusting your search criteria' 
-                      : 'Click "New Contact" to add your first contact'}
-                  </p>
-                </div>
-              )}
-            </div>
+                      {/* Card Body */}
+                      <div className="p-4 space-y-3">
+                        {/* Contact Info */}
+                        {(contact.email || contact.phone) && (
+                          <div className="space-y-2">
+                            {contact.email && (
+                              <div className="flex items-center gap-2 text-sm">
+                                <Mail className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                                <span className="text-slate-700 truncate">{contact.email}</span>
+                              </div>
+                            )}
+                            {contact.phone && (
+                              <div className="flex items-center gap-2 text-sm">
+                                <Phone className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                                <span className="text-slate-700">{contact.phone}</span>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Company */}
+                        {contact.accounts && (
+                          <div className="flex items-center gap-2 text-sm pt-2 border-t border-slate-100">
+                            <Building className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                            <span className="text-slate-700 font-medium">{contact.accounts}</span>
+                          </div>
+                        )}
+
+                        {/* Deal Value */}
+                        {contact.dealsValue && (
+                          <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3 mt-3">
+                            <div className="text-xs text-emerald-600 mb-1">Deal Value</div>
+                            <div className="text-lg font-bold text-emerald-700">
+                              ${parseFloat(contact.dealsValue).toLocaleString()}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="bg-white border border-slate-200 rounded-lg shadow-sm p-12">
+                    <div className="text-center">
+                      <UserCircle className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+                      <p className="text-slate-600 font-medium">No contacts found</p>
+                      <p className="text-slate-500 text-sm mt-1">
+                        {searchQuery 
+                          ? 'Try adjusting your search criteria' 
+                          : 'Click "New Contact" to add your first contact'}
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </>
           )}
         </div>
 

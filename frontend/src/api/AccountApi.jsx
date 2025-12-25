@@ -29,8 +29,13 @@ export const deleteAccount = async (id) => {
   return response.data;
 };
 
+export const fetchAccountNames = async () => {
+  const response = await axios.get(`${BASE_URL}/Account/account-names`);
+  return response.data;
+};
+
 const AccountApi = {
-  createNewAccount, deleteAccount, fetchAccountById, fetchAccounts, updateAccount
+  createNewAccount, deleteAccount, fetchAccountById, fetchAccounts, updateAccount, fetchAccountNames
 };
 
 export default AccountApi;

@@ -270,24 +270,6 @@ export default function ActivitiesDetails({ onOpen, onEdit, loading: initialLoad
         animationFillMode: 'both'
       }}
     >
-      {/* Section Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between p-4 border-b border-slate-100 gap-4">
-        <div className="flex items-center gap-3">
-          <button className="p-1 hover:bg-slate-100 rounded transition-colors group">
-            <ChevronDown className="w-4 h-4 text-slate-400 group-hover:text-slate-600" />
-          </button>
-          <h2 className="text-lg font-bold text-slate-800">Sales Calls</h2>
-          <span className="text-sm text-slate-500">({activities.length})</span>
-        </div>
-
-        <button
-          onClick={loadActivities}
-          className="p-1 hover:bg-slate-100 rounded transition-colors"
-          title="Refresh activities"
-        >
-          <RefreshCw className="w-4 h-4 text-slate-400 hover:text-slate-600" />
-        </button>
-      </div>
 
       {/* Error Alert */}
       {error && (

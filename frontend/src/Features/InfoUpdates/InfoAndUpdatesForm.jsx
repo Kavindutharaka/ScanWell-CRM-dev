@@ -1,5 +1,7 @@
+// Updated InfoAndUpdatesForm.jsx
 import React, { useState, useEffect } from "react";
 import { X, Link as LinkIcon, Image, Upload, Loader2, Save } from "lucide-react";
+import ResourceApi from '../../api/ResourceApi'; // Adjust path as needed
 
 export default function InfoAndUpdatesForm({ onClose, initialItem, isEditMode }) {
   const [formData, setFormData] = useState({
@@ -91,14 +93,15 @@ export default function InfoAndUpdatesForm({ onClose, initialItem, isEditMode })
 
     if (!formData.link.trim()) {
       newErrors.link = "Link is required";
-    } else {
-      // Basic URL validation
-      try {
-        new URL(formData.link);
-      } catch {
-        newErrors.link = "Please enter a valid URL (e.g., https://example.com)";
-      }
-    }
+    } 
+    // else {
+    //   // Basic URL validation
+    //   try {
+    //     new URL(formData.link);
+    //   } catch {
+    //     newErrors.link = "Please enter a valid URL (e.g., https://example.com)";
+    //   }
+    // }
 
     if (!formData.description.trim()) {
       newErrors.description = "Description is required";
@@ -120,23 +123,41 @@ export default function InfoAndUpdatesForm({ onClose, initialItem, isEditMode })
     }
 
     setLoading(true);
-
+    console.log("this ")
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      const apiFormData = new FormData();
+      apiFormData.append('title', formData.title);
+      apiFormData.append('link', formData.link);
+      apiFormData.append('description', formData.description);
 
-      const itemData = {
-        ...formData,
-        id: isEditMode ? initialItem.id : Date.now(),
-        logoUrl: logoPreview || formData.logoUrl,
-        addedDate: isEditMode ? initialItem.addedDate : new Date().toISOString().split('T')[0],
-        addedBy: "Kavindu Tharaka", // This should come from auth context
-      };
+      if (logoFile) {
+        apiFormData.append('logoFile', logoFile);
+      } else if (formData.logoUrl) {
+        apiFormData.append('logoUrl', formData.logoUrl);
+      }
 
-      console.log("Saving item:", itemData);
-      
+      const addedDate = isEditMode ? initialItem.addedDate : new Date().toISOString().split('T')[0];
+      apiFormData.append('addedDate', addedDate);
+      apiFormData.append('addedBy', 'Kavindu Tharaka'); // This should come from auth context
+
+      for (let [key, value] of apiFormData.entries()) {
+        console.log(key, value);
+      }
+
+
+      let savedItem;
+      if (isEditMode) {
+        apiFormData.append('sysID', initialItem.id);
+        await ResourceApi.updateResource(apiFormData);
+        savedItem = { ...initialItem, ...formData, logoUrl: logoPreview || formData.logoUrl };
+      } else {
+        await ResourceApi.createNewResource(apiFormData);
+        savedItem = { id: Date.now(), ...formData, logoUrl: logoPreview || formData.logoUrl, addedDate, addedBy: 'Kavindu Tharaka' };
+      }
+
       // Call onClose with the saved data
-      onClose(itemData);
+      onClose(savedItem);
+      window.location.reload();
     } catch (error) {
       console.error("Error saving item:", error);
       setErrors({ submit: "Failed to save. Please try again." });

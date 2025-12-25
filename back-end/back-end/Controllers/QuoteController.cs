@@ -1,11 +1,8 @@
 using System;
-using System.Collections.Generic;
 using System.Data;
-using System.Linq;
-using System.Threading.Tasks;
-using back_end.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
+using back_end.Models;
 
 namespace back_end.Controllers
 {
@@ -14,197 +11,228 @@ namespace back_end.Controllers
     public class QuoteController : ControllerBase
     {
         private readonly IConfiguration _configuration;
-        string dbcon;
-        DataTable tb;
-        SqlConnection myCon;
-        SqlCommand myCom;
-        SqlDataReader myR;
+        private readonly string dbcon;
 
         public QuoteController(IConfiguration configuration)
         {
             _configuration = configuration;
             dbcon = _configuration.GetSection("DBCon").Value;
-            myCon = new SqlConnection(dbcon);
         }
 
+        private SqlConnection GetConnection() => new SqlConnection(dbcon);
+
+        // GET: api/quote
         [HttpGet, Route("quote")]
-        public ActionResult getQuotes()
+        public ActionResult GetAllQuotes()
         {
-            string query = @"select * from [dbo].[quotes_save] order by SysID desc;";
-            tb = new DataTable();
-            using (myCon)
+            string query = @"SELECT * FROM [dbo].[Quotes] ORDER BY QuoteId DESC;";
+            var tb = new DataTable();
+
+            try
             {
-                myCon.Open();
-                using (myCom = new SqlCommand(query, myCon))
-                {
-                    myR = myCom.ExecuteReader();
-                    tb.Load(myR);
-                    myR.Close();
-                    myCon.Close();
-                }
-                return new OkObjectResult(tb);
+                using var con = GetConnection();
+                con.Open();
+                using var cmd = new SqlCommand(query, con);
+                using var reader = cmd.ExecuteReader();
+                tb.Load(reader);
+                return Ok(tb);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Error: {ex.Message}");
             }
         }
 
+        // GET: api/quote/5
         [HttpGet, Route("quote/{id}")]
-        public ActionResult getQuoteById(string id)
+        public ActionResult GetQuoteById(int id)
         {
-            string query = @"select * from [dbo].[quotes_save] where SysID = @id;";
-            tb = new DataTable();
-            using (myCon)
+            string query = @"SELECT * FROM [dbo].[Quotes] WHERE QuoteId = @id;";
+            var tb = new DataTable();
+
+            try
             {
-                myCon.Open();
-                using (myCom = new SqlCommand(query, myCon))
-                {
-                    myCom.Parameters.AddWithValue("@id", id);
-                    myR = myCom.ExecuteReader();
-                    tb.Load(myR);
-                    myR.Close();
-                    myCon.Close();
-                }
+                using var con = GetConnection();
+                con.Open();
+                using var cmd = new SqlCommand(query, con);
+                cmd.Parameters.AddWithValue("@id", id);
+                using var reader = cmd.ExecuteReader();
+                tb.Load(reader);
+
+                if (tb.Rows.Count == 0)
+                    return NotFound("Quote not found.");
+
+                return Ok(tb);
             }
-            if (tb.Rows.Count == 0)
+            catch (Exception ex)
             {
-                return NotFound("Quote not found.");
+                return StatusCode(500, $"Error: {ex.Message}");
             }
-            return new OkObjectResult(tb);
         }
 
+        // POST: api/quote
         [HttpPost, Route("quote")]
         public IActionResult CreateQuote([FromBody] Quote quote)
         {
+            if (quote == null) return BadRequest("Quote data is required.");
+
             string query = @"
-            INSERT INTO [dbo].[quotes_save] 
-            (quoteId, customerId, customerName, pickupLocationId, deliveryLocationId, creditTermsId, createdDate, clientId, clientName, days, freightMode, freightCategory, createdBy, directRoute, transitRoute, multimodalSegments, routePlanData, freightCharges, handlingCharges, termsConditions, customTerms)
-            VALUES 
-            (@quoteId, @customerId, @customerName, @pickupLocationId, @deliveryLocationId, @creditTermsId, @createdDate, @clientId, @clientName, @days, @freightMode, @freightCategory, @createdBy, @directRoute, @transitRoute, @multimodalSegments, @routePlanData, @freightCharges, @handlingCharges, @termsConditions, @customTerms)";
+                INSERT INTO [dbo].[Quotes] (
+                    QuoteNumber, FreightCategory, FreightMode, FreightType, CreatedDate, RateValidity,
+                    Customer, PickupLocation, DeliveryLocation, PortOfLoading, PortOfDischarge,
+                    Carriers, Equipment, carrierOptions, FreightCharges, OtherCharges, DestinationCharges,
+                    OriginHandling, DestinationHandling, TransitRoutes, Routes,
+                    TotalTransitTime, TermsConditions, Status, CreatedBy
+                ) VALUES (
+                    @QuoteNumber, @FreightCategory, @FreightMode, @FreightType, @CreatedDate, @RateValidity,
+                    @Customer, @PickupLocation, @DeliveryLocation, @PortOfLoading, @PortOfDischarge,
+                    @Carriers, @Equipment, @CarrierOptions, @FreightCharges, @OtherCharges, @DestinationCharges,
+                    @OriginHandling, @DestinationHandling, @TransitRoutes, @Routes,
+                    @TotalTransitTime, @TermsConditions, @Status, @CreatedBy
+                );";
 
-            using (myCon)
+            try
             {
-                myCon.Open();
-                using (myCom = new SqlCommand(query, myCon))
-                {
-                    myCom.Parameters.AddWithValue("@quoteId", quote.quoteId ?? (object)DBNull.Value);
-                    myCom.Parameters.AddWithValue("@customerId", quote.customerId ?? (object)DBNull.Value);
-                    myCom.Parameters.AddWithValue("@customerName", quote.customerName ?? (object)DBNull.Value);
-                    myCom.Parameters.AddWithValue("@pickupLocationId", quote.pickupLocationId ?? (object)DBNull.Value);
-                    myCom.Parameters.AddWithValue("@deliveryLocationId", quote.deliveryLocationId ?? (object)DBNull.Value);
-                    myCom.Parameters.AddWithValue("@creditTermsId", quote.creditTermsId ?? (object)DBNull.Value);
-                    myCom.Parameters.AddWithValue("@createdDate", quote.createdDate ?? (object)DBNull.Value);
-                    myCom.Parameters.AddWithValue("@clientId", quote.clientId ?? (object)DBNull.Value);
-                    myCom.Parameters.AddWithValue("@clientName", quote.clientName ?? (object)DBNull.Value);
-                    myCom.Parameters.AddWithValue("@days", quote.days ?? (object)DBNull.Value);
-                    myCom.Parameters.AddWithValue("@freightMode", quote.freightMode ?? (object)DBNull.Value);
-                    myCom.Parameters.AddWithValue("@freightCategory", quote.freightCategory ?? (object)DBNull.Value);
-                    myCom.Parameters.AddWithValue("@createdBy", quote.createdBy ?? (object)DBNull.Value);
-                    myCom.Parameters.AddWithValue("@directRoute", quote.directRoute ?? (object)DBNull.Value);
-                    myCom.Parameters.AddWithValue("@transitRoute", quote.transitRoute ?? (object)DBNull.Value);
-                    myCom.Parameters.AddWithValue("@multimodalSegments", quote.multimodalSegments ?? (object)DBNull.Value);
-                    myCom.Parameters.AddWithValue("@routePlanData", quote.routePlanData ?? (object)DBNull.Value);
-                    myCom.Parameters.AddWithValue("@freightCharges", quote.freightCharges ?? (object)DBNull.Value);
-                    myCom.Parameters.AddWithValue("@handlingCharges", quote.handlingCharges ?? (object)DBNull.Value);
-                    myCom.Parameters.AddWithValue("@termsConditions", quote.termsConditions ?? (object)DBNull.Value);
-                    myCom.Parameters.AddWithValue("@customTerms", quote.customTerms ?? (object)DBNull.Value);
+                using var con = GetConnection();
+                con.Open();
+                using var cmd = new SqlCommand(query, con);
 
-                    myCom.ExecuteNonQuery();
-                }
-                myCon.Close();
+                cmd.Parameters.AddWithValue("@QuoteNumber", quote.QuoteNumber);
+                cmd.Parameters.AddWithValue("@FreightCategory", quote.FreightCategory);
+                cmd.Parameters.AddWithValue("@FreightMode", quote.FreightMode);
+                cmd.Parameters.AddWithValue("@FreightType", quote.FreightType);
+                cmd.Parameters.AddWithValue("@CreatedDate", quote.CreatedDate);
+                cmd.Parameters.AddWithValue("@RateValidity", quote.RateValidity ?? (object)DBNull.Value);
+
+                cmd.Parameters.AddWithValue("@Customer", quote.Customer ?? (object)DBNull.Value);
+                cmd.Parameters.AddWithValue("@PickupLocation", quote.PickupLocation ?? (object)DBNull.Value);
+                cmd.Parameters.AddWithValue("@DeliveryLocation", quote.DeliveryLocation ?? (object)DBNull.Value);
+                cmd.Parameters.AddWithValue("@PortOfLoading", quote.PortOfLoading ?? (object)DBNull.Value);
+                cmd.Parameters.AddWithValue("@PortOfDischarge", quote.PortOfDischarge ?? (object)DBNull.Value);
+
+                cmd.Parameters.AddWithValue("@Carriers", quote.Carriers ?? (object)DBNull.Value);
+                cmd.Parameters.AddWithValue("@Equipment", quote.Equipment ?? (object)DBNull.Value);
+                cmd.Parameters.AddWithValue("@CarrierOptions", quote.CarrierOptions ?? (object)DBNull.Value);
+                cmd.Parameters.AddWithValue("@FreightCharges", quote.FreightCharges ?? (object)DBNull.Value);
+                cmd.Parameters.AddWithValue("@OtherCharges", quote.OtherCharges ?? (object)DBNull.Value);
+                cmd.Parameters.AddWithValue("@DestinationCharges", quote.DestinationCharges ?? (object)DBNull.Value);
+                cmd.Parameters.AddWithValue("@OriginHandling", quote.OriginHandling ?? (object)DBNull.Value);
+                cmd.Parameters.AddWithValue("@DestinationHandling", quote.DestinationHandling ?? (object)DBNull.Value);
+                cmd.Parameters.AddWithValue("@TransitRoutes", quote.TransitRoutes ?? (object)DBNull.Value);
+                cmd.Parameters.AddWithValue("@Routes", quote.Routes ?? (object)DBNull.Value);
+                cmd.Parameters.AddWithValue("@TotalTransitTime", quote.TotalTransitTime ?? (object)DBNull.Value);
+                cmd.Parameters.AddWithValue("@TermsConditions", quote.TermsConditions ?? (object)DBNull.Value);
+                cmd.Parameters.AddWithValue("@Status", quote.Status ?? "draft");
+                cmd.Parameters.AddWithValue("@CreatedBy", quote.CreatedBy);
+
+                cmd.ExecuteNonQuery();
+                return Ok("Quote created successfully.");
             }
-
-            return Ok("Quote added successfully.");
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Error creating quote: {ex.Message}");
+            }
         }
 
+        // PUT: api/quote
         [HttpPut, Route("quote")]
         public IActionResult UpdateQuote([FromBody] Quote quote)
         {
-            if (string.IsNullOrEmpty(quote.sysID))
-                return BadRequest("Quote ID is required for update.");
+            if (quote == null || quote.QuoteId <= 0)
+                return BadRequest("Valid QuoteId is required.");
 
             string query = @"
-            UPDATE [dbo].[quotes_save] SET
-                quoteId = @quoteId,
-                customerId = @customerId,
-                customerName = @customerName,
-                pickupLocationId = @pickupLocationId,
-                deliveryLocationId = @deliveryLocationId,
-                creditTermsId = @creditTermsId,
-                createdDate = @createdDate,
-                clientId = @clientId,
-                clientName = @clientName,
-                days = @days,
-                freightMode = @freightMode,
-                freightCategory = @freightCategory,
-                createdBy = @createdBy,
-                directRoute = @directRoute,
-                transitRoute = @transitRoute,
-                multimodalSegments = @multimodalSegments,
-                routePlanData = @routePlanData,
-                freightCharges = @freightCharges,
-                handlingCharges = @handlingCharges,
-                termsConditions = @termsConditions,
-                customTerms = @customTerms
-            WHERE SysID = @id";
+                UPDATE [dbo].[Quotes] SET
+                    QuoteNumber = @QuoteNumber,
+                    FreightCategory = @FreightCategory,
+                    FreightMode = @FreightMode,
+                    FreightType = @FreightType,
+                    CreatedDate = @CreatedDate,
+                    RateValidity = @RateValidity,
+                    Customer = @Customer,
+                    PickupLocation = @PickupLocation,
+                    DeliveryLocation = @DeliveryLocation,
+                    PortOfLoading = @PortOfLoading,
+                    PortOfDischarge = @PortOfDischarge,
+                    Carriers = @Carriers,
+                    Equipment = @Equipment,
+                    CarrierOptions = @CarrierOptions,
+                    FreightCharges = @FreightCharges,
+                    DestinationCharges = @DestinationCharges,
+                    OriginHandling = @OriginHandling,
+                    DestinationHandling = @DestinationHandling,
+                    TransitRoutes = @TransitRoutes,
+                    Routes = @Routes,
+                    TotalTransitTime = @TotalTransitTime,
+                    TermsConditions = @TermsConditions,
+                    Status = @Status,
+                    UpdatedAt = GETDATE()
+                WHERE QuoteId = @QuoteId";
 
-            using (myCon)
+            try
             {
-                myCon.Open();
-                using (myCom = new SqlCommand(query, myCon))
-                {
-                    myCom.Parameters.AddWithValue("@id", quote.sysID);
-                    myCom.Parameters.AddWithValue("@quoteId", quote.quoteId ?? (object)DBNull.Value);
-                    myCom.Parameters.AddWithValue("@customerId", quote.customerId ?? (object)DBNull.Value);
-                    myCom.Parameters.AddWithValue("@customerName", quote.customerName ?? (object)DBNull.Value);
-                    myCom.Parameters.AddWithValue("@pickupLocationId", quote.pickupLocationId ?? (object)DBNull.Value);
-                    myCom.Parameters.AddWithValue("@deliveryLocationId", quote.deliveryLocationId ?? (object)DBNull.Value);
-                    myCom.Parameters.AddWithValue("@creditTermsId", quote.creditTermsId ?? (object)DBNull.Value);
-                    myCom.Parameters.AddWithValue("@createdDate", quote.createdDate ?? (object)DBNull.Value);
-                    myCom.Parameters.AddWithValue("@clientId", quote.clientId ?? (object)DBNull.Value);
-                    myCom.Parameters.AddWithValue("@clientName", quote.clientName ?? (object)DBNull.Value);
-                    myCom.Parameters.AddWithValue("@days", quote.days ?? (object)DBNull.Value);
-                    myCom.Parameters.AddWithValue("@freightMode", quote.freightMode ?? (object)DBNull.Value);
-                    myCom.Parameters.AddWithValue("@freightCategory", quote.freightCategory ?? (object)DBNull.Value);
-                    myCom.Parameters.AddWithValue("@createdBy", quote.createdBy ?? (object)DBNull.Value);
-                    myCom.Parameters.AddWithValue("@directRoute", quote.directRoute ?? (object)DBNull.Value);
-                    myCom.Parameters.AddWithValue("@transitRoute", quote.transitRoute ?? (object)DBNull.Value);
-                    myCom.Parameters.AddWithValue("@multimodalSegments", quote.multimodalSegments ?? (object)DBNull.Value);
-                    myCom.Parameters.AddWithValue("@routePlanData", quote.routePlanData ?? (object)DBNull.Value);
-                    myCom.Parameters.AddWithValue("@freightCharges", quote.freightCharges ?? (object)DBNull.Value);
-                    myCom.Parameters.AddWithValue("@handlingCharges", quote.handlingCharges ?? (object)DBNull.Value);
-                    myCom.Parameters.AddWithValue("@termsConditions", quote.termsConditions ?? (object)DBNull.Value);
-                    myCom.Parameters.AddWithValue("@customTerms", quote.customTerms ?? (object)DBNull.Value);
+                using var con = GetConnection();
+                con.Open();
+                using var cmd = new SqlCommand(query, con);
 
-                    int rowsAffected = myCom.ExecuteNonQuery();
+                cmd.Parameters.AddWithValue("@QuoteId", quote.QuoteId);
+                cmd.Parameters.AddWithValue("@QuoteNumber", quote.QuoteNumber);
+                cmd.Parameters.AddWithValue("@FreightCategory", quote.FreightCategory);
+                cmd.Parameters.AddWithValue("@FreightMode", quote.FreightMode);
+                cmd.Parameters.AddWithValue("@FreightType", quote.FreightType);
+                cmd.Parameters.AddWithValue("@CreatedDate", quote.CreatedDate);
+                cmd.Parameters.AddWithValue("@RateValidity", quote.RateValidity ?? (object)DBNull.Value);
+                cmd.Parameters.AddWithValue("@Customer", quote.Customer ?? (object)DBNull.Value);
+                cmd.Parameters.AddWithValue("@PickupLocation", quote.PickupLocation ?? (object)DBNull.Value);
+                cmd.Parameters.AddWithValue("@DeliveryLocation", quote.DeliveryLocation ?? (object)DBNull.Value);
+                cmd.Parameters.AddWithValue("@PortOfLoading", quote.PortOfLoading ?? (object)DBNull.Value);
+                cmd.Parameters.AddWithValue("@PortOfDischarge", quote.PortOfDischarge ?? (object)DBNull.Value);
+                cmd.Parameters.AddWithValue("@Carriers", quote.Carriers ?? (object)DBNull.Value);
+                cmd.Parameters.AddWithValue("@Equipment", quote.Equipment ?? (object)DBNull.Value);
+                cmd.Parameters.AddWithValue("@CarrierOptions", quote.CarrierOptions ?? (object)DBNull.Value);   
+                cmd.Parameters.AddWithValue("@FreightCharges", quote.FreightCharges ?? (object)DBNull.Value);
+                cmd.Parameters.AddWithValue("@DestinationCharges", quote.DestinationCharges ?? (object)DBNull.Value);
+                cmd.Parameters.AddWithValue("@OriginHandling", quote.OriginHandling ?? (object)DBNull.Value);
+                cmd.Parameters.AddWithValue("@DestinationHandling", quote.DestinationHandling ?? (object)DBNull.Value);
+                cmd.Parameters.AddWithValue("@TransitRoutes", quote.TransitRoutes ?? (object)DBNull.Value);
+                cmd.Parameters.AddWithValue("@Routes", quote.Routes ?? (object)DBNull.Value);
+                cmd.Parameters.AddWithValue("@TotalTransitTime", quote.TotalTransitTime ?? (object)DBNull.Value);
+                cmd.Parameters.AddWithValue("@TermsConditions", quote.TermsConditions ?? (object)DBNull.Value);
+                cmd.Parameters.AddWithValue("@Status", quote.Status ?? "draft");
 
-                    if (rowsAffected == 0)
-                        return NotFound("Quote not found.");
-                }
-                myCon.Close();
+                int rows = cmd.ExecuteNonQuery();
+                return rows > 0
+                    ? Ok("Quote updated successfully.")
+                    : NotFound("Quote not found.");
             }
-
-            return Ok("Quote updated successfully.");
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Error updating quote: {ex.Message}");
+            }
         }
 
+        // DELETE: api/quote/5
         [HttpDelete, Route("quote/{id}")]
-        public IActionResult DeleteQuote(string id)
+        public IActionResult DeleteQuote(int id)
         {
-            string query = @"DELETE FROM [dbo].[quotes_save] WHERE SysID = @id";
+            string query = @"DELETE FROM [dbo].[Quotes] WHERE QuoteId = @id";
 
-            using (myCon)
+            try
             {
-                myCon.Open();
-                using (myCom = new SqlCommand(query, myCon))
-                {
-                    myCom.Parameters.AddWithValue("@id", id);
+                using var con = GetConnection();
+                con.Open();
+                using var cmd = new SqlCommand(query, con);
+                cmd.Parameters.AddWithValue("@id", id);
 
-                    int rowsAffected = myCom.ExecuteNonQuery();
-
-                    if (rowsAffected == 0)
-                        return NotFound("Quote not found.");
-                }
-                myCon.Close();
+                int rows = cmd.ExecuteNonQuery();
+                return rows > 0
+                    ? Ok("Quote deleted successfully.")
+                    : NotFound("Quote not found.");
             }
-
-            return Ok("Quote deleted successfully.");
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Error deleting quote: {ex.Message}");
+            }
         }
     }
 }

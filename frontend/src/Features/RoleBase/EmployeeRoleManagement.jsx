@@ -230,7 +230,8 @@ export default function EmployeeRoleManagement() {
 
           {/* User Roles Table */}
           <div className="bg-white rounded-lg shadow-sm overflow-hidden">
-            <div className="overflow-x-auto">
+            {/* Desktop Table View */}
+            <div className="hidden md:block overflow-x-auto">
               <table className="w-full">
                 <thead className="bg-purple-50 border-b border-purple-100">
                   <tr>
@@ -357,6 +358,120 @@ export default function EmployeeRoleManagement() {
                   )}
                 </tbody>
               </table>
+            </div>
+
+            {/* Mobile Card View */}
+            <div className="md:hidden p-4 space-y-4">
+              {loading ? (
+                <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-12">
+                  <div className="flex flex-col items-center justify-center gap-3">
+                    <div className="w-8 h-8 border-2 border-purple-600 border-t-transparent rounded-full animate-spin"></div>
+                    <p className="text-gray-500">Loading user roles...</p>
+                  </div>
+                </div>
+              ) : filteredRoles.length === 0 ? (
+                <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-12">
+                  <div className="text-center">
+                    <Users className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                    <p className="text-lg font-medium text-gray-600 mb-1">No user roles found</p>
+                    <p className="text-sm text-gray-500">
+                      {searchTerm ? 'Try adjusting your search criteria' : 'Click "Add User Role" to create the first one'}
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                filteredRoles.map((role) => {
+                  const permissionCount = [
+                    role.rateManageView, role.rateManageAdd, role.rateManageEdit,
+                    role.usefulLinksView, role.usefulLinksAdd, role.usefulLinksEdit,
+                    role.salesPlanView, role.salesPlanAdd, role.salesPlanEdit,
+                    role.quotesView, role.quotesAdd, role.quotesEdit,
+                    role.rfqView, role.rfqAdd, role.rfqEdit,
+                    role.contactView, role.contactAdd, role.contactEdit,
+                    role.accountView, role.accountAdd, role.accountEdit,
+                    role.systemManagementView, role.systemManagementAdd, role.systemManagementEdit
+                  ].filter(Boolean).length;
+
+                  return (
+                    <div key={role.id} className="bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200">
+                      {/* Card Header */}
+                      <div className="p-4 bg-purple-50 border-b border-purple-100">
+                        <div className="flex items-start justify-between mb-3">
+                          <div className="flex items-center gap-3 flex-1">
+                            <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center flex-shrink-0">
+                              <Users className="w-6 h-6 text-purple-600" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <h3 className="font-semibold text-gray-900 text-base mb-1">
+                                {role.employeeName}
+                              </h3>
+                              <div className="text-xs text-gray-500 mb-2">ID: {role.employeeId}</div>
+                              <div className="flex items-center gap-2">
+                                <Key className="w-3 h-3 text-gray-400" />
+                                <span className="text-sm text-gray-700 font-medium">{role.username}</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        {/* Role Type & Status */}
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {role.isAdmin ? (
+                            <span className="inline-flex items-center gap-1 px-3 py-1 bg-red-100 text-red-700 rounded-full text-xs font-medium">
+                              <Shield className="w-3 h-3" />
+                              Administrator
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-medium">
+                              <Users className="w-3 h-3" />
+                              Standard User
+                            </span>
+                          )}
+                          <span className={`inline-flex px-3 py-1 rounded-full text-xs font-medium ${
+                            role.isActive 
+                              ? 'bg-green-100 text-green-700' 
+                              : 'bg-gray-100 text-gray-700'
+                          }`}>
+                            {role.isActive ? 'Active' : 'Inactive'}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Card Body */}
+                      <div className="p-4">
+                        {/* Permissions */}
+                        <div className="bg-purple-50 border border-purple-200 rounded-lg p-3 mb-4">
+                          <div className="flex items-center gap-2 mb-1">
+                            <Shield className="w-4 h-4 text-purple-600" />
+                            <span className="text-xs font-semibold text-purple-900">Permissions</span>
+                          </div>
+                          <div className="text-lg font-bold text-purple-700">
+                            {permissionCount} assigned
+                          </div>
+                        </div>
+
+                        {/* Actions */}
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => handleEditRole(role)}
+                            className="flex-1 flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                          >
+                            <Edit2 className="w-4 h-4" />
+                            Edit Role
+                          </button>
+                          <button
+                            onClick={() => handleDeleteRole(role.id)}
+                            className="flex-1 flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                            Delete
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
             </div>
           </div>
         </main>

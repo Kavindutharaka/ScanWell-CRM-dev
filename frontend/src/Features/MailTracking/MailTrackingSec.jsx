@@ -291,154 +291,302 @@ export default function MailTrackingSec() {
         <div className={`flex flex-col bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden ${!loading ? 'animate-fadeInUp' : 'opacity-0'}`} style={{ animationDelay: '250ms', animationFillMode: 'both' }}>
           {/* Sent Emails Table */}
           {selectedCategory === "sent" ? (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-slate-700 border-collapse">
-                <thead className="bg-slate-50 border-b border-slate-200 sticky top-0">
-                  <tr>
-                    <th className="px-6 py-4 font-semibold text-sm text-slate-600">Launched</th>
-                    <th className="px-6 py-4 font-semibold text-sm text-slate-600">Subject</th>
-                    <th className="px-6 py-4 font-semibold text-sm text-slate-600">Sent by</th>
-                    <th className="px-6 py-4 font-semibold text-sm text-slate-600">Status</th>
-                    <th className="px-6 py-4 font-semibold text-sm text-slate-600 text-right">Recipients</th>
-                    <th className="px-6 py-4 font-semibold text-sm text-slate-600 text-right">Delivered</th>
-                    <th className="px-6 py-4 font-semibold text-sm text-slate-600 text-right">Opened</th>
-                    <th className="px-6 py-4 font-semibold text-sm text-slate-600 text-right">Clicked</th>
-                    <th className="px-6 py-4 font-semibold text-sm text-slate-600">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-200">
-                  {loading ? (
-                    // Loading skeletons
-                    Array(3)
-                      .fill(0)
-                      .map((_, idx) => (
-                        <tr key={idx} className="table-row-hover">
-                          <td className="px-6 py-4">
-                            <div className="h-4 bg-slate-200 rounded skeleton w-20"></div>
+            <>
+              {/* Desktop Table View */}
+              <div className="hidden md:block overflow-x-auto">
+                <table className="w-full text-left text-slate-700 border-collapse">
+                  <thead className="bg-slate-50 border-b border-slate-200 sticky top-0">
+                    <tr>
+                      <th className="px-6 py-4 font-semibold text-sm text-slate-600">Launched</th>
+                      <th className="px-6 py-4 font-semibold text-sm text-slate-600">Subject</th>
+                      <th className="px-6 py-4 font-semibold text-sm text-slate-600">Sent by</th>
+                      <th className="px-6 py-4 font-semibold text-sm text-slate-600">Status</th>
+                      <th className="px-6 py-4 font-semibold text-sm text-slate-600 text-right">Recipients</th>
+                      <th className="px-6 py-4 font-semibold text-sm text-slate-600 text-right">Delivered</th>
+                      <th className="px-6 py-4 font-semibold text-sm text-slate-600 text-right">Opened</th>
+                      <th className="px-6 py-4 font-semibold text-sm text-slate-600 text-right">Clicked</th>
+                      <th className="px-6 py-4 font-semibold text-sm text-slate-600">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200">
+                    {loading ? (
+                      // Loading skeletons
+                      Array(3)
+                        .fill(0)
+                        .map((_, idx) => (
+                          <tr key={idx} className="table-row-hover">
+                            <td className="px-6 py-4">
+                              <div className="h-4 bg-slate-200 rounded skeleton w-20"></div>
+                            </td>
+                            <td className="px-6 py-4">
+                              <div className="h-4 bg-slate-200 rounded skeleton w-40"></div>
+                            </td>
+                            <td className="px-6 py-4">
+                              <div className="h-4 bg-slate-200 rounded skeleton w-32"></div>
+                            </td>
+                            <td className="px-6 py-4">
+                              <div className="h-6 bg-slate-200 rounded-full skeleton w-24"></div>
+                            </td>
+                            <td className="px-6 py-4 text-right">
+                              <div className="h-4 bg-slate-200 rounded skeleton w-16 ml-auto"></div>
+                            </td>
+                            <td className="px-6 py-4 text-right">
+                              <div className="h-4 bg-slate-200 rounded skeleton w-16 ml-auto"></div>
+                            </td>
+                            <td className="px-6 py-4 text-right">
+                              <div className="h-4 bg-slate-200 rounded skeleton w-16 ml-auto"></div>
+                            </td>
+                            <td className="px-6 py-4 text-right">
+                              <div className="h-4 bg-slate-200 rounded skeleton w-16 ml-auto"></div>
+                            </td>
+                            <td className="px-6 py-4">
+                              <div className="h-6 bg-slate-200 rounded skeleton w-8"></div>
+                            </td>
+                          </tr>
+                        ))
+                    ) : (
+                      sentEmails.map((email) => (
+                        <tr key={email.id} className="table-row-hover hover:bg-slate-50 transition-colors duration-150">
+                          <td className="px-6 py-4 text-sm">{email.launched}</td>
+                          <td className="px-6 py-4 text-sm font-medium truncate max-w-xs hover:text-blue-600 cursor-pointer">
+                            {email.subject}
                           </td>
-                          <td className="px-6 py-4">
-                            <div className="h-4 bg-slate-200 rounded skeleton w-40"></div>
+                          <td className="px-6 py-4 text-sm text-slate-600">{email.sentBy}</td>
+                          <td className="px-6 py-4">{getStatusBadge(email.status)}</td>
+                          <td className="px-6 py-4 text-sm text-right font-medium">{email.recipients}</td>
+                          <td className="px-6 py-4 text-sm text-right text-green-600 font-medium">
+                            {email.delivered}
                           </td>
-                          <td className="px-6 py-4">
-                            <div className="h-4 bg-slate-200 rounded skeleton w-32"></div>
+                          <td className="px-6 py-4 text-sm text-right">
+                            <div className="flex items-center justify-end gap-1 text-blue-600 font-medium">
+                              <Eye className="w-4 h-4" />
+                              {email.opened} ({Math.round((email.opened / email.delivered) * 100)}%)
+                            </div>
                           </td>
-                          <td className="px-6 py-4">
-                            <div className="h-6 bg-slate-200 rounded-full skeleton w-24"></div>
+                          <td className="px-6 py-4 text-sm text-right">
+                            <div className="flex items-center justify-end gap-1 text-purple-600 font-medium">
+                              <Mouse className="w-4 h-4" />
+                              {email.clicked} ({Math.round((email.clicked / email.opened) * 100)}%)
+                            </div>
                           </td>
-                          <td className="px-6 py-4 text-right">
-                            <div className="h-4 bg-slate-200 rounded skeleton w-16 ml-auto"></div>
-                          </td>
-                          <td className="px-6 py-4 text-right">
-                            <div className="h-4 bg-slate-200 rounded skeleton w-16 ml-auto"></div>
-                          </td>
-                          <td className="px-6 py-4 text-right">
-                            <div className="h-4 bg-slate-200 rounded skeleton w-16 ml-auto"></div>
-                          </td>
-                          <td className="px-6 py-4 text-right">
-                            <div className="h-4 bg-slate-200 rounded skeleton w-16 ml-auto"></div>
-                          </td>
-                          <td className="px-6 py-4">
-                            <div className="h-6 bg-slate-200 rounded skeleton w-8"></div>
+                          <td className="px-6 py-4 text-center">
+                            <button className="p-1 hover:bg-slate-100 rounded-lg transition-colors duration-150 text-slate-500 hover:text-slate-700">
+                              <MoreHorizontal className="w-5 h-5" />
+                            </button>
                           </td>
                         </tr>
                       ))
-                  ) : (
-                    sentEmails.map((email) => (
-                      <tr key={email.id} className="table-row-hover hover:bg-slate-50 transition-colors duration-150">
-                        <td className="px-6 py-4 text-sm">{email.launched}</td>
-                        <td className="px-6 py-4 text-sm font-medium truncate max-w-xs hover:text-blue-600 cursor-pointer">
-                          {email.subject}
-                        </td>
-                        <td className="px-6 py-4 text-sm text-slate-600">{email.sentBy}</td>
-                        <td className="px-6 py-4">{getStatusBadge(email.status)}</td>
-                        <td className="px-6 py-4 text-sm text-right font-medium">{email.recipients}</td>
-                        <td className="px-6 py-4 text-sm text-right text-green-600 font-medium">
-                          {email.delivered}
-                        </td>
-                        <td className="px-6 py-4 text-sm text-right">
-                          <div className="flex items-center justify-end gap-1 text-blue-600 font-medium">
-                            <Eye className="w-4 h-4" />
-                            {email.opened} ({Math.round((email.opened / email.delivered) * 100)}%)
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Mobile Card View */}
+              <div className="md:hidden space-y-4 p-4">
+                {loading ? (
+                  // Loading skeletons for mobile
+                  Array(3)
+                    .fill(0)
+                    .map((_, idx) => (
+                      <div key={idx} className="bg-white border border-slate-200 rounded-lg shadow-sm p-4">
+                        <div className="space-y-3">
+                          <div className="h-5 bg-slate-200 rounded skeleton w-3/4"></div>
+                          <div className="h-4 bg-slate-200 rounded skeleton w-1/2"></div>
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="h-4 bg-slate-200 rounded skeleton"></div>
+                            <div className="h-4 bg-slate-200 rounded skeleton"></div>
                           </div>
-                        </td>
-                        <td className="px-6 py-4 text-sm text-right">
-                          <div className="flex items-center justify-end gap-1 text-purple-600 font-medium">
-                            <Mouse className="w-4 h-4" />
-                            {email.clicked} ({Math.round((email.clicked / email.opened) * 100)}%)
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 text-center">
-                          <button className="p-1 hover:bg-slate-100 rounded-lg transition-colors duration-150 text-slate-500 hover:text-slate-700">
-                            <MoreHorizontal className="w-5 h-5" />
-                          </button>
-                        </td>
-                      </tr>
+                        </div>
+                      </div>
                     ))
-                  )}
-                </tbody>
-              </table>
-            </div>
+                ) : (
+                  sentEmails.map((email) => (
+                    <div key={email.id} className="bg-white border border-slate-200 rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200">
+                      {/* Card Header */}
+                      <div className="p-4 border-b border-slate-100">
+                        <div className="flex items-start justify-between mb-2">
+                          <h3 className="text-base font-semibold text-slate-900 flex-1 pr-2">
+                            {email.subject}
+                          </h3>
+                          <button className="p-1 hover:bg-slate-100 rounded-lg transition-colors flex-shrink-0">
+                            <MoreHorizontal className="w-5 h-5 text-slate-500" />
+                          </button>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2 text-sm text-slate-600">
+                            <Clock className="w-4 h-4" />
+                            <span>{email.launched}</span>
+                          </div>
+                          {getStatusBadge(email.status)}
+                        </div>
+                      </div>
+
+                      {/* Card Body */}
+                      <div className="p-4 space-y-3">
+                        {/* Sent By */}
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-slate-500">Sent by</span>
+                          <span className="font-medium text-slate-900">{email.sentBy}</span>
+                        </div>
+
+                        {/* Stats Grid */}
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="bg-slate-50 rounded-lg p-3">
+                            <div className="text-xs text-slate-500 mb-1">Recipients</div>
+                            <div className="text-lg font-bold text-slate-900">{email.recipients}</div>
+                          </div>
+                          <div className="bg-green-50 rounded-lg p-3">
+                            <div className="text-xs text-green-600 mb-1">Delivered</div>
+                            <div className="text-lg font-bold text-green-700">{email.delivered}</div>
+                          </div>
+                          <div className="bg-blue-50 rounded-lg p-3">
+                            <div className="text-xs text-blue-600 mb-1 flex items-center gap-1">
+                              <Eye className="w-3 h-3" />
+                              Opened
+                            </div>
+                            <div className="text-lg font-bold text-blue-700">
+                              {email.opened}
+                              <span className="text-xs font-normal ml-1">
+                                ({Math.round((email.opened / email.delivered) * 100)}%)
+                              </span>
+                            </div>
+                          </div>
+                          <div className="bg-purple-50 rounded-lg p-3">
+                            <div className="text-xs text-purple-600 mb-1 flex items-center gap-1">
+                              <Mouse className="w-3 h-3" />
+                              Clicked
+                            </div>
+                            <div className="text-lg font-bold text-purple-700">
+                              {email.clicked}
+                              <span className="text-xs font-normal ml-1">
+                                ({Math.round((email.clicked / email.opened) * 100)}%)
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </>
           ) : (
             // Scheduled Emails Table
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-slate-700 border-collapse">
-                <thead className="bg-slate-50 border-b border-slate-200 sticky top-0">
-                  <tr>
-                    <th className="px-6 py-4 font-semibold text-sm text-slate-600">Send Time</th>
-                    <th className="px-6 py-4 font-semibold text-sm text-slate-600">Subject</th>
-                    <th className="px-6 py-4 font-semibold text-sm text-slate-600">Sent by</th>
-                    <th className="px-6 py-4 font-semibold text-sm text-slate-600">Status</th>
-                    <th className="px-6 py-4 font-semibold text-sm text-slate-600 text-right">Recipients</th>
-                    <th className="px-6 py-4 font-semibold text-sm text-slate-600">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-200">
-                  {loading ? (
-                    Array(2)
-                      .fill(0)
-                      .map((_, idx) => (
-                        <tr key={idx} className="table-row-hover">
-                          <td className="px-6 py-4">
-                            <div className="h-4 bg-slate-200 rounded skeleton w-32"></div>
+            <>
+              {/* Desktop Table View */}
+              <div className="hidden md:block overflow-x-auto">
+                <table className="w-full text-left text-slate-700 border-collapse">
+                  <thead className="bg-slate-50 border-b border-slate-200 sticky top-0">
+                    <tr>
+                      <th className="px-6 py-4 font-semibold text-sm text-slate-600">Send Time</th>
+                      <th className="px-6 py-4 font-semibold text-sm text-slate-600">Subject</th>
+                      <th className="px-6 py-4 font-semibold text-sm text-slate-600">Sent by</th>
+                      <th className="px-6 py-4 font-semibold text-sm text-slate-600">Status</th>
+                      <th className="px-6 py-4 font-semibold text-sm text-slate-600 text-right">Recipients</th>
+                      <th className="px-6 py-4 font-semibold text-sm text-slate-600">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200">
+                    {loading ? (
+                      Array(2)
+                        .fill(0)
+                        .map((_, idx) => (
+                          <tr key={idx} className="table-row-hover">
+                            <td className="px-6 py-4">
+                              <div className="h-4 bg-slate-200 rounded skeleton w-32"></div>
+                            </td>
+                            <td className="px-6 py-4">
+                              <div className="h-4 bg-slate-200 rounded skeleton w-40"></div>
+                            </td>
+                            <td className="px-6 py-4">
+                              <div className="h-4 bg-slate-200 rounded skeleton w-32"></div>
+                            </td>
+                            <td className="px-6 py-4">
+                              <div className="h-6 bg-slate-200 rounded-full skeleton w-24"></div>
+                            </td>
+                            <td className="px-6 py-4 text-right">
+                              <div className="h-4 bg-slate-200 rounded skeleton w-16 ml-auto"></div>
+                            </td>
+                            <td className="px-6 py-4">
+                              <div className="h-6 bg-slate-200 rounded skeleton w-8"></div>
+                            </td>
+                          </tr>
+                        ))
+                    ) : (
+                      scheduledEmails.map((email) => (
+                        <tr key={email.id} className="table-row-hover hover:bg-slate-50 transition-colors duration-150">
+                          <td className="px-6 py-4 text-sm">{email.sendTime}</td>
+                          <td className="px-6 py-4 text-sm font-medium truncate max-w-xs hover:text-blue-600 cursor-pointer">
+                            {email.subject}
                           </td>
-                          <td className="px-6 py-4">
-                            <div className="h-4 bg-slate-200 rounded skeleton w-40"></div>
-                          </td>
-                          <td className="px-6 py-4">
-                            <div className="h-4 bg-slate-200 rounded skeleton w-32"></div>
-                          </td>
-                          <td className="px-6 py-4">
-                            <div className="h-6 bg-slate-200 rounded-full skeleton w-24"></div>
-                          </td>
-                          <td className="px-6 py-4 text-right">
-                            <div className="h-4 bg-slate-200 rounded skeleton w-16 ml-auto"></div>
-                          </td>
-                          <td className="px-6 py-4">
-                            <div className="h-6 bg-slate-200 rounded skeleton w-8"></div>
+                          <td className="px-6 py-4 text-sm text-slate-600">{email.sentBy}</td>
+                          <td className="px-6 py-4">{getStatusBadge(email.status)}</td>
+                          <td className="px-6 py-4 text-sm text-right font-medium">{email.recipients}</td>
+                          <td className="px-6 py-4 text-center">
+                            <button className="p-1 hover:bg-slate-100 rounded-lg transition-colors duration-150 text-slate-500 hover:text-slate-700">
+                              <MoreHorizontal className="w-5 h-5" />
+                            </button>
                           </td>
                         </tr>
                       ))
-                  ) : (
-                    scheduledEmails.map((email) => (
-                      <tr key={email.id} className="table-row-hover hover:bg-slate-50 transition-colors duration-150">
-                        <td className="px-6 py-4 text-sm">{email.sendTime}</td>
-                        <td className="px-6 py-4 text-sm font-medium truncate max-w-xs hover:text-blue-600 cursor-pointer">
-                          {email.subject}
-                        </td>
-                        <td className="px-6 py-4 text-sm text-slate-600">{email.sentBy}</td>
-                        <td className="px-6 py-4">{getStatusBadge(email.status)}</td>
-                        <td className="px-6 py-4 text-sm text-right font-medium">{email.recipients}</td>
-                        <td className="px-6 py-4 text-center">
-                          <button className="p-1 hover:bg-slate-100 rounded-lg transition-colors duration-150 text-slate-500 hover:text-slate-700">
-                            <MoreHorizontal className="w-5 h-5" />
-                          </button>
-                        </td>
-                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Mobile Card View */}
+              <div className="md:hidden space-y-4 p-4">
+                {loading ? (
+                  // Loading skeletons for mobile
+                  Array(2)
+                    .fill(0)
+                    .map((_, idx) => (
+                      <div key={idx} className="bg-white border border-slate-200 rounded-lg shadow-sm p-4">
+                        <div className="space-y-3">
+                          <div className="h-5 bg-slate-200 rounded skeleton w-3/4"></div>
+                          <div className="h-4 bg-slate-200 rounded skeleton w-1/2"></div>
+                          <div className="h-4 bg-slate-200 rounded skeleton w-full"></div>
+                        </div>
+                      </div>
                     ))
-                  )}
-                </tbody>
-              </table>
-            </div>
+                ) : (
+                  scheduledEmails.map((email) => (
+                    <div key={email.id} className="bg-white border border-slate-200 rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200">
+                      {/* Card Header */}
+                      <div className="p-4 border-b border-slate-100">
+                        <div className="flex items-start justify-between mb-2">
+                          <h3 className="text-base font-semibold text-slate-900 flex-1 pr-2">
+                            {email.subject}
+                          </h3>
+                          <button className="p-1 hover:bg-slate-100 rounded-lg transition-colors flex-shrink-0">
+                            <MoreHorizontal className="w-5 h-5 text-slate-500" />
+                          </button>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2 text-sm text-slate-600">
+                            <Clock className="w-4 h-4" />
+                            <span>{email.sendTime}</span>
+                          </div>
+                          {getStatusBadge(email.status)}
+                        </div>
+                      </div>
+
+                      {/* Card Body */}
+                      <div className="p-4 space-y-3">
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-slate-500">Sent by</span>
+                          <span className="font-medium text-slate-900">{email.sentBy}</span>
+                        </div>
+                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                          <div className="text-xs text-blue-600 mb-1">Recipients</div>
+                          <div className="text-2xl font-bold text-blue-700">{email.recipients}</div>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </>
           )}
 
           {/* Empty State */}
