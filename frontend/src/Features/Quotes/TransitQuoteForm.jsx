@@ -11,6 +11,7 @@ import { generateQuoteNumber } from '../../utils/quoteUtils';
 import { fetchQuoteById, updateQuote, createNewQuote } from '../../api/QuoteApi';
 import TransitFreightChargesSection from './components/TransitFreightChargesSection';
 import { generateTransitQuotePDF } from './utils/pdfGenerator';
+import { fetchAccountAddress } from '../../api/AccountApi';
 
 export default function TransitQuoteForm({ category, mode }) {
   const navigate = useNavigate();
@@ -340,7 +341,17 @@ export default function TransitQuoteForm({ category, mode }) {
   {quoteId && (
     <button
       type="button"
-      onClick={() => {
+      onClick={async () => {
+        // Fetch customer address
+                          let customerAddress = '';
+                          if (formData.customer) {
+                            try {
+                              customerAddress = await fetchAccountAddress(formData.customer);
+                              console.log("Customer Address:", customerAddress);
+                            } catch (error) {
+                              console.error("Error fetching customer address:", error);
+                            }
+                          }
         const pdfData = {
           quoteNumber: formData.quoteNumber,
           freightCategory: category,
@@ -349,6 +360,7 @@ export default function TransitQuoteForm({ category, mode }) {
           createdDate: formData.createdDate,
           rateValidity: formData.rateValidity,
           customer: formData.customer,
+          customerAddress: customerAddress,
           pickupLocation: formData.pickupLocation,
           deliveryLocation: formData.deliveryLocation,
           equipment: JSON.stringify(formData.equipment),

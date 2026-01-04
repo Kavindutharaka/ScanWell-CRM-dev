@@ -14,6 +14,11 @@ export const fetchAccountById = async (id) => {
   return response.data;
 };
 
+export const fetchAccountAddress = async (accountName) => {
+  const response = await axios.post(`${BASE_URL}/Account/account-address`, { accountName: accountName });
+  return response.data;
+};
+
 export const createNewAccount = async (account) => {
   const response = await axios.post(`${BASE_URL}/Account/account`, account);
   return response.data;

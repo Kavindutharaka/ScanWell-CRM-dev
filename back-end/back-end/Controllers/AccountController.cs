@@ -69,28 +69,47 @@ namespace back_end.Controllers
             return new OkObjectResult(accountList);
         }
 
-        [HttpGet, Route("account/address/{id}")]
-        public ActionResult GetAccountAddressById()
+        [HttpPost, Route("account-address")]
+        public ActionResult GetAccountAddressById([FromBody] dynamic body)
         {
-            string query = @"SELECT [description] FROM [dbo].[account_reg] ORDER BY [SysID] DESC;";
+            string accountName = body?.accountName;
+            if (string.IsNullOrEmpty(accountName))
+            {
+                return BadRequest("accountName is required.");
+            }
 
-            List<string> accountList = new List<string>();
+            string query = @"
+                SELECT TOP 1 [description] 
+                FROM [phvtechc_crm].[dbo].[account_reg] 
+                WHERE accountName = @accountName;";
+
+            string address = null;
 
             using (myCon)
             {
                 myCon.Open();
-                using (myCom = new SqlCommand(query, myCon))
-                using (myR = myCom.ExecuteReader())
+                using (var myCom = new SqlCommand(query, myCon))
                 {
-                    while (myR.Read())
+                    myCom.Parameters.AddWithValue("@accountName", accountName);
+
+                    using (var myR = myCom.ExecuteReader())
                     {
-                        accountList.Add(myR["accountName"].ToString());
+                        if (myR.Read())
+                        {
+                            address = myR["description"]?.ToString()?.Trim();
+                        }
                     }
                 }
             }
 
-            return new OkObjectResult(accountList);
+            if (address == null)
+            {
+                return NotFound();
+            }
+
+            return Ok(address);
         }
+
 
 
         [HttpGet, Route("account/{id}")]

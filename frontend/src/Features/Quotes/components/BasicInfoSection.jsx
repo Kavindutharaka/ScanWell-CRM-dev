@@ -64,18 +64,6 @@ export default function BasicInfoSection({ formData, setFormData, disabled = fal
           disabled={disabled}
         />
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Customer Address
-          </label>
-          <input
-            type="text"
-            placeholder="Type Customer Address..."
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg disabled:bg-gray-100"
-            onChange={() => {}}
-          />
-        </div>
-
 
 
         <AutocompleteInput

@@ -168,15 +168,36 @@ const addCustomerSection = (doc, quoteData, yPos) => {
   
   yPos += 10;
   
-  // Customer
+  // Customer and Address
   doc.setFontSize(9);
   doc.setFont('helvetica', 'bold');
   doc.text('Customer', 15, yPos);
+  
+  // Add Customer Address label if address exists
+  if (quoteData.customerAddress && quoteData.customerAddress.trim() !== '') {
+    doc.text('Customer Address', 130, yPos);
+  }
+  
   doc.setFont('helvetica', 'normal');
   yPos += 4;
+  
+  const customerNameYPos = yPos;
   doc.text(quoteData.customer || 'N/A', 15, yPos);
   
-  yPos += 8;
+  // Customer Address - display to the right of customer name
+  let addressLineCount = 0;
+  if (quoteData.customerAddress && quoteData.customerAddress.trim() !== '') {
+    doc.setFont('helvetica', 'normal');
+    const addressLines = doc.splitTextToSize(quoteData.customerAddress, 70);
+    addressLines.forEach((line, index) => {
+      doc.text(line, 130, customerNameYPos + (index * 4));
+    });
+    addressLineCount = addressLines.length;
+  }
+  
+  // Advance yPos by the maximum of customer name line or address lines
+  const maxLines = Math.max(1, addressLineCount);
+  yPos += (maxLines * 4) + 4;
   
   // Addresses
   doc.setFont('helvetica', 'bold');

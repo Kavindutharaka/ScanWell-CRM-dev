@@ -8,6 +8,7 @@ import TermsConditionsSection from './components/TermsConditionsSection';
 import { generateQuoteNumber } from '../../utils/quoteUtils';
 import { fetchQuoteById, updateQuote, createNewQuote } from '../../api/QuoteApi';
 import { generateMultiModalQuotePDF } from './utils/pdfGenerator';
+import { fetchAccountAddress } from '../../api/AccountApi';
 
 export default function MultiModalQuoteForm() {
   const navigate = useNavigate();
@@ -245,7 +246,17 @@ export default function MultiModalQuoteForm() {
   {quoteId && (
     <button
       type="button"
-      onClick={() => {
+      onClick={async () => {
+        // Fetch customer address
+                  let customerAddress = '';
+                  if (formData.customer) {
+                    try {
+                      customerAddress = await fetchAccountAddress(formData.customer);
+                      console.log("Customer Address:", customerAddress);
+                    } catch (error) {
+                      console.error("Error fetching customer address:", error);
+                    }
+                  }
         const pdfData = {
           quoteNumber: formData.quoteNumber,
           freightMode: formData.importExport,
@@ -253,6 +264,7 @@ export default function MultiModalQuoteForm() {
           createdDate: formData.createdDate,
           rateValidity: formData.rateValidity,
           customer: formData.customer,
+           customerAddress: customerAddress,
           pickupLocation: formData.pickupLocation,
           deliveryLocation: formData.deliveryLocation,
           routes: JSON.stringify(formData.routeOptions),
