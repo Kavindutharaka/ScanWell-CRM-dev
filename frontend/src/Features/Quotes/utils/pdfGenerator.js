@@ -37,7 +37,7 @@ function addFreightChargesTableTransit(doc, charges, yPos, isAir, segmentNum) {
       charge.pricingUnit || '',
       charge.charge || '',
       charge.currency || 'USD',
-      total.toFixed(2)
+      Math.round(total).toString()
     ];
   });
   
@@ -128,13 +128,9 @@ const calculateChargeTotal = (charge) => {
 
 /**
  * Format amount based on currency
- * LKR: with decimals (e.g., 18000.00)
- * USD and all others: no decimals (e.g., 2075)
+ * All currencies: no decimals (e.g., 2075, 18000)
  */
 const formatCurrencyAmount = (amount, currency) => {
-  if (currency === 'LKR') {
-    return amount.toFixed(2);
-  }
   return Math.round(amount).toString();
 };
 
@@ -455,7 +451,7 @@ function addFreightChargesTable(doc, charges, yPos, isAir) {
       row.push(charge.frequency || '');
     }
     
-    row.push(total.toFixed(2));
+    row.push(Math.round(total).toString());
     return row;
   });
   
@@ -518,7 +514,7 @@ function addOtherChargesTable(doc, charges, title, yPos) {
       units,
       charge.amount || '',
       charge.currency || '',
-      total.toFixed(2)
+      Math.round(total).toString()
     ];
   });
   
