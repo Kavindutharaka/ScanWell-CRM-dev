@@ -64,19 +64,13 @@ function addFreightChargesTableTransit(doc, charges, yPos, isAir, segmentNum) {
 
 /**
  * Calculate total for transit/multimodal quotes with new structure
+ * Includes: Origin Handling + Destination Handling
+ * Excludes: Freight Charges
  */
 function calculateTransitTotalNew(segments) {
   let total = 0;
   
   segments.forEach(segment => {
-    // Freight charges
-    const freightCharges = segment.freightChargesTables || segment.freightCharges || [];
-    freightCharges.forEach(charge => {
-      const weight = parseFloat(charge.chargeableWeight) || 0;
-      const rate = parseFloat(charge.charge) || 0;
-      total += weight * rate;
-    });
-    
     // Origin handling
     if (segment.originHandling) {
       segment.originHandling.forEach(charge => {
@@ -90,9 +84,30 @@ function calculateTransitTotalNew(segments) {
         total += calculateChargeTotal(charge);
       });
     }
+    
+    // NOTE: Freight charges are NOT included in total
   });
   
   return total;
+}
+
+/**
+ * Get currency from transit/multimodal segments (from origin or destination handling)
+ */
+function getSegmentsCurrency(segments) {
+  for (const segment of segments) {
+    // Check destination handling first
+    if (segment.destinationHandling && segment.destinationHandling.length > 0) {
+      const currency = segment.destinationHandling[0]?.currency;
+      if (currency) return currency;
+    }
+    // Then check origin handling
+    if (segment.originHandling && segment.originHandling.length > 0) {
+      const currency = segment.originHandling[0]?.currency;
+      if (currency) return currency;
+    }
+  }
+  return 'USD'; // Default to USD
 }
 
 /**
@@ -109,6 +124,18 @@ const calculateChargeTotal = (charge) => {
   const amount = parseFloat(charge.amount) || 0;
   
   return units * amount;
+};
+
+/**
+ * Format amount based on currency
+ * LKR: with decimals (e.g., 18000.00)
+ * USD and all others: no decimals (e.g., 2075)
+ */
+const formatCurrencyAmount = (amount, currency) => {
+  if (currency === 'LKR') {
+    return amount.toFixed(2);
+  }
+  return Math.round(amount).toString();
 };
 
 /**
@@ -339,8 +366,12 @@ export const generateDirectQuotePDF = (quoteData) => {
       // Option Total
       const optionTotal = calculateOptionTotal(option);
       if (optionTotal > 0) {
+        // Get currency from any of the included charges (destination, origin, or destination handling)
+        const totalCurrency = option.destinationCharges?.[0]?.currency || 
+                             option.originHandling?.[0]?.currency ||
+                             option.destinationHandling?.[0]?.currency || 'USD';
         doc.setFont('helvetica', 'bold');
-        doc.text(`Total Amount: USD ${optionTotal.toFixed(2)}`, 15, yPos);
+        doc.text(`Total Amount: ${totalCurrency} ${formatCurrencyAmount(optionTotal, totalCurrency)}`, 15, yPos);
         yPos += 10;
       }
     });
@@ -518,14 +549,7 @@ function addOtherChargesTable(doc, charges, title, yPos) {
 function calculateOptionTotal(option) {
   let total = 0;
   
-  // Freight charges
-  if (option.freightCharges) {
-    option.freightCharges.forEach(charge => {
-      total += calculateChargeTotal(charge);
-    });
-  }
-  
-  // Destination charges
+  // Destination charges (POD)
   if (option.destinationCharges) {
     option.destinationCharges.forEach(charge => {
       total += calculateChargeTotal(charge);
@@ -545,6 +569,8 @@ function calculateOptionTotal(option) {
       total += calculateChargeTotal(charge);
     });
   }
+  
+  // NOTE: Freight charges are NOT included in total
   
   return total;
 }
@@ -672,13 +698,14 @@ export const generateTransitQuotePDF = (quoteData) => {
   
   // Calculate and show total
   const grandTotal = calculateTransitTotalNew(allSegments);
+  const totalCurrency = getSegmentsCurrency(allSegments);
   if (yPos > 270) {
     doc.addPage();
     yPos = 20;
   }
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(11);
-  doc.text(`Total Amount: USD ${grandTotal.toFixed(2)}`, 15, yPos);
+  doc.text(`Total Amount: ${totalCurrency} ${formatCurrencyAmount(grandTotal, totalCurrency)}`, 15, yPos);
   
   // Terms
   if (terms.length > 0) {
@@ -843,13 +870,14 @@ export const generateMultiModalQuotePDF = (quoteData) => {
   
   // Calculate and show total
   const grandTotal = calculateTransitTotalNew(allSegments);
+  const totalCurrency = getSegmentsCurrency(allSegments);
   if (yPos > 270) {
     doc.addPage();
     yPos = 20;
   }
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(11);
-  doc.text(`Total Amount: USD ${grandTotal.toFixed(2)}`, 15, yPos);
+  doc.text(`Total Amount: ${totalCurrency} ${formatCurrencyAmount(grandTotal, totalCurrency)}`, 15, yPos);
   
   // Terms
   if (terms.length > 0) {
