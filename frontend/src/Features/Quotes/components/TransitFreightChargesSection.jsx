@@ -24,7 +24,8 @@ export default function TransitFreightChargesSection({
       currency: '',
       transitTime: '',
       numberOfRouting: '',
-      total: 0
+      total: 0,
+      remarks: ''
     };
 
     // Add air-specific fields
@@ -119,6 +120,7 @@ export default function TransitFreightChargesSection({
                 </>
               )}
               <th className="border border-gray-300 px-4 py-2 text-left">Total</th>
+              <th className="border border-gray-300 px-4 py-2 text-left">Remarks</th>
               <th className="border border-gray-300 px-4 py-2 text-center w-20">Action</th>
             </tr>
           </thead>
@@ -224,6 +226,16 @@ export default function TransitFreightChargesSection({
                     className="w-full px-2 py-1 border border-gray-300 rounded bg-gray-50"
                   />
                 </td>
+                <td className="border border-gray-300 p-2">
+                  <input
+                    type="text"
+                    value={charge.remarks || ''}
+                    onChange={(e) => updateCharge(chargeIdx, 'remarks', e.target.value)}
+                    disabled={disabled}
+                    placeholder="Add remarks..."
+                    className="w-full px-2 py-1 border border-gray-300 rounded disabled:bg-gray-100"
+                  />
+                </td>
                 <td className="border border-gray-300 p-2 text-center">
                   {charges.length > 1 && !disabled && (
                     <button
@@ -240,7 +252,7 @@ export default function TransitFreightChargesSection({
           </tbody>
           <tfoot className="bg-gray-50 font-semibold">
             <tr>
-              <td colSpan={isAir ? "9" : "7"} className="border border-gray-300 px-4 py-2 text-right">Grand Total:</td>
+              <td colSpan={isAir ? "10" : "8"} className="border border-gray-300 px-4 py-2 text-right">Grand Total:</td>
               <td className="border border-gray-300 px-4 py-2">{calculateGrandTotal().toFixed(2)}</td>
               <td className="border border-gray-300"></td>
             </tr>
