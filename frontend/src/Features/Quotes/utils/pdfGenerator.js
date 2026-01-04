@@ -4,10 +4,161 @@ import autoTable from 'jspdf-autotable';
 import logo from '../../../assets/images/logo.png';
 
 /**
+ * Add Air Freight Charges Table for Transit/MultiModal (Pivoted by Carrier)
+ */
+function addAirFreightChargesTableTransit(doc, chargesData, yPos, segmentNum) {
+  // Handle both old format (direct array) and new format (tables with charges)
+  let charges = [];
+  if (Array.isArray(chargesData)) {
+    if (chargesData.length > 0 && chargesData[0].charges) {
+      // New format: array of tables
+      chargesData.forEach(table => {
+        if (table.charges) {
+          charges = charges.concat(table.charges);
+        }
+      });
+    } else {
+      // Old format or direct array
+      charges = chargesData;
+    }
+  }
+  
+  const validCharges = charges.filter(c => c.carrier || c.unitType || c.amount);
+  
+  if (validCharges.length === 0) {
+    return yPos;
+  }
+  
+  if (yPos > 230) {
+    doc.addPage();
+    yPos = 20;
+  }
+  
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9);
+  doc.text(`Freight Charges (Segment ${segmentNum})`, 15, yPos);
+  yPos += 3;
+  
+  // Collect all unique unit types and sort them
+  const allUnitTypes = new Set();
+  validCharges.forEach(charge => {
+    if (charge.unitType) {
+      allUnitTypes.add(charge.unitType);
+    }
+  });
+  
+  // Convert to sorted array - try to sort numerically for weight breaks
+  const unitTypeColumns = Array.from(allUnitTypes).sort((a, b) => {
+    // Try to extract numbers for sorting
+    const numA = parseFloat(a.replace(/[^0-9.-]/g, ''));
+    const numB = parseFloat(b.replace(/[^0-9.-]/g, ''));
+    if (!isNaN(numA) && !isNaN(numB)) {
+      return numA - numB;
+    }
+    return a.localeCompare(b);
+  });
+  
+  // If no unit types found, use standard ones
+  if (unitTypeColumns.length === 0) {
+    unitTypeColumns.push('-45', '45', '100', '300', '500', '1000');
+  }
+  
+  // Group charges by carrier
+  const carrierGroups = {};
+  validCharges.forEach(charge => {
+    const carrier = charge.carrier || 'N/A';
+    if (!carrierGroups[carrier]) {
+      carrierGroups[carrier] = {
+        carrier: carrier,
+        currency: charge.currency || '',
+        unitTypes: {},
+        surcharge: charge.surcharge || '',
+        transitTime: charge.transitTime || '',
+        frequency: charge.frequency || '',
+        routing: charge.numberOfRouting || '',
+        remarks: charge.remarks || ''
+      };
+    }
+    
+    // Store amount by unit type
+    const unitType = charge.unitType || '';
+    if (unitType) {
+      carrierGroups[carrier].unitTypes[unitType] = charge.amount || '';
+    }
+  });
+  
+  // Build table data
+  const tableData = Object.values(carrierGroups).map(group => {
+    const row = [
+      group.carrier,
+      group.currency
+    ];
+    
+    // Add unit type values
+    unitTypeColumns.forEach(unitType => {
+      row.push(group.unitTypes[unitType] || '');
+    });
+    
+    // Add remaining columns
+    row.push(group.surcharge);
+    row.push(group.transitTime);
+    row.push(group.frequency);
+    row.push(group.routing);
+    row.push(group.remarks);
+    
+    return row;
+  });
+  
+  // Build headers
+  const headers = ['AIRLINE', 'M'];
+  headers.push(...unitTypeColumns);
+  headers.push('SURCHARGES', 'T/T', 'FREQUENCY', 'ROUTING', 'REMARKS');
+  
+  // Calculate column widths dynamically based on number of unit types
+  const numUnitTypes = unitTypeColumns.length;
+  const unitTypeWidth = numUnitTypes > 6 ? 10 : 12;
+  
+  const columnStyles = {
+    0: { cellWidth: 15 },  // AIRLINE
+    1: { cellWidth: 10 }   // M (Currency)
+  };
+  
+  // Unit type columns
+  for (let i = 0; i < numUnitTypes; i++) {
+    columnStyles[2 + i] = { cellWidth: unitTypeWidth };
+  }
+  
+  // Remaining columns
+  columnStyles[2 + numUnitTypes] = { cellWidth: 18 };  // SURCHARGES
+  columnStyles[3 + numUnitTypes] = { cellWidth: 12 };  // T/T
+  columnStyles[4 + numUnitTypes] = { cellWidth: 15 };  // FREQUENCY
+  columnStyles[5 + numUnitTypes] = { cellWidth: 18 };  // ROUTING
+  columnStyles[6 + numUnitTypes] = { cellWidth: 20 };  // REMARKS
+  
+  autoTable(doc, {
+    startY: yPos,
+    head: [headers],
+    body: tableData,
+    theme: 'grid',
+    headStyles: { fillColor: [200, 200, 200], textColor: 0, fontSize: 7, fontStyle: 'bold' },
+    bodyStyles: { fontSize: 7 },
+    columnStyles: columnStyles,
+    margin: { left: 15, right: 15 }
+  });
+  
+  return doc.lastAutoTable.finalY + 8;
+}
+
+/**
  * Add Freight Charges Table for Transit/MultiModal
  * Handles freightChargesTables format with different field names
  */
 function addFreightChargesTableTransit(doc, charges, yPos, isAir, segmentNum) {
+  // Use specialized Air table for air freight
+  if (isAir) {
+    return addAirFreightChargesTableTransit(doc, charges, yPos, segmentNum);
+  }
+  
   // Filter out empty charges
   const validCharges = charges.filter(c => c.chargeableWeight || c.weightBreaker || c.charge);
   
@@ -414,9 +565,144 @@ export const generateDirectQuotePDF = (quoteData) => {
 };
 
 /**
+ * Add Air Freight Charges Table (Pivoted by Carrier and Unit Type)
+ */
+function addAirFreightChargesTable(doc, charges, yPos) {
+  const validCharges = charges.filter(c => c.carrier || c.unitType || c.amount);
+  
+  if (validCharges.length === 0) {
+    return yPos;
+  }
+  
+  if (yPos > 230) {
+    doc.addPage();
+    yPos = 20;
+  }
+  
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9);
+  doc.text('Freight Charges', 15, yPos);
+  yPos += 3;
+  
+  // Collect all unique unit types and sort them
+  const allUnitTypes = new Set();
+  validCharges.forEach(charge => {
+    if (charge.unitType) {
+      allUnitTypes.add(charge.unitType);
+    }
+  });
+  
+  // Convert to sorted array - try to sort numerically for weight breaks
+  const unitTypeColumns = Array.from(allUnitTypes).sort((a, b) => {
+    // Try to extract numbers for sorting
+    const numA = parseFloat(a.replace(/[^0-9.-]/g, ''));
+    const numB = parseFloat(b.replace(/[^0-9.-]/g, ''));
+    if (!isNaN(numA) && !isNaN(numB)) {
+      return numA - numB;
+    }
+    return a.localeCompare(b);
+  });
+  
+  // If no unit types found, use standard ones
+  if (unitTypeColumns.length === 0) {
+    unitTypeColumns.push('-45', '45', '100', '300', '500', '1000');
+  }
+  
+  // Group charges by carrier
+  const carrierGroups = {};
+  validCharges.forEach(charge => {
+    const carrier = charge.carrier || 'N/A';
+    if (!carrierGroups[carrier]) {
+      carrierGroups[carrier] = {
+        carrier: carrier,
+        currency: charge.currency || '',
+        unitTypes: {},
+        surcharge: charge.surcharge || '',
+        transitTime: charge.transitTime || '',
+        frequency: charge.frequency || '',
+        routing: charge.numberOfRouting || '',
+        remarks: charge.remarks || ''
+      };
+    }
+    
+    // Store amount by unit type
+    const unitType = charge.unitType || '';
+    if (unitType) {
+      carrierGroups[carrier].unitTypes[unitType] = charge.amount || '';
+    }
+  });
+  
+  // Build table data
+  const tableData = Object.values(carrierGroups).map(group => {
+    const row = [
+      group.carrier,
+      group.currency
+    ];
+    
+    // Add unit type values
+    unitTypeColumns.forEach(unitType => {
+      row.push(group.unitTypes[unitType] || '');
+    });
+    
+    // Add remaining columns
+    row.push(group.surcharge);
+    row.push(group.transitTime);
+    row.push(group.frequency);
+    row.push(group.routing);
+    row.push(group.remarks);
+    
+    return row;
+  });
+  
+  // Build headers
+  const headers = ['AIRLINE', 'M'];
+  headers.push(...unitTypeColumns);
+  headers.push('SURCHARGES', 'T/T', 'FREQUENCY', 'ROUTING', 'REMARKS');
+  
+  // Calculate column widths dynamically based on number of unit types
+  const numUnitTypes = unitTypeColumns.length;
+  const unitTypeWidth = numUnitTypes > 6 ? 10 : 12;
+  
+  const columnStyles = {
+    0: { cellWidth: 15 },  // AIRLINE
+    1: { cellWidth: 10 }   // M (Currency)
+  };
+  
+  // Unit type columns
+  for (let i = 0; i < numUnitTypes; i++) {
+    columnStyles[2 + i] = { cellWidth: unitTypeWidth };
+  }
+  
+  // Remaining columns
+  columnStyles[2 + numUnitTypes] = { cellWidth: 18 };  // SURCHARGES
+  columnStyles[3 + numUnitTypes] = { cellWidth: 12 };  // T/T
+  columnStyles[4 + numUnitTypes] = { cellWidth: 15 };  // FREQUENCY
+  columnStyles[5 + numUnitTypes] = { cellWidth: 18 };  // ROUTING
+  columnStyles[6 + numUnitTypes] = { cellWidth: 20 };  // REMARKS
+  
+  autoTable(doc, {
+    startY: yPos,
+    head: [headers],
+    body: tableData,
+    theme: 'grid',
+    headStyles: { fillColor: [200, 200, 200], textColor: 0, fontSize: 7, fontStyle: 'bold' },
+    bodyStyles: { fontSize: 7 },
+    columnStyles: columnStyles,
+    margin: { left: 15, right: 15 }
+  });
+  
+  return doc.lastAutoTable.finalY + 8;
+}
+
+/**
  * Add Freight Charges Table
  */
 function addFreightChargesTable(doc, charges, yPos, isAir) {
+  // Use specialized Air table for air freight
+  if (isAir) {
+    return addAirFreightChargesTable(doc, charges, yPos);
+  }
+  
   // Filter out empty charges
   const validCharges = charges.filter(c => c.carrier || c.unitType || c.amount);
   
@@ -448,21 +734,12 @@ function addFreightChargesTable(doc, charges, yPos, isAir) {
       charge.numberOfRouting || ''
     ];
     
-    if (isAir) {
-      row.push(charge.surcharge || '');
-      row.push(charge.frequency || '');
-    }
-    
     row.push(Math.round(total).toString());
     row.push(charge.remarks || '');
     return row;
   });
   
-  const headers = ['Carrier', 'Unit Type', 'Units', 'Amount', 'Currency', 'Transit', 'Routing'];
-  if (isAir) {
-    headers.push('Surcharge', 'Frequency');
-  }
-  headers.push('Total', 'Remarks');
+  const headers = ['Carrier', 'Unit Type', 'Units', 'Amount', 'Currency', 'Transit', 'Routing', 'Total', 'Remarks'];
   
   autoTable(doc, {
     startY: yPos,
@@ -472,13 +749,13 @@ function addFreightChargesTable(doc, charges, yPos, isAir) {
     headStyles: { fillColor: [200, 200, 200], textColor: 0, fontSize: 8, fontStyle: 'bold' },
     bodyStyles: { fontSize: 8 },
     columnStyles: {
-      0: { cellWidth: isAir ? 18 : 22 },
+      0: { cellWidth: 22 },
       1: { cellWidth: 18 },
       2: { cellWidth: 12 },
       3: { cellWidth: 15 },
-      4: { cellWidth: 18 },  // Currency - increased from 15 to 18
+      4: { cellWidth: 18 },
       5: { cellWidth: 15 },
-      6: { cellWidth: isAir ? 18 : 22 }
+      6: { cellWidth: 22 }
     },
     margin: { left: 15, right: 15 }
   });

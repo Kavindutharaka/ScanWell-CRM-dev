@@ -2,6 +2,7 @@
 import { Plus, Trash2 } from 'lucide-react';
 import AutocompleteInput from './AutocompleteInput';
 import { getCarriersByCategory, unitTypeSuggestions, currencySuggestions, getUOMSuggestions} from '../../../data/quoteData';
+import AirTransitFreightChargesSection from './AirTransitFreightChargesSection';
 
 export default function TransitFreightChargesSection({ 
   formData, 
@@ -14,6 +15,21 @@ export default function TransitFreightChargesSection({
   disabled = false,
   onRemove = null
 }) {
+  
+  // Use Air-specific component for air freight
+  if (category === 'air') {
+    return <AirTransitFreightChargesSection 
+      formData={formData}
+      setFormData={setFormData}
+      routeIdx={routeIdx}
+      tableIdx={tableIdx}
+      chargeData={chargeData}
+      tableName={tableName}
+      disabled={disabled}
+      onRemove={onRemove}
+    />;
+  }
+
   const addCharge = () => {
     if (disabled) return;
     const newCharge = {
