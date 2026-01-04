@@ -37,24 +37,26 @@ function addFreightChargesTableTransit(doc, charges, yPos, isAir, segmentNum) {
       charge.pricingUnit || '',
       charge.charge || '',
       charge.currency || 'USD',
-      Math.round(total).toString()
+      Math.round(total).toString(),
+      charge.remarks || ''
     ];
   });
   
   autoTable(doc, {
     startY: yPos,
-    head: [['Chargeable Weight', 'Weight Breaker', 'Pricing Unit', 'Charge', 'Currency', 'Total']],
+    head: [['Chargeable Weight', 'Weight Breaker', 'Pricing Unit', 'Charge', 'Currency', 'Total', 'Remarks']],
     body: tableData,
     theme: 'grid',
     headStyles: { fillColor: [200, 200, 200], textColor: 0, fontSize: 8, fontStyle: 'bold' },
     bodyStyles: { fontSize: 8 },
     columnStyles: {
-      0: { cellWidth: 30 },
-      1: { cellWidth: 30 },
-      2: { cellWidth: 30 },
-      3: { cellWidth: 25 },
-      4: { cellWidth: 20 },
-      5: { cellWidth: 25 }
+      0: { cellWidth: 25 },
+      1: { cellWidth: 25 },
+      2: { cellWidth: 25 },
+      3: { cellWidth: 20 },
+      4: { cellWidth: 18 },
+      5: { cellWidth: 20 },
+      6: { cellWidth: 27 }
     },
     margin: { left: 15, right: 15 }
   });
@@ -452,6 +454,7 @@ function addFreightChargesTable(doc, charges, yPos, isAir) {
     }
     
     row.push(Math.round(total).toString());
+    row.push(charge.remarks || '');
     return row;
   });
   
@@ -459,7 +462,7 @@ function addFreightChargesTable(doc, charges, yPos, isAir) {
   if (isAir) {
     headers.push('Surcharge', 'Frequency');
   }
-  headers.push('Total');
+  headers.push('Total', 'Remarks');
   
   autoTable(doc, {
     startY: yPos,

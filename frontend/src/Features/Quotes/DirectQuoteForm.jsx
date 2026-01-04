@@ -37,7 +37,8 @@ export default function DirectQuoteForm({ category, mode }) {
       numberOfRouting: '', 
       surcharge: '', 
       frequency: '', 
-      total: 0 
+      total: 0,
+      remarks: ''
     }],
     destinationCharges: [{ 
       chargeName: '', 

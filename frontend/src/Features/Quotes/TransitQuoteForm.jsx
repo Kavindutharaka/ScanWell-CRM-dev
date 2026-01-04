@@ -52,7 +52,8 @@ export default function TransitQuoteForm({ category, mode }) {
               numberOfRouting: '',
               surcharge: '', // Air only
               frequency: '', // Air only
-              total: 0
+              total: 0,
+              remarks: ''
             }
           ]
         }
@@ -164,7 +165,8 @@ export default function TransitQuoteForm({ category, mode }) {
                 numberOfRouting: '',
                 surcharge: '',
                 frequency: '',
-                total: 0
+                total: 0,
+                remarks: ''
               }
             ]
           }
@@ -237,7 +239,8 @@ export default function TransitQuoteForm({ category, mode }) {
           numberOfRouting: '',
           surcharge: '',
           frequency: '',
-          total: 0
+          total: 0,
+          remarks: ''
         }
       ]
     };
