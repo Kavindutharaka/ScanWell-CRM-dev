@@ -67,7 +67,11 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
             console.error('Error parsing rateDataJson:', e);
           }
         }
-        return { ...rate, ...parsedRateData };
+        return { 
+          ...rate, 
+          ...parsedRateData,
+          id: rate.Id || rate.id || rate.sysID || rate.SysId  // Check all possible ID field variants
+        };
       });
       setRates(parsedRates);
     } catch (err) {
@@ -444,18 +448,20 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
         };
       });
 
-      // Filter out rows with missing critical data
-      const validRows = transformedData.filter(row => row.Pol && row.Pod);
+      // Filter out rows with missing critical data - require POL, POD, and at least one rate value
+      const validRows = transformedData.filter(row => 
+        row.Pol && row.Pod && (row.Gp20Usd || row.Hq40Usd)
+      );
       
       if (validRows.length === 0) {
-        alert('No valid rows found. Please ensure Excel has POL and POD columns filled.');
+        alert('No valid rows found. Please ensure Excel has POL, POD columns filled and at least one rate value (20GP USD or 40HQ-USD).');
         setUploadProgress(false);
         return;
       }
 
       if (validRows.length < transformedData.length) {
         const skipped = transformedData.length - validRows.length;
-        console.warn(`Skipping ${skipped} rows with missing POL or POD`);
+        console.warn(`Skipping ${skipped} rows with missing POL, POD, or rate values`);
       }
 
       // Send to backend

@@ -257,7 +257,6 @@ export default function RateForm({ onClose, editRate, onSuccess }) {
             lclRate: routeData.lclRate || null,
           })
         };
-
         await RateAPI.updateRate(editRate.id, ratePayload);
         onSuccess();
       } else {

@@ -20,8 +20,7 @@ export default function Rates() {
     setEditingRate(null);
   };
 
-  const handleEditRate = (rate) => {
-    setEditingRate(rate);
+  const handleEditRate = (rate) => {    setEditingRate(rate);
     setOpenModal(true);
   };
 
