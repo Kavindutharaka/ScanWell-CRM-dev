@@ -110,7 +110,7 @@ function addAirFreightChargesTableTransit(doc, chargesData, yPos, segmentNum) {
   });
   
   // Build headers
-  const headers = ['AIRLINE', 'M'];
+  const headers = ['AIRLINE', 'Currency'];
   headers.push(...unitTypeColumns);
   headers.push('SURCHARGES', 'T/T', 'FREQUENCY', 'ROUTING', 'REMARKS');
   
@@ -655,7 +655,7 @@ function addAirFreightChargesTable(doc, charges, yPos) {
   });
   
   // Build headers
-  const headers = ['AIRLINE', 'M'];
+  const headers = ['AIRLINE', 'Currency'];
   headers.push(...unitTypeColumns);
   headers.push('SURCHARGES', 'T/T', 'FREQUENCY', 'ROUTING', 'REMARKS');
   
