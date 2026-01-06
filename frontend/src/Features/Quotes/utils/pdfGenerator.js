@@ -110,7 +110,7 @@ function addAirFreightChargesTableTransit(doc, chargesData, yPos, segmentNum) {
   });
   
   // Build headers
-  const headers = ['AIRLINE', 'Currency'];
+  const headers = ['AIRLINE', 'CCY'];
   headers.push(...unitTypeColumns);
   headers.push('SURCHARGES', 'T/T', 'FREQUENCY', 'ROUTING', 'REMARKS');
   
@@ -120,7 +120,7 @@ function addAirFreightChargesTableTransit(doc, chargesData, yPos, segmentNum) {
   
   const columnStyles = {
     0: { cellWidth: 15 },  // AIRLINE
-    1: { cellWidth: 10 }   // M (Currency)
+    1: { cellWidth: 10 }   // CCY
   };
   
   // Unit type columns
@@ -655,7 +655,7 @@ function addAirFreightChargesTable(doc, charges, yPos) {
   });
   
   // Build headers
-  const headers = ['AIRLINE', 'Currency'];
+  const headers = ['AIRLINE', 'CCY'];
   headers.push(...unitTypeColumns);
   headers.push('SURCHARGES', 'T/T', 'FREQUENCY', 'ROUTING', 'REMARKS');
   
@@ -665,7 +665,7 @@ function addAirFreightChargesTable(doc, charges, yPos) {
   
   const columnStyles = {
     0: { cellWidth: 15 },  // AIRLINE
-    1: { cellWidth: 10 }   // M (Currency)
+    1: { cellWidth: 10 }   // CCY
   };
   
   // Unit type columns
@@ -794,24 +794,26 @@ function addOtherChargesTable(doc, charges, title, yPos) {
       units,
       charge.amount || '',
       charge.currency || '',
-      Math.round(total).toString()
+      Math.round(total).toString(),
+      charge.remark || ''
     ];
   });
   
   autoTable(doc, {
     startY: yPos,
-    head: [['Charge Name', 'Unit Type', 'Units', 'Amount', 'Currency', 'Total']],
+    head: [['Charge Name', 'Unit Type', 'Units', 'Amount', 'Currency', 'Total', 'Remark']],
     body: tableData,
     theme: 'grid',
     headStyles: { fillColor: [200, 200, 200], textColor: 0, fontSize: 8, fontStyle: 'bold' },
     bodyStyles: { fontSize: 8 },
     columnStyles: {
-      0: { cellWidth: 50 },
-      1: { cellWidth: 30 },
-      2: { cellWidth: 20 },
-      3: { cellWidth: 25 },
-      4: { cellWidth: 20 },
-      5: { cellWidth: 25 }
+      0: { cellWidth: 40 },
+      1: { cellWidth: 25 },
+      2: { cellWidth: 15 },
+      3: { cellWidth: 20 },
+      4: { cellWidth: 18 },
+      5: { cellWidth: 20 },
+      6: { cellWidth: 32 }
     },
     margin: { left: 15, right: 15 }
   });
