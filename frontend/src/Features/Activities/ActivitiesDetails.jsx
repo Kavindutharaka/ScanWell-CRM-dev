@@ -282,12 +282,12 @@ export default function ActivitiesDetails({ onOpen, onEdit, loading: initialLoad
       )}
 
       {/* Activities Table */}
-      <div className="overflow-x-auto">
+      <div className="overflow-x-auto max-h-[630px] overflow-y-auto">
         <div className="min-w-full">
           {/* Desktop Table View */}
           <div className="hidden lg:block">
-            <table className="w-full">
-              <thead className="bg-slate-50 border-b border-slate-200">
+            <table className="w-full relative">
+              <thead className="bg-slate-50 border-b border-slate-200 sticky top-0 z-10">
                 <tr>
                   <th className="px-4 py-3 text-left w-12"></th>
                   <th className="px-4 py-3 text-left">
