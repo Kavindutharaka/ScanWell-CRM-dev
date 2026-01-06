@@ -6,3 +6,6 @@ frontend/build
 *.log
 **/bin/
 **/obj/
+back-end/pub
+**/build/
+**/pub/
