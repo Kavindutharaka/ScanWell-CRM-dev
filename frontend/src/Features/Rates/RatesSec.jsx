@@ -328,7 +328,7 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
   };
 
   const handleDelete = async (rateId) => {
-    if (!window.confirm('Are you sure you want to delete this rate?')) return;
+    if (!window.window.confirm('Are you sure you want to delete this rate?')) return;
     try {
       // Use linear endpoint for liner rates, regular endpoint for others
       const endpoint = activeLiner 
@@ -349,7 +349,7 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
         throw new Error('Delete failed');
       }
     } catch (err) {
-      alert('Failed to delete rate.');
+      window.alert('Failed to delete rate.');
     }
   };
 
@@ -358,7 +358,7 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
     const file = e.target.files[0];
     if (file) {
       if (!file.name.match(/\.(xlsx|xls)$/)) {
-        alert('Please upload a valid Excel file (.xlsx or .xls)');
+        window.alert('Please upload a valid Excel file (.xlsx or .xls)');
         return;
       }
       setExcelFile(file);
@@ -367,7 +367,7 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
 
   const handleExcelUpload = async () => {
     if (!excelFile || !activeLiner) {
-      alert('Please select an Excel file and ensure a shipping line is selected.');
+      window.alert('Please select an Excel file and ensure a shipping line is selected.');
       return;
     }
 
@@ -375,11 +375,39 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
     try {
       // Parse Excel file
       console.log('Starting Excel upload for:', activeLiner);
-      const data = await excelFile.arrayBuffer();
-      const workbook = XLSX.read(data, { type: "array" });
-      const sheetName = workbook.SheetNames[0];
-      const sheet = workbook.Sheets[sheetName];
-      const excelData = XLSX.utils.sheet_to_json(sheet);
+      
+      let workbook, excelData;
+      
+      try {
+        const data = await excelFile.arrayBuffer();
+        workbook = XLSX.read(data, { type: "array" });
+        
+        if (!workbook.SheetNames || workbook.SheetNames.length === 0) {
+          throw new Error('No sheets found in Excel file');
+        }
+        
+        const sheetName = workbook.SheetNames[0];
+        const sheet = workbook.Sheets[sheetName];
+        
+        if (!sheet) {
+          throw new Error('Cannot read Excel sheet');
+        }
+        
+        excelData = XLSX.utils.sheet_to_json(sheet);
+        
+      } catch (parseError) {
+        let errorMsg = '❌ Cannot read Excel file\n\n';
+        errorMsg += '📋 Possible reasons:\n';
+        errorMsg += '• File is corrupted or damaged\n';
+        errorMsg += '• File is not a valid Excel format (.xlsx, .xls)\n';
+        errorMsg += '• File is password protected\n';
+        errorMsg += '• File is open in another program\n\n';
+        errorMsg += `Technical error: ${parseError.message}`;
+        
+        window.alert(errorMsg);
+        setUploadProgress(false);
+        return;
+      }
 
       console.log(`Parsed ${excelData.length} rows from Excel`);
       console.log('Sample row:', excelData[0]);
@@ -387,7 +415,60 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
 
       // Validate that we have data
       if (!excelData || excelData.length === 0) {
-        alert('Excel file is empty or could not be read. Please check the file format.');
+        window.alert('Excel file is empty or could not be read. Please check the file format.');
+        setUploadProgress(false);
+        return;
+      }
+
+      // Validate Excel format - check for required columns
+      const firstRow = excelData[0];
+      const columnHeaders = Object.keys(firstRow || {});
+      
+      // Check if file has required columns
+      const hasPolColumn = columnHeaders.some(col => 
+        col.toUpperCase() === 'POL' || 
+        col.toUpperCase() === 'ORIGIN'
+      );
+      const hasPodColumn = columnHeaders.some(col => 
+        col.toUpperCase() === 'POD' || 
+        col.toUpperCase() === 'DESTINATION'
+      );
+      const hasRateColumns = columnHeaders.some(col => 
+        col.includes('20GP') || 
+        col.includes('20 GP') ||
+        col.includes('40HQ') || 
+        col.includes('40 HQ') ||
+        col.toUpperCase().includes('GP20') ||
+        col.toUpperCase().includes('HQ40')
+      );
+
+      // Generate detailed error message if columns are missing
+      if (!hasPolColumn || !hasPodColumn || !hasRateColumns) {
+        let errorMsg = '❌ Excel file format error!\n\n';
+        errorMsg += 'Missing required columns:\n';
+        
+        if (!hasPolColumn) {
+          errorMsg += '• POL (Port of Loading) or Origin column\n';
+        }
+        if (!hasPodColumn) {
+          errorMsg += '• POD (Port of Discharge) or Destination column\n';
+        }
+        if (!hasRateColumns) {
+          errorMsg += '• Rate columns (20GP USD, 40HQ-USD, etc.)\n';
+        }
+        
+        errorMsg += '\n📋 Your Excel file has these columns:\n';
+        errorMsg += columnHeaders.join(', ') || 'No columns detected';
+        errorMsg += '\n\n✅ Required format:\n';
+        errorMsg += '• POL (or Origin)\n';
+        errorMsg += '• POD (or Destination)\n';
+        errorMsg += '• 20GP USD (or 20GP-USD, 20GP_USD)\n';
+        errorMsg += '• 40HQ-USD (or 40HQ USD, 40HQ_USD)\n';
+        errorMsg += '• TT/Routing (optional)\n';
+        errorMsg += '• VALID (optional)\n';
+        errorMsg += '\n💡 Tip: Download the template for the correct format.';
+        
+        window.alert(errorMsg);
         setUploadProgress(false);
         return;
       }
@@ -454,14 +535,53 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
       );
       
       if (validRows.length === 0) {
-        alert('No valid rows found. Please ensure Excel has POL, POD columns filled and at least one rate value (20GP USD or 40HQ-USD).');
+        let errorMsg = '❌ No valid data found in Excel file!\n\n';
+        errorMsg += '📋 Common issues:\n';
+        errorMsg += '• POL/POD columns are empty\n';
+        errorMsg += '• Rate columns (20GP USD, 40HQ-USD) are empty\n';
+        errorMsg += '• Data starts from wrong row (should have headers in row 1)\n';
+        errorMsg += '\n✅ Each row must have:\n';
+        errorMsg += '• POL (Port of Loading)\n';
+        errorMsg += '• POD (Port of Discharge)\n';
+        errorMsg += '• At least one rate value (20GP USD or 40HQ-USD)\n';
+        errorMsg += '\n💡 Tip: Download the template and check your data format.';
+        
+        window.alert(errorMsg);
         setUploadProgress(false);
         return;
       }
 
       if (validRows.length < transformedData.length) {
         const skipped = transformedData.length - validRows.length;
-        console.warn(`Skipping ${skipped} rows with missing POL, POD, or rate values`);
+        const percentage = Math.round((skipped / transformedData.length) * 100);
+        
+        console.warn(`⚠️ Skipping ${skipped} rows (${percentage}%) with missing POL, POD, or rate values`);
+        
+        // Show details of first few skipped rows for debugging
+        const skippedRows = transformedData.filter(row => 
+          !row.Pol || !row.Pod || (!row.Gp20Usd && !row.Hq40Usd)
+        ).slice(0, 3);
+        
+        console.warn('Sample of skipped rows:', skippedRows);
+        
+        // Inform user about skipped rows
+        if (skipped > 0) {
+          const skipMsg = `⚠️ Warning: ${skipped} out of ${transformedData.length} rows will be skipped because they are missing:\n\n`;
+          let reasons = [];
+          
+          const missingPol = transformedData.filter(row => !row.Pol).length;
+          const missingPod = transformedData.filter(row => !row.Pod).length;
+          const missingRates = transformedData.filter(row => !row.Gp20Usd && !row.Hq40Usd).length;
+          
+          if (missingPol > 0) reasons.push(`• ${missingPol} rows: Missing POL/Origin`);
+          if (missingPod > 0) reasons.push(`• ${missingPod} rows: Missing POD/Destination`);
+          if (missingRates > 0) reasons.push(`• ${missingRates} rows: Missing rate values`);
+          
+          if (!window.confirm(skipMsg + reasons.join('\n') + `\n\n✅ Continue uploading ${validRows.length} valid rows?`)) {
+            setUploadProgress(false);
+            return;
+          }
+        }
       }
 
       // Send to backend
@@ -478,19 +598,66 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
       console.log('Backend response:', responseData);
 
       if (response.ok) {
-        const successMsg = responseData.failCount > 0 
-          ? `Uploaded ${responseData.successCount} rates. ${responseData.failCount} failed.`
-          : `Successfully uploaded ${responseData.successCount} rates for ${activeLiner}`;
-        alert(successMsg);
+        let successMsg = '';
+        
+        if (responseData.failCount > 0) {
+          successMsg = `✅ Upload Complete\n\n`;
+          successMsg += `• Successfully uploaded: ${responseData.successCount} rates\n`;
+          successMsg += `• Failed: ${responseData.failCount} rates\n\n`;
+          successMsg += `⚠️ Some rates failed to upload. Check console for details.`;
+        } else {
+          successMsg = `✅ Success!\n\nUploaded ${responseData.successCount} rates for ${activeLiner}`;
+        }
+        
+        window.alert(successMsg);
         setShowLinerModal(false);
         setExcelFile(null);
         loadLinerRates(activeLiner);
       } else {
-        throw new Error(responseData.message || 'Upload failed');
+        // Detailed error message based on response
+        let errorMsg = '❌ Upload Failed\n\n';
+        
+        if (responseData.message) {
+          errorMsg += `Error: ${responseData.message}\n\n`;
+        }
+        
+        if (response.status === 400) {
+          errorMsg += '📋 This usually means:\n';
+          errorMsg += '• Invalid data format\n';
+          errorMsg += '• Database constraint violation\n';
+          errorMsg += '• Missing required fields\n';
+        } else if (response.status === 500) {
+          errorMsg += '⚠️ Server error occurred.\n';
+          errorMsg += 'Please contact your administrator.\n';
+        }
+        
+        errorMsg += '\n💡 Check browser console for more details.';
+        
+        throw new Error(errorMsg);
       }
     } catch (err) {
       console.error('Error uploading Excel:', err);
-      alert(`Failed to upload Excel file: ${err.message}\n\nPlease check the browser console for details.`);
+      
+      // Provide user-friendly error message
+      let userErrorMsg = '';
+      
+      if (err.message.includes('Failed to fetch') || err.message.includes('NetworkError')) {
+        userErrorMsg = '❌ Network Error\n\n';
+        userErrorMsg += 'Cannot connect to server.\n';
+        userErrorMsg += 'Please check your internet connection.';
+      } else if (err.message.startsWith('❌')) {
+        // Already formatted error message
+        userErrorMsg = err.message;
+      } else {
+        userErrorMsg = `❌ Upload Failed\n\n${err.message}\n\n`;
+        userErrorMsg += '💡 Tips:\n';
+        userErrorMsg += '• Check that your Excel file has the correct format\n';
+        userErrorMsg += '• Ensure all required columns are filled\n';
+        userErrorMsg += '• Try downloading and using the template\n';
+        userErrorMsg += '• Check browser console for technical details';
+      }
+      
+      window.alert(userErrorMsg);
     } finally {
       setUploadProgress(false);
     }
