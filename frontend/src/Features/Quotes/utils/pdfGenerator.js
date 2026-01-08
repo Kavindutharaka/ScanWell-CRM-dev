@@ -154,65 +154,141 @@ function addAirFreightChargesTableTransit(doc, chargesData, yPos, segmentNum) {
  * Handles freightChargesTables format with different field names
  */
 function addFreightChargesTableTransit(doc, charges, yPos, isAir, segmentNum) {
-  // Use specialized Air table for air freight
-  if (isAir) {
+  
+  // Check if charges have carrier/unitType format or chargeableWeight format
+  const hasCarrierFormat = charges.some(c => c.carrier || c.unitType || c.amount);
+  const hasWeightFormat = charges.some(c => c.chargeableWeight || c.weightBreaker || c.charge);
+  
+  
+  // Use specialized Air table ONLY for air freight with carrier/unitType format
+  // If data has chargeableWeight format, use regular table even for air mode
+  if (isAir && hasCarrierFormat && !hasWeightFormat) {
     return addAirFreightChargesTableTransit(doc, charges, yPos, segmentNum);
   }
   
-  // Filter out empty charges
-  const validCharges = charges.filter(c => c.chargeableWeight || c.weightBreaker || c.charge);
   
-  if (validCharges.length === 0) {
-    return yPos;
-  }
-  
-  if (yPos > 230) {
-    doc.addPage();
-    yPos = 20;
-  }
-  
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(9);
-  doc.text(`Freight Charges (Segment ${segmentNum})`, 15, yPos);
-  yPos += 3;
-  
-  const tableData = validCharges.map(charge => {
-    // Calculate total: chargeableWeight * charge
-    const weight = parseFloat(charge.chargeableWeight) || 0;
-    const rate = parseFloat(charge.charge) || 0;
-    const total = weight * rate;
+  // Handle carrier/unitType format (like Direct quotes)
+  if (hasCarrierFormat) {
+    const validCharges = charges.filter(c => c.carrier || c.unitType || c.amount);
     
-    return [
-      charge.chargeableWeight || '',
-      charge.weightBreaker || '',
-      charge.pricingUnit || '',
-      charge.charge || '',
-      charge.currency || 'USD',
-      Math.round(total).toString(),
-      formatRemarksWithBreaks(charge.remarks || '')
-    ];
-  });
+    if (validCharges.length === 0) {
+      return yPos;
+    }
+    
+    if (yPos > 230) {
+      doc.addPage();
+      yPos = 20;
+    }
+    
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.text(`Freight Charges (Segment ${segmentNum})`, 15, yPos);
+    yPos += 3;
+    
+    const tableData = validCharges.map(charge => {
+      const units = charge.numberOfUnits || '';
+      const total = calculateChargeTotal(charge);
+      
+      const row = [
+        charge.carrier || '',
+        charge.unitType || '',
+        units,
+        charge.amount || '',
+        charge.currency || '',
+        charge.transitTime || '',
+        charge.numberOfRouting || ''
+      ];
+      
+      row.push(Math.round(total).toString());
+      row.push(formatRemarksWithBreaks(charge.remarks || ''));
+      return row;
+    });
+    
+    const headers = ['Carrier', 'Unit Type', 'Units', 'Amount', 'Currency', 'Transit', 'Routing', 'Total', 'Remarks'];
+    
+    autoTable(doc, {
+      startY: yPos,
+      head: [headers],
+      body: tableData,
+      theme: 'grid',
+      headStyles: { fillColor: [200, 200, 200], textColor: 0, fontSize: 7, fontStyle: 'bold' },
+      bodyStyles: { fontSize: 6.5, overflow: 'linebreak', cellPadding: 1.5 },
+      columnStyles: {
+        0: { cellWidth: 16 },  // Carrier
+        1: { cellWidth: 13 },  // Unit Type
+        2: { cellWidth: 8 },   // Units
+        3: { cellWidth: 12 },  // Amount
+        4: { cellWidth: 13 },  // Currency
+        5: { cellWidth: 12 },  // Transit
+        6: { cellWidth: 14 },  // Routing
+        7: { cellWidth: 11 },  // Total
+        8: { cellWidth: 63, overflow: 'linebreak', fontSize: 6.5 }  // Remarks - much wider
+      },
+      margin: { left: 15, right: 15 }
+    });
+    
+    return doc.lastAutoTable.finalY + 8;
+  }
   
-  autoTable(doc, {
-    startY: yPos,
-    head: [['Chargeable Weight', 'Weight Breaker', 'Pricing Unit', 'Charge', 'Currency', 'Total', 'Remarks']],
-    body: tableData,
-    theme: 'grid',
-    headStyles: { fillColor: [200, 200, 200], textColor: 0, fontSize: 7, fontStyle: 'bold' },
-    bodyStyles: { fontSize: 6.5, overflow: 'linebreak', cellPadding: 1.5 },
-    columnStyles: {
-      0: { cellWidth: 22 },
-      1: { cellWidth: 22 },
-      2: { cellWidth: 22 },
-      3: { cellWidth: 18 },
-      4: { cellWidth: 16 },
-      5: { cellWidth: 18 },
-      6: { cellWidth: 42, overflow: 'linebreak' }  // Much wider for Remarks
-    },
-    margin: { left: 15, right: 15 }
-  });
+  // Handle chargeableWeight format (original Transit format)
+  if (hasWeightFormat) {
+    const validCharges = charges.filter(c => c.chargeableWeight || c.weightBreaker || c.charge);
+    
+    if (validCharges.length === 0) {
+      return yPos;
+    }
+    
+    if (yPos > 230) {
+      doc.addPage();
+      yPos = 20;
+    }
+    
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.text(`Freight Charges (Segment ${segmentNum})`, 15, yPos);
+    yPos += 3;
+    
+    const tableData = validCharges.map(charge => {
+      // Calculate total: chargeableWeight * charge
+      const weight = parseFloat(charge.chargeableWeight) || 0;
+      const rate = parseFloat(charge.charge) || 0;
+      const total = weight * rate;
+      
+      return [
+        charge.chargeableWeight || '',
+        charge.weightBreaker || '',
+        charge.pricingUnit || '',
+        charge.charge || '',
+        charge.currency || 'USD',
+        Math.round(total).toString(),
+        formatRemarksWithBreaks(charge.remarks || '')
+      ];
+    });
+    
+    autoTable(doc, {
+      startY: yPos,
+      head: [['Chargeable Weight', 'Weight Breaker', 'Pricing Unit', 'Charge', 'Currency', 'Total', 'Remarks']],
+      body: tableData,
+      theme: 'grid',
+      headStyles: { fillColor: [200, 200, 200], textColor: 0, fontSize: 7, fontStyle: 'bold' },
+      bodyStyles: { fontSize: 6.5, overflow: 'linebreak', cellPadding: 1.5 },
+      columnStyles: {
+        0: { cellWidth: 22 },
+        1: { cellWidth: 22 },
+        2: { cellWidth: 22 },
+        3: { cellWidth: 18 },
+        4: { cellWidth: 16 },
+        5: { cellWidth: 18 },
+        6: { cellWidth: 42, overflow: 'linebreak' }  // Much wider for Remarks
+      },
+      margin: { left: 15, right: 15 }
+    });
+    
+    return doc.lastAutoTable.finalY + 8;
+  }
   
-  return doc.lastAutoTable.finalY + 8;
+  // No valid charges found
+  return yPos;
 }
 
 /**
@@ -287,6 +363,61 @@ const formatRemarksWithBreaks = (remarks) => {
   }
   
   return formatted.trim();
+};
+
+/**
+ * Extract charges from table structures used in Transit routes
+ * Converts location-based table format to charge array format
+ */
+const extractChargesFromTables = (tables, chargeType = 'handling') => {
+  
+  if (!tables || tables.length === 0) {
+    return [];
+  }
+  
+  const allCharges = [];
+  
+  tables.forEach((table, idx) => {
+    
+    // Handle Transit format: freight charges with nested charges array
+    if (table.charges && Array.isArray(table.charges)) {
+      allCharges.push(...table.charges);
+      return;
+    }
+    
+    // Handle MultiModal format: freight charges with direct fields (no nested charges array)
+    if (chargeType === 'freight' && (table.chargeableWeight || table.weightBreaker || table.charge)) {
+      // This is a direct freight charge object (MultiModal format)
+      allCharges.push(table);
+      return;
+    }
+    
+    // Handle handling/destination charges (location-based format)
+    const locations = Object.keys(table.chargeNamePerLocation || {});
+    
+    locations.forEach(location => {
+      const chargeName = table.chargeNamePerLocation?.[location];
+      const unitType = table.unitTypePerLocation?.[location];
+      const units = table.unitsPerLocation?.[location];
+      const amount = table.amountPerLocation?.[location];
+      const currency = table.currencyPerLocation?.[location];
+      
+      // Only add if there's actual data
+      if (chargeName || amount) {
+        allCharges.push({
+          chargeName: chargeName || '',
+          unitType: unitType || '',
+          numberOfUnits: units || '',
+          amount: amount || '',
+          currency: currency || '',
+          total: 0,
+          remark: ''
+        });
+      }
+    });
+  });
+  
+  return allCharges;
 };
 
 /**
@@ -886,10 +1017,16 @@ export const generateTransitQuotePDF = (quoteData) => {
   let routesData = [];
   let allSegments = [];
   
-  if (quoteData.routes) {
-    const parsedRoutes = JSON.parse(quoteData.routes);
+  // Try TransitRoutes first, then routes
+  const routesField = quoteData.transitRoutes || quoteData.routes;
+  if (routesField) {
+    const parsedRoutes = JSON.parse(routesField);
     if (Array.isArray(parsedRoutes) && parsedRoutes.length > 0) {
-      // Extract routes array from nested structure
+      // Direct array of routes
+      routesData = parsedRoutes;
+      allSegments = parsedRoutes;
+      
+      // OR Extract routes array from nested structure
       if (parsedRoutes[0].routes) {
         routesData = parsedRoutes[0].routes;
         allSegments = parsedRoutes[0].routes;
@@ -954,38 +1091,54 @@ export const generateTransitQuotePDF = (quoteData) => {
     doc.text(`Segment ${index + 1}: ${segmentMode} (${segmentRoute})`, 18, yPos + 2);
     yPos += 10;
     
-    // Segment Equipment Details
-    const segEquip = segment.equipment || {};
-    doc.setFontSize(9);
-    doc.setFont('helvetica', 'bold');
-    doc.text('Equipment', 15, yPos);
-    doc.text('Transit Time', 70, yPos);
-    doc.text('Net Weight', 105, yPos);
-    doc.text('Gross Weight', 135, yPos);
-    doc.text('Chargeable', 170, yPos);
-    
-    yPos += 4;
-    doc.setFont('helvetica', 'normal');
-    doc.text(segEquip.equipment || 'N/A', 15, yPos);
-    doc.text(segEquip.transitTime || 'N/A', 70, yPos);
-    doc.text(segEquip.netWeight || '0', 105, yPos);
-    doc.text(segEquip.grossWeight || '0', 135, yPos);
-    doc.text(segEquip.chargeableWeight || '0', 170, yPos);
-    
-    yPos += 8;
-    
-    // Freight Charges - handle freightChargesTables or freightCharges
-    const freightCharges = segment.freightChargesTables || segment.freightCharges || [];
-    yPos = addFreightChargesTableTransit(doc, freightCharges, yPos, segment.mode === 'air', index + 1);
-    
-    // Origin Handling
-    if (segment.originHandling && segment.originHandling.length > 0) {
-      yPos = addOtherChargesTable(doc, segment.originHandling, `Seg${index + 1}: Origin Handling`, yPos);
+    // Freight Charges - extract from freightChargesTables
+    if (segment.freightChargesTables) {
     }
     
-    // Destination Handling
-    if (segment.destinationHandling && segment.destinationHandling.length > 0) {
-      yPos = addOtherChargesTable(doc, segment.destinationHandling, `Seg${index + 1}: Destination Handling`, yPos);
+    let freightCharges = [];
+    if (segment.freightChargesTables && Array.isArray(segment.freightChargesTables)) {
+      freightCharges = extractChargesFromTables(segment.freightChargesTables, 'freight');
+    } else if (segment.freightCharges) {
+      freightCharges = segment.freightCharges;
+    } else {
+    }
+    
+    if (freightCharges.length > 0) {
+      yPos = addFreightChargesTableTransit(doc, freightCharges, yPos, segment.mode === 'air', index + 1);
+    } else {
+    }
+    
+    // Origin Handling - extract from originHandlingTables
+    let originHandling = [];
+    if (segment.originHandlingTables && Array.isArray(segment.originHandlingTables)) {
+      originHandling = extractChargesFromTables(segment.originHandlingTables, 'handling');
+    } else if (segment.originHandling) {
+      originHandling = segment.originHandling;
+    }
+    if (originHandling.length > 0) {
+      yPos = addOtherChargesTable(doc, originHandling, `Seg${index + 1}: Origin Handling`, yPos);
+    }
+    
+    // Destination Handling - extract from destinationHandlingTables
+    let destinationHandling = [];
+    if (segment.destinationHandlingTables && Array.isArray(segment.destinationHandlingTables)) {
+      destinationHandling = extractChargesFromTables(segment.destinationHandlingTables, 'handling');
+    } else if (segment.destinationHandling) {
+      destinationHandling = segment.destinationHandling;
+    }
+    if (destinationHandling.length > 0) {
+      yPos = addOtherChargesTable(doc, destinationHandling, `Seg${index + 1}: Destination Handling`, yPos);
+    }
+    
+    // Destination Charges (POD) - extract from destinationChargesTables
+    let destinationCharges = [];
+    if (segment.destinationChargesTables && Array.isArray(segment.destinationChargesTables)) {
+      destinationCharges = extractChargesFromTables(segment.destinationChargesTables, 'handling');
+    } else if (segment.destinationCharges) {
+      destinationCharges = segment.destinationCharges;
+    }
+    if (destinationCharges.length > 0) {
+      yPos = addOtherChargesTable(doc, destinationCharges, `Seg${index + 1}: Destination Charges (POD)`, yPos);
     }
     
     yPos += 5;
@@ -1044,9 +1197,16 @@ export const generateMultiModalQuotePDF = (quoteData) => {
   let routesData = [];
   let allSegments = [];
   
-  if (quoteData.routes) {
-    const parsedRoutes = JSON.parse(quoteData.routes);
+  // Try TransitRoutes first, then routes
+  const routesField = quoteData.transitRoutes || quoteData.routes;
+  if (routesField) {
+    const parsedRoutes = JSON.parse(routesField);
     if (Array.isArray(parsedRoutes) && parsedRoutes.length > 0) {
+      // Direct array of routes
+      routesData = parsedRoutes;
+      allSegments = parsedRoutes;
+      
+      // OR Extract routes array from nested structure
       if (parsedRoutes[0].routes) {
         routesData = parsedRoutes[0].routes;
         allSegments = parsedRoutes[0].routes;
@@ -1106,7 +1266,7 @@ export const generateMultiModalQuotePDF = (quoteData) => {
       yPos = 20;
     }
     
-    doc.setFillColor(220, 200, 240);
+    doc.setFillColor(200, 220, 240);
     doc.rect(15, yPos - 3, 180, 7, 'F');
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(10);
@@ -1116,38 +1276,55 @@ export const generateMultiModalQuotePDF = (quoteData) => {
     doc.text(`Segment ${index + 1}: ${segmentMode} (${segmentRoute})`, 18, yPos + 2);
     yPos += 10;
     
-    // Segment Equipment Details
-    const segEquip = segment.equipment || {};
-    doc.setFontSize(9);
-    doc.setFont('helvetica', 'bold');
-    doc.text('Equipment', 15, yPos);
-    doc.text('Transit Time', 70, yPos);
-    doc.text('Net Weight', 105, yPos);
-    doc.text('Gross Weight', 135, yPos);
-    doc.text('Chargeable', 170, yPos);
-    
-    yPos += 4;
-    doc.setFont('helvetica', 'normal');
-    doc.text(segEquip.equipment || 'N/A', 15, yPos);
-    doc.text(segEquip.transitTime || 'N/A', 70, yPos);
-    doc.text(segEquip.netWeight || '0', 105, yPos);
-    doc.text(segEquip.grossWeight || '0', 135, yPos);
-    doc.text(segEquip.chargeableWeight || '0', 170, yPos);
-    
-    yPos += 8;
-    
-    // Freight Charges - handle freightChargesTables or freightCharges
-    const freightCharges = segment.freightChargesTables || segment.freightCharges || [];
-    yPos = addFreightChargesTableTransit(doc, freightCharges, yPos, segment.mode === 'air', index + 1);
-    
-    // Origin Handling
-    if (segment.originHandling && segment.originHandling.length > 0) {
-      yPos = addOtherChargesTable(doc, segment.originHandling, `Seg${index + 1}: Origin Handling`, yPos);
+    // Freight Charges - extract from freightChargesTables
+    if (segment.freightChargesTables) {
     }
     
-    // Destination Handling
-    if (segment.destinationHandling && segment.destinationHandling.length > 0) {
-      yPos = addOtherChargesTable(doc, segment.destinationHandling, `Seg${index + 1}: Destination Handling`, yPos);
+    let freightCharges = [];
+    if (segment.freightChargesTables && Array.isArray(segment.freightChargesTables)) {
+      freightCharges = extractChargesFromTables(segment.freightChargesTables, 'freight');
+    } else if (segment.freightCharges) {
+      freightCharges = segment.freightCharges;
+    } else {
+    }
+    
+    if (freightCharges.length > 0) {
+      yPos = addFreightChargesTableTransit(doc, freightCharges, yPos, segment.mode === 'air', index + 1);
+    } else {
+    }
+    
+    
+    // Origin Handling - extract from originHandlingTables
+    let originHandling = [];
+    if (segment.originHandlingTables && Array.isArray(segment.originHandlingTables)) {
+      originHandling = extractChargesFromTables(segment.originHandlingTables, 'handling');
+    } else if (segment.originHandling) {
+      originHandling = segment.originHandling;
+    }
+    if (originHandling.length > 0) {
+      yPos = addOtherChargesTable(doc, originHandling, `Seg${index + 1}: Origin Handling`, yPos);
+    }
+    
+    // Destination Handling - extract from destinationHandlingTables
+    let destinationHandling = [];
+    if (segment.destinationHandlingTables && Array.isArray(segment.destinationHandlingTables)) {
+      destinationHandling = extractChargesFromTables(segment.destinationHandlingTables, 'handling');
+    } else if (segment.destinationHandling) {
+      destinationHandling = segment.destinationHandling;
+    }
+    if (destinationHandling.length > 0) {
+      yPos = addOtherChargesTable(doc, destinationHandling, `Seg${index + 1}: Destination Handling`, yPos);
+    }
+    
+    // Destination Charges (POD) - extract from destinationChargesTables
+    let destinationCharges = [];
+    if (segment.destinationChargesTables && Array.isArray(segment.destinationChargesTables)) {
+      destinationCharges = extractChargesFromTables(segment.destinationChargesTables, 'handling');
+    } else if (segment.destinationCharges) {
+      destinationCharges = segment.destinationCharges;
+    }
+    if (destinationCharges.length > 0) {
+      yPos = addOtherChargesTable(doc, destinationCharges, `Seg${index + 1}: Destination Charges (POD)`, yPos);
     }
     
     yPos += 5;
