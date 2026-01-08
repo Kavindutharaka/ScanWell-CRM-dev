@@ -18,6 +18,7 @@ export default function AirFreightChargesSection({ formData, setFormData, disabl
         grouped[carrier] = {
           carrier: carrier,
           currency: charge.currency || '',
+          minimum: charge.minimum || '',
           transitTime: charge.transitTime || '',
           numberOfRouting: charge.numberOfRouting || '',
           surcharge: charge.surcharge || '',
@@ -37,6 +38,7 @@ export default function AirFreightChargesSection({ formData, setFormData, disabl
     return result.length > 0 ? result : [{
       carrier: carrierName || '',
       currency: '',
+      minimum: '',
       transitTime: '',
       numberOfRouting: '',
       surcharge: '',
@@ -60,6 +62,7 @@ export default function AirFreightChargesSection({ formData, setFormData, disabl
           numberOfUnits: '',
           amount: amount,
           currency: row.currency,
+          minimum: row.minimum,
           transitTime: row.transitTime,
           numberOfRouting: row.numberOfRouting,
           surcharge: row.surcharge,
@@ -98,6 +101,7 @@ export default function AirFreightChargesSection({ formData, setFormData, disabl
     const newRow = {
       carrier: carrierName || '',
       currency: '',
+      minimum: '',
       transitTime: '',
       numberOfRouting: '',
       surcharge: '',
@@ -159,6 +163,7 @@ export default function AirFreightChargesSection({ formData, setFormData, disabl
             <tr>
               <th className="border border-gray-300 px-2 py-2 text-left" style={{ minWidth: '70px' }}>AirLine</th>
               <th className="border border-gray-300 px-2 py-2 text-left" style={{ minWidth: '65px' }}>Currency</th>
+              <th className="border border-gray-300 px-2 py-2 text-left" style={{ minWidth: '60px' }}>M</th>
               {standardUnitTypes.map(unitType => (
                 <th key={unitType} className="border border-gray-300 px-2 py-2 text-left" style={{ minWidth: '60px' }}>{unitType}</th>
               ))}
@@ -189,6 +194,17 @@ export default function AirFreightChargesSection({ formData, setFormData, disabl
                     suggestions={currencySuggestions}
                     showLabel={false}
                     disabled={disabled}
+                  />
+                </td>
+                <td className="border border-gray-300 p-1">
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={row.minimum || ''}
+                    onChange={(e) => updateCarrier(index, 'minimum', e.target.value)}
+                    disabled={disabled}
+                    placeholder="0.00"
+                    className="w-full px-2 py-1 border border-gray-300 rounded disabled:bg-gray-100 text-sm"
                   />
                 </td>
                 {standardUnitTypes.map(unitType => (

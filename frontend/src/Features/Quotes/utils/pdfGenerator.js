@@ -71,6 +71,7 @@ function addAirFreightChargesTableTransit(doc, chargesData, yPos, segmentNum) {
       carrierGroups[carrier] = {
         carrier: carrier,
         currency: charge.currency || '',
+        minimum: charge.minimum || '',
         unitTypes: {},
         surcharge: charge.surcharge || '',
         transitTime: charge.transitTime || '',
@@ -91,7 +92,8 @@ function addAirFreightChargesTableTransit(doc, chargesData, yPos, segmentNum) {
   const tableData = Object.values(carrierGroups).map(group => {
     const row = [
       group.carrier,
-      group.currency
+      group.currency,
+      group.minimum
     ];
     
     // Add unit type values
@@ -110,7 +112,7 @@ function addAirFreightChargesTableTransit(doc, chargesData, yPos, segmentNum) {
   });
   
   // Build headers
-  const headers = ['AIRLINE', 'CCY'];
+  const headers = ['AIRLINE', 'CCY', 'M'];
   headers.push(...unitTypeColumns);
   headers.push('SURCHARGES', 'T/T', 'FREQUENCY', 'ROUTING', 'REMARKS');
   
@@ -120,20 +122,21 @@ function addAirFreightChargesTableTransit(doc, chargesData, yPos, segmentNum) {
   
   const columnStyles = {
     0: { cellWidth: 15 },  // AIRLINE
-    1: { cellWidth: 10 }   // CCY
+    1: { cellWidth: 10 },  // CCY
+    2: { cellWidth: 10 }   // M
   };
   
   // Unit type columns
   for (let i = 0; i < numUnitTypes; i++) {
-    columnStyles[2 + i] = { cellWidth: unitTypeWidth };
+    columnStyles[3 + i] = { cellWidth: unitTypeWidth };
   }
   
   // Remaining columns
-  columnStyles[2 + numUnitTypes] = { cellWidth: 16 };  // SURCHARGES
-  columnStyles[3 + numUnitTypes] = { cellWidth: 10 };  // T/T
-  columnStyles[4 + numUnitTypes] = { cellWidth: 13 };  // FREQUENCY
-  columnStyles[5 + numUnitTypes] = { cellWidth: 15 };  // ROUTING
-  columnStyles[6 + numUnitTypes] = { cellWidth: 28, overflow: 'linebreak' };  // REMARKS - much wider
+  columnStyles[3 + numUnitTypes] = { cellWidth: 16 };  // SURCHARGES
+  columnStyles[4 + numUnitTypes] = { cellWidth: 10 };  // T/T
+  columnStyles[5 + numUnitTypes] = { cellWidth: 13 };  // FREQUENCY
+  columnStyles[6 + numUnitTypes] = { cellWidth: 15 };  // ROUTING
+  columnStyles[7 + numUnitTypes] = { cellWidth: 28, overflow: 'linebreak' };  // REMARKS - much wider
   
   autoTable(doc, {
     startY: yPos,
@@ -762,6 +765,7 @@ function addAirFreightChargesTable(doc, charges, yPos) {
       carrierGroups[carrier] = {
         carrier: carrier,
         currency: charge.currency || '',
+        minimum: charge.minimum || '',
         unitTypes: {},
         surcharge: charge.surcharge || '',
         transitTime: charge.transitTime || '',
@@ -782,7 +786,8 @@ function addAirFreightChargesTable(doc, charges, yPos) {
   const tableData = Object.values(carrierGroups).map(group => {
     const row = [
       group.carrier,
-      group.currency
+      group.currency,
+      group.minimum
     ];
     
     // Add unit type values
@@ -801,7 +806,7 @@ function addAirFreightChargesTable(doc, charges, yPos) {
   });
   
   // Build headers
-  const headers = ['AIRLINE', 'CCY'];
+  const headers = ['AIRLINE', 'CCY', 'M'];
   headers.push(...unitTypeColumns);
   headers.push('SURCHARGES', 'T/T', 'FREQUENCY', 'ROUTING', 'REMARKS');
   
@@ -811,20 +816,21 @@ function addAirFreightChargesTable(doc, charges, yPos) {
   
   const columnStyles = {
     0: { cellWidth: 15 },  // AIRLINE
-    1: { cellWidth: 10 }   // CCY
+    1: { cellWidth: 10 },  // CCY
+    2: { cellWidth: 10 }   // M
   };
   
   // Unit type columns
   for (let i = 0; i < numUnitTypes; i++) {
-    columnStyles[2 + i] = { cellWidth: unitTypeWidth };
+    columnStyles[3 + i] = { cellWidth: unitTypeWidth };
   }
   
   // Remaining columns
-  columnStyles[2 + numUnitTypes] = { cellWidth: 16 };  // SURCHARGES
-  columnStyles[3 + numUnitTypes] = { cellWidth: 10 };  // T/T
-  columnStyles[4 + numUnitTypes] = { cellWidth: 13 };  // FREQUENCY
-  columnStyles[5 + numUnitTypes] = { cellWidth: 15 };  // ROUTING
-  columnStyles[6 + numUnitTypes] = { cellWidth: 28, overflow: 'linebreak' };  // REMARKS - much wider
+  columnStyles[3 + numUnitTypes] = { cellWidth: 16 };  // SURCHARGES
+  columnStyles[4 + numUnitTypes] = { cellWidth: 10 };  // T/T
+  columnStyles[5 + numUnitTypes] = { cellWidth: 13 };  // FREQUENCY
+  columnStyles[6 + numUnitTypes] = { cellWidth: 15 };  // ROUTING
+  columnStyles[7 + numUnitTypes] = { cellWidth: 28, overflow: 'linebreak' };  // REMARKS - much wider
   
   autoTable(doc, {
     startY: yPos,

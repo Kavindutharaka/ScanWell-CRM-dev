@@ -28,6 +28,7 @@ export default function FreightChargesSection({ formData, setFormData, category,
 
     // Add air-specific fields
     if (category === 'air') {
+      newCharge.minimum = '';
       newCharge.surcharge = '';
       newCharge.frequency = '';
     }
@@ -91,6 +92,7 @@ export default function FreightChargesSection({ formData, setFormData, category,
             <tr>
               <th className="border border-gray-300 px-4 py-2 text-left">{category == 'air' ? 'AirLine' : 'Carrier'}</th>
               <th className="border border-gray-300 px-4 py-2 text-left">Unit Type</th>
+              {isAir && <th className="border border-gray-300 px-4 py-2 text-left">M</th>}
               <th className="border border-gray-300 px-4 py-2 text-left">Number of Units</th>
               <th className="border border-gray-300 px-4 py-2 text-left">Amount</th>
               <th className="border border-gray-300 px-4 py-2 text-left">Currency</th>
@@ -128,6 +130,19 @@ export default function FreightChargesSection({ formData, setFormData, category,
                     disabled={disabled}
                   />
                 </td>
+                {isAir && (
+                  <td className="border border-gray-300 p-2">
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={charge.minimum || ''}
+                      onChange={(e) => updateCharge(index, 'minimum', e.target.value)}
+                      disabled={disabled}
+                      placeholder="0.00"
+                      className="w-full px-2 py-1 border border-gray-300 rounded disabled:bg-gray-100"
+                    />
+                  </td>
+                )}
                 <td className="border border-gray-300 p-2">
                   <input
                     type="number"
@@ -235,7 +250,7 @@ export default function FreightChargesSection({ formData, setFormData, category,
           </tbody>
           <tfoot className="bg-gray-50 font-semibold">
             <tr>
-              <td colSpan={isAir ? "10" : "8"} className="border border-gray-300 px-4 py-2 text-right">Grand Total:</td>
+              <td colSpan={isAir ? "11" : "8"} className="border border-gray-300 px-4 py-2 text-right">Grand Total:</td>
               <td className="border border-gray-300 px-4 py-2">{calculateGrandTotal().toFixed(2)}</td>
               <td className="border border-gray-300"></td>
             </tr>
