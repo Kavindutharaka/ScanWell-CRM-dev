@@ -319,8 +319,8 @@ const formatCurrencyAmount = (amount, currency) => {
 const addPDFHeader = (doc, quoteData) => {
   let yPos = 15;
   
-  // Logo - maintaining aspect ratio (logo is typically wider than tall)
-  doc.addImage(logo, 'PNG', 15, yPos, 35, 14);
+  // Logo - maintaining aspect ratio (original: 367 x 72, ratio 5.097:1)
+  doc.addImage(logo, 'PNG', 15, yPos, 50, 10);
   
   // Company Info
   doc.setFontSize(11);
