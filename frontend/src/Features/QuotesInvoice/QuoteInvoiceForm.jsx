@@ -9,13 +9,15 @@ import {
   Container,
   Truck,
   Route as RouteIcon,
-  Layers
+  Layers,
+  Warehouse
 } from "lucide-react";
 
 export default function QuoteInvoiceForm({ onClose, type = 'quote', editDocument = null, onSuccess }) {
   const navigate = useNavigate();
   const [selectedMode, setSelectedMode] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("");
+  const [quoteType, setQuoteType] = useState(""); // 'freight' or 'warehouse'
 
   const modes = [
     { id: 'air-import', label: 'Air Import', icon: Plane, color: 'text-sky-600', bg: 'bg-sky-50', category: 'air', mode: 'import' },
@@ -32,6 +34,13 @@ export default function QuoteInvoiceForm({ onClose, type = 'quote', editDocument
     { id: 'multimodal', label: 'MultiModal', icon: Truck, description: 'Combined air and sea' }
   ];
 
+  const handleQuoteTypeSelect = (type) => {
+    setQuoteType(type);
+    // Reset selections when changing quote type
+    setSelectedMode("");
+    setSelectedCategory("");
+  };
+
   const handleModeSelect = (mode) => {
     setSelectedMode(mode);
     setSelectedCategory(""); // Reset category when mode changes
@@ -39,6 +48,11 @@ export default function QuoteInvoiceForm({ onClose, type = 'quote', editDocument
 
   const handleCategorySelect = (category) => {
     setSelectedCategory(category);
+  };
+
+  const handleWarehouseContinue = () => {
+    navigate('/quotes?type=warehouse');
+    onClose();
   };
 
   const handleContinue = () => {
@@ -70,7 +84,7 @@ export default function QuoteInvoiceForm({ onClose, type = 'quote', editDocument
               <h1 className="text-2xl font-bold text-slate-800">
                 {editDocument ? 'Edit' : 'Create New'} {type === 'quote' ? 'Quote' : 'Invoice'}
               </h1>
-              <p className="text-sm text-slate-600">Select freight mode and routing type</p>
+              <p className="text-sm text-slate-600">Select quote type and details</p>
             </div>
           </div>
           <button 
@@ -84,33 +98,121 @@ export default function QuoteInvoiceForm({ onClose, type = 'quote', editDocument
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-6 scroll-smooth">
           <div className="space-y-8">
-            {/* Freight Mode Selection */}
+            {/* Quote Type Selection */}
             <div>
-              <h3 className="text-lg font-semibold text-slate-800 mb-2">Step 1: Select Freight Mode</h3>
-              <p className="text-slate-500 text-sm mb-4">Choose your shipping method</p>
+              <h3 className="text-lg font-semibold text-slate-800 mb-2">Select Quote Type</h3>
+              <p className="text-slate-500 text-sm mb-4">Choose the type of quotation you want to create</p>
               
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                {modes.map(mode => (
-                  <button
-                    key={mode.id}
-                    onClick={() => handleModeSelect(mode.id)}
-                    className={`p-4 rounded-xl border-2 text-left transition-all hover:shadow-md ${
-                      selectedMode === mode.id 
-                        ? 'border-teal-500 ring-2 ring-teal-200 bg-teal-50' 
-                        : 'border-slate-200 hover:border-teal-200'
-                    }`}
-                  >
-                    <div className={`w-10 h-10 rounded-lg ${mode.bg} ${mode.color} flex items-center justify-center mb-3`}>
-                      <mode.icon className="w-6 h-6" />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Freight Quote Option */}
+                <button
+                  onClick={() => handleQuoteTypeSelect('freight')}
+                  className={`p-6 rounded-xl border-2 text-left transition-all hover:shadow-md ${
+                    quoteType === 'freight'
+                      ? 'border-teal-500 ring-2 ring-teal-200 bg-teal-50'
+                      : 'border-slate-200 hover:border-teal-200'
+                  }`}
+                >
+                  <div className="flex items-start gap-4">
+                    <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${
+                      quoteType === 'freight' ? 'bg-teal-100' : 'bg-slate-100'
+                    }`}>
+                      <Ship className={`w-7 h-7 ${
+                        quoteType === 'freight' ? 'text-teal-600' : 'text-slate-600'
+                      }`} />
                     </div>
-                    <span className="font-semibold text-slate-700 block">{mode.label}</span>
-                  </button>
-                ))}
+                    <div className="flex-1">
+                      <span className="font-semibold text-slate-800 block text-lg">Freight Forwarding</span>
+                      <span className="text-sm text-slate-500 mt-1 block">
+                        Air & sea import/export quotations with routing options
+                      </span>
+                    </div>
+                  </div>
+                </button>
+
+                {/* Warehouse Quote Option */}
+                <button
+                  onClick={() => handleQuoteTypeSelect('warehouse')}
+                  className={`p-6 rounded-xl border-2 text-left transition-all hover:shadow-md ${
+                    quoteType === 'warehouse'
+                      ? 'border-teal-500 ring-2 ring-teal-200 bg-teal-50'
+                      : 'border-slate-200 hover:border-teal-200'
+                  }`}
+                >
+                  <div className="flex items-start gap-4">
+                    <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${
+                      quoteType === 'warehouse' ? 'bg-teal-100' : 'bg-slate-100'
+                    }`}>
+                      <Warehouse className={`w-7 h-7 ${
+                        quoteType === 'warehouse' ? 'text-teal-600' : 'text-slate-600'
+                      }`} />
+                    </div>
+                    <div className="flex-1">
+                      <span className="font-semibold text-slate-800 block text-lg">Warehouse Services</span>
+                      <span className="text-sm text-slate-500 mt-1 block">
+                        Storage, handling, and distribution quotations
+                      </span>
+                    </div>
+                  </div>
+                </button>
               </div>
             </div>
 
+            {/* Warehouse Quote - Direct Continue */}
+            {quoteType === 'warehouse' && (
+              <div className="pt-6 border-t border-slate-100 animate-fadeIn">
+                <div className="bg-teal-50 rounded-xl p-6 border border-teal-100">
+                  <div className="flex items-start gap-4">
+                    <div className="w-12 h-12 rounded-lg bg-teal-100 flex items-center justify-center">
+                      <Warehouse className="w-7 h-7 text-teal-600" />
+                    </div>
+                    <div className="flex-1">
+                      <h4 className="font-semibold text-slate-800 text-lg mb-2">Warehouse Quotation</h4>
+                      <p className="text-slate-600 text-sm mb-4">
+                        Create quotations for warehouse services including storage, handling, overtime charges, 
+                        transport, picking & packing, and insurance.
+                      </p>
+                      <button
+                        onClick={handleWarehouseContinue}
+                        className="px-6 py-2.5 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors font-medium shadow-lg shadow-teal-200"
+                      >
+                        Continue to Warehouse Quote
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Freight Mode Selection */}
+            {quoteType === 'freight' && (
+              <div className="pt-6 border-t border-slate-100 animate-fadeIn">
+                <h3 className="text-lg font-semibold text-slate-800 mb-2">Step 1: Select Freight Mode</h3>
+                <p className="text-slate-500 text-sm mb-4">Choose your shipping method</p>
+                
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                  {modes.map(mode => (
+                    <button
+                      key={mode.id}
+                      onClick={() => handleModeSelect(mode.id)}
+                      className={`p-4 rounded-xl border-2 text-left transition-all hover:shadow-md ${
+                        selectedMode === mode.id 
+                          ? 'border-teal-500 ring-2 ring-teal-200 bg-teal-50' 
+                          : 'border-slate-200 hover:border-teal-200'
+                      }`}
+                    >
+                      <div className={`w-10 h-10 rounded-lg ${mode.bg} ${mode.color} flex items-center justify-center mb-3`}>
+                        <mode.icon className="w-6 h-6" />
+                      </div>
+                      <span className="font-semibold text-slate-700 block">{mode.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Routing Type Selection */}
-            {selectedMode && (
+            {quoteType === 'freight' && selectedMode && (
               <div className="pt-6 border-t border-slate-100 animate-fadeIn">
                 <h3 className="text-lg font-semibold text-slate-800 mb-2">Step 2: Select Routing Type</h3>
                 <p className="text-slate-500 text-sm mb-4">Choose how your cargo will be transported</p>
@@ -147,8 +249,8 @@ export default function QuoteInvoiceForm({ onClose, type = 'quote', editDocument
               </div>
             )}
 
-            {/* Action Buttons */}
-            {selectedMode && (
+            {/* Action Buttons for Freight */}
+            {quoteType === 'freight' && selectedMode && (
               <div className="flex justify-between items-center pt-6 border-t border-slate-100 animate-fadeIn">
                 <button
                   onClick={onClose}
@@ -166,6 +268,18 @@ export default function QuoteInvoiceForm({ onClose, type = 'quote', editDocument
                   }`}
                 >
                   Continue to Quote Form
+                </button>
+              </div>
+            )}
+
+            {/* Cancel Button when no selection */}
+            {!quoteType && (
+              <div className="flex justify-end pt-6 border-t border-slate-100">
+                <button
+                  onClick={onClose}
+                  className="px-6 py-2.5 border-2 border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition-colors font-medium"
+                >
+                  Cancel
                 </button>
               </div>
             )}
