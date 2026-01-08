@@ -76,7 +76,7 @@ function addAirFreightChargesTableTransit(doc, chargesData, yPos, segmentNum) {
         transitTime: charge.transitTime || '',
         frequency: charge.frequency || '',
         routing: charge.numberOfRouting || '',
-        remarks: charge.remarks || ''
+        remarks: formatRemarksWithBreaks(charge.remarks || '')
       };
     }
     
@@ -129,19 +129,19 @@ function addAirFreightChargesTableTransit(doc, chargesData, yPos, segmentNum) {
   }
   
   // Remaining columns
-  columnStyles[2 + numUnitTypes] = { cellWidth: 18 };  // SURCHARGES
-  columnStyles[3 + numUnitTypes] = { cellWidth: 12 };  // T/T
-  columnStyles[4 + numUnitTypes] = { cellWidth: 15 };  // FREQUENCY
-  columnStyles[5 + numUnitTypes] = { cellWidth: 18 };  // ROUTING
-  columnStyles[6 + numUnitTypes] = { cellWidth: 20 };  // REMARKS
+  columnStyles[2 + numUnitTypes] = { cellWidth: 16 };  // SURCHARGES
+  columnStyles[3 + numUnitTypes] = { cellWidth: 10 };  // T/T
+  columnStyles[4 + numUnitTypes] = { cellWidth: 13 };  // FREQUENCY
+  columnStyles[5 + numUnitTypes] = { cellWidth: 15 };  // ROUTING
+  columnStyles[6 + numUnitTypes] = { cellWidth: 28, overflow: 'linebreak' };  // REMARKS - much wider
   
   autoTable(doc, {
     startY: yPos,
     head: [headers],
     body: tableData,
     theme: 'grid',
-    headStyles: { fillColor: [200, 200, 200], textColor: 0, fontSize: 7, fontStyle: 'bold' },
-    bodyStyles: { fontSize: 7 },
+    headStyles: { fillColor: [200, 200, 200], textColor: 0, fontSize: 6.5, fontStyle: 'bold' },
+    bodyStyles: { fontSize: 6.5, overflow: 'linebreak', cellPadding: 1.5 },
     columnStyles: columnStyles,
     margin: { left: 15, right: 15 }
   });
@@ -189,7 +189,7 @@ function addFreightChargesTableTransit(doc, charges, yPos, isAir, segmentNum) {
       charge.charge || '',
       charge.currency || 'USD',
       Math.round(total).toString(),
-      charge.remarks || ''
+      formatRemarksWithBreaks(charge.remarks || '')
     ];
   });
   
@@ -198,16 +198,16 @@ function addFreightChargesTableTransit(doc, charges, yPos, isAir, segmentNum) {
     head: [['Chargeable Weight', 'Weight Breaker', 'Pricing Unit', 'Charge', 'Currency', 'Total', 'Remarks']],
     body: tableData,
     theme: 'grid',
-    headStyles: { fillColor: [200, 200, 200], textColor: 0, fontSize: 8, fontStyle: 'bold' },
-    bodyStyles: { fontSize: 8 },
+    headStyles: { fillColor: [200, 200, 200], textColor: 0, fontSize: 7, fontStyle: 'bold' },
+    bodyStyles: { fontSize: 6.5, overflow: 'linebreak', cellPadding: 1.5 },
     columnStyles: {
-      0: { cellWidth: 25 },
-      1: { cellWidth: 25 },
-      2: { cellWidth: 25 },
-      3: { cellWidth: 20 },
-      4: { cellWidth: 18 },
-      5: { cellWidth: 20 },
-      6: { cellWidth: 27 }
+      0: { cellWidth: 22 },
+      1: { cellWidth: 22 },
+      2: { cellWidth: 22 },
+      3: { cellWidth: 18 },
+      4: { cellWidth: 16 },
+      5: { cellWidth: 18 },
+      6: { cellWidth: 42, overflow: 'linebreak' }  // Much wider for Remarks
     },
     margin: { left: 15, right: 15 }
   });
@@ -262,6 +262,32 @@ function getSegmentsCurrency(segments) {
   }
   return 'USD'; // Default to USD
 }
+
+/**
+ * Format remarks text with line breaks for better display
+ * Splits at numbered points (01., 02., etc.) and long sections
+ */
+const formatRemarksWithBreaks = (remarks) => {
+  if (!remarks || remarks.trim() === '') return '';
+  
+  let formatted = remarks;
+  
+  // Add line breaks before numbered items (01., 02., 03., etc.)
+  formatted = formatted.replace(/(\d{2}\.\s)/g, '\n$1');
+  
+  // Remove leading line break if exists
+  formatted = formatted.replace(/^\n/, '');
+  
+  // Also break at common separators if line is too long
+  if (formatted.length > 60) {
+    // Break after periods followed by space if not part of numbers
+    formatted = formatted.replace(/(\.\s)(?=\D)/g, '$1\n');
+    // Remove excessive line breaks (more than 2 consecutive)
+    formatted = formatted.replace(/\n{3,}/g, '\n\n');
+  }
+  
+  return formatted.trim();
+};
 
 /**
  * Calculate total for a charge
@@ -621,7 +647,7 @@ function addAirFreightChargesTable(doc, charges, yPos) {
         transitTime: charge.transitTime || '',
         frequency: charge.frequency || '',
         routing: charge.numberOfRouting || '',
-        remarks: charge.remarks || ''
+        remarks: formatRemarksWithBreaks(charge.remarks || '')
       };
     }
     
@@ -674,19 +700,19 @@ function addAirFreightChargesTable(doc, charges, yPos) {
   }
   
   // Remaining columns
-  columnStyles[2 + numUnitTypes] = { cellWidth: 18 };  // SURCHARGES
-  columnStyles[3 + numUnitTypes] = { cellWidth: 12 };  // T/T
-  columnStyles[4 + numUnitTypes] = { cellWidth: 15 };  // FREQUENCY
-  columnStyles[5 + numUnitTypes] = { cellWidth: 18 };  // ROUTING
-  columnStyles[6 + numUnitTypes] = { cellWidth: 20 };  // REMARKS
+  columnStyles[2 + numUnitTypes] = { cellWidth: 16 };  // SURCHARGES
+  columnStyles[3 + numUnitTypes] = { cellWidth: 10 };  // T/T
+  columnStyles[4 + numUnitTypes] = { cellWidth: 13 };  // FREQUENCY
+  columnStyles[5 + numUnitTypes] = { cellWidth: 15 };  // ROUTING
+  columnStyles[6 + numUnitTypes] = { cellWidth: 28, overflow: 'linebreak' };  // REMARKS - much wider
   
   autoTable(doc, {
     startY: yPos,
     head: [headers],
     body: tableData,
     theme: 'grid',
-    headStyles: { fillColor: [200, 200, 200], textColor: 0, fontSize: 7, fontStyle: 'bold' },
-    bodyStyles: { fontSize: 7 },
+    headStyles: { fillColor: [200, 200, 200], textColor: 0, fontSize: 6.5, fontStyle: 'bold' },
+    bodyStyles: { fontSize: 6.5, overflow: 'linebreak', cellPadding: 1.5 },
     columnStyles: columnStyles,
     margin: { left: 15, right: 15 }
   });
@@ -735,7 +761,7 @@ function addFreightChargesTable(doc, charges, yPos, isAir) {
     ];
     
     row.push(Math.round(total).toString());
-    row.push(charge.remarks || '');
+    row.push(formatRemarksWithBreaks(charge.remarks || ''));
     return row;
   });
   
@@ -746,16 +772,18 @@ function addFreightChargesTable(doc, charges, yPos, isAir) {
     head: [headers],
     body: tableData,
     theme: 'grid',
-    headStyles: { fillColor: [200, 200, 200], textColor: 0, fontSize: 8, fontStyle: 'bold' },
-    bodyStyles: { fontSize: 8 },
+    headStyles: { fillColor: [200, 200, 200], textColor: 0, fontSize: 7, fontStyle: 'bold' },
+    bodyStyles: { fontSize: 6.5, overflow: 'linebreak', cellPadding: 1.5 },
     columnStyles: {
-      0: { cellWidth: 22 },
-      1: { cellWidth: 18 },
-      2: { cellWidth: 12 },
-      3: { cellWidth: 15 },
-      4: { cellWidth: 18 },
-      5: { cellWidth: 15 },
-      6: { cellWidth: 22 }
+      0: { cellWidth: 16 },  // Carrier
+      1: { cellWidth: 13 },  // Unit Type
+      2: { cellWidth: 8 },   // Units
+      3: { cellWidth: 12 },  // Amount
+      4: { cellWidth: 13 },  // Currency
+      5: { cellWidth: 12 },  // Transit
+      6: { cellWidth: 14 },  // Routing
+      7: { cellWidth: 11 },  // Total
+      8: { cellWidth: 63, overflow: 'linebreak', fontSize: 6.5 }  // Remarks - much wider
     },
     margin: { left: 15, right: 15 }
   });
@@ -795,7 +823,7 @@ function addOtherChargesTable(doc, charges, title, yPos) {
       charge.amount || '',
       charge.currency || '',
       Math.round(total).toString(),
-      charge.remark || ''
+      formatRemarksWithBreaks(charge.remark || '')
     ];
   });
   
@@ -804,16 +832,16 @@ function addOtherChargesTable(doc, charges, title, yPos) {
     head: [['Charge Name', 'Unit Type', 'Units', 'Amount', 'Currency', 'Total', 'Remark']],
     body: tableData,
     theme: 'grid',
-    headStyles: { fillColor: [200, 200, 200], textColor: 0, fontSize: 8, fontStyle: 'bold' },
-    bodyStyles: { fontSize: 8 },
+    headStyles: { fillColor: [200, 200, 200], textColor: 0, fontSize: 7, fontStyle: 'bold' },
+    bodyStyles: { fontSize: 6.5, overflow: 'linebreak', cellPadding: 1.5 },
     columnStyles: {
-      0: { cellWidth: 40 },
-      1: { cellWidth: 25 },
-      2: { cellWidth: 15 },
-      3: { cellWidth: 20 },
-      4: { cellWidth: 18 },
-      5: { cellWidth: 20 },
-      6: { cellWidth: 32 }
+      0: { cellWidth: 36 },
+      1: { cellWidth: 22 },
+      2: { cellWidth: 12 },
+      3: { cellWidth: 18 },
+      4: { cellWidth: 16 },
+      5: { cellWidth: 18 },
+      6: { cellWidth: 48, overflow: 'linebreak' }  // Much wider for Remark
     },
     margin: { left: 15, right: 15 }
   });
