@@ -538,17 +538,6 @@ export const generateDirectQuotePDF = (quoteData) => {
       // Destination Handling
       yPos = addOtherChargesTable(doc, option.destinationHandling || [], 'Destination Handling Charges', yPos);
       
-      // Option Total
-      const optionTotal = calculateOptionTotal(option);
-      if (optionTotal > 0) {
-        // Get currency from any of the included charges (destination, origin, or destination handling)
-        const totalCurrency = option.destinationCharges?.[0]?.currency || 
-                             option.originHandling?.[0]?.currency ||
-                             option.destinationHandling?.[0]?.currency || 'USD';
-        doc.setFont('helvetica', 'bold');
-        doc.text(`Total Amount: ${totalCurrency} ${formatCurrencyAmount(optionTotal, totalCurrency)}`, 15, yPos);
-        yPos += 10;
-      }
     });
   }
   
@@ -1002,16 +991,6 @@ export const generateTransitQuotePDF = (quoteData) => {
     yPos += 5;
   });
   
-  // Calculate and show total
-  const grandTotal = calculateTransitTotalNew(allSegments);
-  const totalCurrency = getSegmentsCurrency(allSegments);
-  if (yPos > 270) {
-    doc.addPage();
-    yPos = 20;
-  }
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(11);
-  doc.text(`Total Amount: ${totalCurrency} ${formatCurrencyAmount(grandTotal, totalCurrency)}`, 15, yPos);
   
   // Terms
   if (terms.length > 0) {
@@ -1174,16 +1153,6 @@ export const generateMultiModalQuotePDF = (quoteData) => {
     yPos += 5;
   });
   
-  // Calculate and show total
-  const grandTotal = calculateTransitTotalNew(allSegments);
-  const totalCurrency = getSegmentsCurrency(allSegments);
-  if (yPos > 270) {
-    doc.addPage();
-    yPos = 20;
-  }
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(11);
-  doc.text(`Total Amount: ${totalCurrency} ${formatCurrencyAmount(grandTotal, totalCurrency)}`, 15, yPos);
   
   // Terms
   if (terms.length > 0) {
