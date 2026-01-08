@@ -25,7 +25,7 @@ namespace back_end.Controllers
         [HttpGet]
         public ActionResult getActivities()
         {
-            string query = "select sysID, rfq_number, customer, valid_date from [dbo].[rfq];";
+            string query = "select sysID, rfq_number, customer, valid_date, file_name from [dbo].[rfq];";
             DataTable table = new DataTable();
             using (SqlConnection myCon = new SqlConnection(_dbConnectionString))
             {
@@ -45,8 +45,8 @@ namespace back_end.Controllers
         [HttpPost]
         public ActionResult CreateStatusLog(Rfq rfq)
         {
-            string query = @"INSERT INTO [dbo].[rfq] (rfq_number, customer, valid_date, data_obj, added_by)
-                     VALUES (@rfq_number, @customer, @valid_date, @data_obj,@added_by)";
+            string query = @"INSERT INTO [dbo].[rfq] (rfq_number, customer, valid_date, data_obj, file_name, added_by)
+                     VALUES (@rfq_number, @customer, @valid_date, @data_obj, @file_name, @added_by)";
 
             using (SqlConnection myCon = new SqlConnection(_dbConnectionString))
             {
@@ -55,8 +55,9 @@ namespace back_end.Controllers
                 {
                     myCom.Parameters.AddWithValue("@rfq_number", rfq.rfq_number ?? (object)DBNull.Value);
                     myCom.Parameters.AddWithValue("@customer", rfq.customer ?? (object)DBNull.Value);
-                    myCom.Parameters.AddWithValue("@valid_date", rfq.valid_date );
+                    myCom.Parameters.AddWithValue("@valid_date", rfq.valid_date);
                     myCom.Parameters.AddWithValue("@data_obj", rfq.data_obj ?? (object)DBNull.Value);
+                    myCom.Parameters.AddWithValue("@file_name", rfq.file_name ?? (object)DBNull.Value);
                     myCom.Parameters.AddWithValue("@added_by", rfq.added_by ?? (object)DBNull.Value);
 
                     myCom.ExecuteNonQuery();
@@ -64,7 +65,7 @@ namespace back_end.Controllers
                 myCon.Close();
             }
 
-            return Ok("Status log added successfully.");
+            return Ok("RFQ added successfully.");
         }
 
         [HttpGet("{id}")]
@@ -89,8 +90,5 @@ namespace back_end.Controllers
                 return NotFound("RFQ not found");
             return Ok(dataObj);
         }
-
-
-
     }
 }

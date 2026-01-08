@@ -19,6 +19,7 @@ export default function InfoAndUpdatesSec({ modalOpen, onEdit }) {
   const [rfqItems, setRfqItems] = useState([]);
   const [viewModalOpen, setViewModalOpen] = useState(false);
   const [selectedRfqId, setSelectedRfqId] = useState(null);
+  const [selectedRfqNumber, setSelectedRfqNumber] = useState(null);
 
   useEffect(() => {
     fetchRfqItems();
@@ -41,8 +42,9 @@ export default function InfoAndUpdatesSec({ modalOpen, onEdit }) {
     fetchRfqItems();
   };
 
-  const handleView = (sysID) => {
+  const handleView = (sysID, rfqNumber) => {
     setSelectedRfqId(sysID);
+    setSelectedRfqNumber(rfqNumber);
     setViewModalOpen(true);
   };
 
@@ -200,22 +202,30 @@ export default function InfoAndUpdatesSec({ modalOpen, onEdit }) {
               placeholder="Search by RFQ number or customer..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 text-sm"
+              className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200 bg-white shadow-sm"
             />
           </div>
         </div>
 
-        {/* Table Container */}
-        <div className={`flex flex-col bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden ${!loading ? 'animate-fadeInUp' : 'opacity-0'}`} style={{ animationDelay: '250ms', animationFillMode: 'both' }}>
+        {/* Main Content Area */}
+        <div className={`bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden ${!loading ? 'animate-fadeInUp' : 'opacity-0'}`} style={{ animationDelay: '300ms', animationFillMode: 'both' }}>
           {/* Desktop Table View */}
           <div className="hidden md:block overflow-x-auto">
-            <table className="w-full text-left text-slate-700 border-collapse">
-              <thead className="bg-slate-50 border-b border-slate-200 sticky top-0">
-                <tr>
-                  <th className="px-6 py-4 font-semibold text-sm text-slate-600">RFQ Number</th>
-                  <th className="px-6 py-4 font-semibold text-sm text-slate-600">Customer</th>
-                  <th className="px-6 py-4 font-semibold text-sm text-slate-600">Valid Date</th>
-                  <th className="px-6 py-4 font-semibold text-sm text-slate-600">Actions</th>
+            <table className="w-full">
+              <thead>
+                <tr className="bg-gradient-to-r from-slate-50 to-blue-50 border-b border-slate-200">
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                    RFQ Number
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                    Customer
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                    Valid Date
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                    Actions
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200">
@@ -224,21 +234,20 @@ export default function InfoAndUpdatesSec({ modalOpen, onEdit }) {
                   Array(5)
                     .fill(0)
                     .map((_, idx) => (
-                      <tr key={idx} className="table-row-hover">
+                      <tr key={idx}>
                         <td className="px-6 py-4">
-                          <div className="h-4 bg-slate-200 rounded skeleton w-32"></div>
+                          <div className="h-4 bg-slate-200 rounded skeleton w-3/4"></div>
                         </td>
                         <td className="px-6 py-4">
-                          <div className="h-4 bg-slate-200 rounded skeleton w-40"></div>
+                          <div className="h-4 bg-slate-200 rounded skeleton w-2/3"></div>
                         </td>
                         <td className="px-6 py-4">
-                          <div className="h-4 bg-slate-200 rounded skeleton w-28"></div>
+                          <div className="h-4 bg-slate-200 rounded skeleton w-1/2"></div>
                         </td>
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-2">
-                            <div className="h-8 w-8 bg-slate-200 rounded skeleton"></div>
-                            <div className="h-8 w-8 bg-slate-200 rounded skeleton"></div>
-                            <div className="h-8 w-8 bg-slate-200 rounded skeleton"></div>
+                            <div className="h-8 w-8 bg-slate-200 rounded-lg skeleton"></div>
+                            <div className="h-8 w-8 bg-slate-200 rounded-lg skeleton"></div>
                           </div>
                         </td>
                       </tr>
@@ -278,9 +287,9 @@ export default function InfoAndUpdatesSec({ modalOpen, onEdit }) {
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-2">
                             <button
-                              onClick={() => handleView(item.sysID)}
+                              onClick={() => handleView(item.sysID, item.rfq_number)}
                               className="p-1.5 hover:bg-blue-50 rounded-lg transition-colors duration-150 text-blue-600 hover:text-blue-700"
-                              title="View Data"
+                              title="View PDF"
                             >
                               <Eye className="w-4 h-4" />
                             </button>
@@ -383,11 +392,11 @@ export default function InfoAndUpdatesSec({ modalOpen, onEdit }) {
                     {/* Card Footer - Actions */}
                     <div className="px-4 py-3 bg-slate-50 border-t border-slate-100 flex items-center gap-2">
                       <button
-                        onClick={() => handleView(item.sysID)}
+                        onClick={() => handleView(item.sysID, item.rfq_number)}
                         className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                       >
                         <Eye className="w-4 h-4" />
-                        View Data
+                        View PDF
                       </button>
                       <button
                         onClick={() => handleDownload(item)}
@@ -434,9 +443,11 @@ export default function InfoAndUpdatesSec({ modalOpen, onEdit }) {
       {viewModalOpen && (
         <RfqDataModal
           rfqId={selectedRfqId}
+          rfqNumber={selectedRfqNumber}
           onClose={() => {
             setViewModalOpen(false);
             setSelectedRfqId(null);
+            setSelectedRfqNumber(null);
           }}
         />
       )}

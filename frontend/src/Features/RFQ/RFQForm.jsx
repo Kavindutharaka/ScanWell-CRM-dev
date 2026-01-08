@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { X, Link as LinkIcon, Image, Upload, Loader2, Save, User, DollarSignIcon } from "lucide-react";
-import * as XLSX from "xlsx";
-import { createRfq, fetchRfq } from "../../api/RfqApi";
+import { X, FileText, Upload, Loader2, Save, DollarSignIcon } from "lucide-react";
+import { createRfq } from "../../api/RfqApi";
 
 export default function InfoAndUpdatesForm({ onClose, initialItem, isEditMode }) {
   const [formData, setFormData] = useState({
@@ -20,11 +19,8 @@ export default function InfoAndUpdatesForm({ onClose, initialItem, isEditMode })
         rfq_number: initialItem.rfq_number || "",
         customer: initialItem.customer || "",
         valid_date: initialItem.valid_date || "",
-        file: initialItem.file || null,
+        file: null,
       });
-      if (initialItem.file) {
-        setFileName(initialItem.file.name || "");
-      }
     }
   }, [isEditMode, initialItem]);
 
@@ -46,22 +42,17 @@ export default function InfoAndUpdatesForm({ onClose, initialItem, isEditMode })
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     if (file) {
-      // Validate file type - only spreadsheet files
-      const validTypes = [
-        'application/vnd.ms-excel', // .xls
-        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
-        'text/csv' // .csv
-      ];
-      
-      const validExtensions = ['.xls', '.xlsx', '.csv'];
+      // Validate file type - only PDF files
+      const validTypes = ['application/pdf'];
+      const validExtensions = ['.pdf'];
       const fileExtension = file.name.toLowerCase().substring(file.name.lastIndexOf('.'));
       
       if (!validTypes.includes(file.type) && !validExtensions.includes(fileExtension)) {
         setErrors(prev => ({
           ...prev,
-          file: "Please select a valid spreadsheet file (.xlsx, .xls, or .csv)"
+          file: "Please select a valid PDF file (.pdf)"
         }));
-        e.target.value = null; // Reset input
+        e.target.value = null;
         return;
       }
 
@@ -71,11 +62,10 @@ export default function InfoAndUpdatesForm({ onClose, initialItem, isEditMode })
           ...prev,
           file: "File size must be less than 20MB"
         }));
-        e.target.value = null; // Reset input
+        e.target.value = null;
         return;
       }
       
-      // Store the file
       setFormData(prev => ({
         ...prev,
         file: file
@@ -109,11 +99,24 @@ export default function InfoAndUpdatesForm({ onClose, initialItem, isEditMode })
     }
 
     if (!isEditMode && !formData.file) {
-      newErrors.file = "File is required";
+      newErrors.file = "PDF file is required";
     }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
+  };
+
+  const convertFileToBase64 = (file) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        // Get base64 string without the data:application/pdf;base64, prefix
+        const base64String = reader.result.split(',')[1];
+        resolve(base64String);
+      };
+      reader.onerror = (error) => reject(error);
+      reader.readAsDataURL(file);
+    });
   };
 
   const handleSubmit = async (e) => {
@@ -123,38 +126,32 @@ export default function InfoAndUpdatesForm({ onClose, initialItem, isEditMode })
       return;
     }
 
-    // setLoading(true);
-    const file = formData.file;
-    const data = await file.arrayBuffer();
-
-    const workbook = XLSX.read(data, { type: "array" });
-    const sheetName = workbook.SheetNames[0];
-    const sheet = workbook.Sheets[sheetName];
-    const excelData = XLSX.utils.sheet_to_json(sheet);
-    // console.log("Extracted Excel data:", JSON.stringify(excelData));
+    setLoading(true);
 
     try {
+      const file = formData.file;
+      const base64PDF = await convertFileToBase64(file);
+
       const itemData = {
         rfq_number: formData.rfq_number,
         customer: formData.customer,
         valid_date: formData.valid_date,
-        data_obj: JSON.stringify(excelData),
+        data_obj: base64PDF,
+        file_name: file.name,
         added_by: "Kavindu Tharaka",
       };
-      console.log("Saving item:", itemData);
+
+      console.log("Saving RFQ with PDF...");
       const response = await createRfq(itemData);
 
       console.log(response);
-      if(response){
+      if (response) {
         window.location.reload();
       }
-      
-      // console.log("Saving item:", itemData);
-      
-      // Call onClose with the saved data
+
       onClose(itemData);
     } catch (error) {
-      console.error("Error saving item:", error);
+      console.error("Error saving RFQ:", error);
       setErrors({ submit: "Failed to save. Please try again." });
     } finally {
       setLoading(false);
@@ -215,21 +212,18 @@ export default function InfoAndUpdatesForm({ onClose, initialItem, isEditMode })
           <label className="block text-sm font-medium text-slate-700 mb-2">
             Customer <span className="text-red-500">*</span>
           </label>
-          <div className="relative">
-            {/* <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" /> */}
-            <input
-              type="text"
-              name="customer"
-              value={formData.customer}
-              onChange={handleInputChange}
-              placeholder="Enter customer"
-              className={`w-full pl-4 pr-4 py-2.5 border rounded-lg focus:outline-none focus:ring-2 transition-all duration-200 ${
-                errors.customer
-                  ? "border-red-300 focus:ring-red-500"
-                  : "border-slate-300 focus:ring-blue-500"
-              }`}
-            />
-          </div>
+          <input
+            type="text"
+            name="customer"
+            value={formData.customer}
+            onChange={handleInputChange}
+            placeholder="Enter customer"
+            className={`w-full px-4 py-2.5 border rounded-lg focus:outline-none focus:ring-2 transition-all duration-200 ${
+              errors.customer
+                ? "border-red-300 focus:ring-red-500"
+                : "border-slate-300 focus:ring-blue-500"
+            }`}
+          />
           {errors.customer && (
             <p className="mt-1.5 text-sm text-red-600">{errors.customer}</p>
           )}
@@ -256,46 +250,59 @@ export default function InfoAndUpdatesForm({ onClose, initialItem, isEditMode })
           )}
         </div>
 
-        {/* File Upload */}
+        {/* PDF Upload */}
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-2">
-            File (.xlsx, .xls, .csv) {!isEditMode && <span className="text-red-500">*</span>}
+            PDF File {!isEditMode && <span className="text-red-500">*</span>}
           </label>
           
           <div className="space-y-2">
             {/* Upload Button */}
-            {!formData.file &&
-            <div>
-              <label
-                htmlFor="file-upload"
-                className={`flex flex-col items-center justify-center w-full h-24 border-2 border-dashed rounded-lg cursor-pointer transition-all duration-200 ${
-                  errors.file
-                    ? "border-red-300 bg-red-50 hover:bg-red-100"
-                    : "border-slate-300 bg-slate-50 hover:bg-slate-100"
-                }`}
-              >
-                <div className="flex flex-col items-center justify-center pt-2 pb-2">
-                  <Upload className={`w-6 h-6 mb-1 ${errors.file ? "text-red-400" : "text-slate-400"}`} />
-                  <p className={`text-xs ${errors.file ? "text-red-600" : "text-slate-500"}`}>
-                    <span className="font-medium">Click to upload</span> or drag and drop
-                  </p>
-                  <p className="text-xs text-slate-400 mt-0.5">Excel (.xlsx, .xls) or CSV files only</p>
-                </div>
-                <input
-                  id="file-upload"
-                  type="file"
-                  accept=".xlsx,.xls,.csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv"
-                  onChange={handleFileChange}
-                  className="hidden"
-                />
-              </label>
-            </div>
-            }
+            {!formData.file && (
+              <div>
+                <label
+                  htmlFor="file-upload"
+                  className={`flex flex-col items-center justify-center w-full h-24 border-2 border-dashed rounded-lg cursor-pointer transition-all duration-200 ${
+                    errors.file
+                      ? "border-red-300 bg-red-50 hover:bg-red-100"
+                      : "border-slate-300 bg-slate-50 hover:bg-slate-100"
+                  }`}
+                >
+                  <div className="flex flex-col items-center justify-center pt-2 pb-2">
+                    <FileText className={`w-6 h-6 mb-1 ${errors.file ? "text-red-400" : "text-slate-400"}`} />
+                    <p className={`text-xs ${errors.file ? "text-red-600" : "text-slate-500"}`}>
+                      <span className="font-medium">Click to upload</span> or drag and drop
+                    </p>
+                    <p className="text-xs text-slate-400 mt-0.5">PDF files only (Max 20MB)</p>
+                  </div>
+                  <input
+                    id="file-upload"
+                    type="file"
+                    accept=".pdf,application/pdf"
+                    onChange={handleFileChange}
+                    className="hidden"
+                  />
+                </label>
+              </div>
+            )}
+
             {/* Selected File Display */}
             {fileName && (
-              <div className="flex items-center gap-2 px-4 py-2 bg-blue-50 border border-blue-200 rounded-lg">
-                <Upload className="w-4 h-4 text-blue-600" />
-                <span className="text-sm text-blue-700 font-medium truncate">{fileName}</span>
+              <div className="flex items-center justify-between gap-2 px-4 py-2 bg-blue-50 border border-blue-200 rounded-lg">
+                <div className="flex items-center gap-2">
+                  <FileText className="w-4 h-4 text-blue-600" />
+                  <span className="text-sm text-blue-700 font-medium truncate">{fileName}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFormData(prev => ({ ...prev, file: null }));
+                    setFileName("");
+                  }}
+                  className="text-blue-600 hover:text-blue-800"
+                >
+                  <X className="w-4 h-4" />
+                </button>
               </div>
             )}
           </div>
