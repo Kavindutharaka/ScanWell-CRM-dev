@@ -41,6 +41,11 @@ export const deleteQuote = async (id) => {
   return response.data;
 };
 
+export const createWareQuote = async (quote) => {
+  const response = await axios.post(`${BASE_URL}/warehouse-quotes`, quote);
+  return response.data;
+};
+
 // Optional: Export as object (same pattern as your AccountApi)
 const QuoteApi = {
   fetchQuotes,

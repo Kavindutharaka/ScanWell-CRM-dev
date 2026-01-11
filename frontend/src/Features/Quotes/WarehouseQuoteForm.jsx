@@ -11,6 +11,8 @@ import {
   User,
   Clock
 } from "lucide-react";
+import axios from "axios";
+import { createWareQuote } from "../../api/QuoteApi";
 
 export default function WarehouseQuoteForm() {
   const [loading, setLoading] = useState(false);
@@ -153,7 +155,7 @@ export default function WarehouseQuoteForm() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    // Validation
+    //Validation
     if (!formData.customerId) {
       alert("Please select a customer");
       return;
@@ -165,14 +167,10 @@ export default function WarehouseQuoteForm() {
     }
 
     setLoading(true);
+
+    console.log("this is form data: ", formData);
     try {
-      const response = await fetch('/api/warehouse-quotes', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(formData)
-      });
+      const response = await createWareQuote(formData);
 
       if (response.ok) {
         alert("Warehouse quote created successfully!");

@@ -89,7 +89,7 @@ export default function Activities() {
           endTime: formatDateTime(activity.end_time),
           status: activity.status,
           statusColor: getStatusColor(activity.status),
-          relatedItem: activity.related_item || 'N/A',
+          relatedAccount: activity.related_account || 'N/A',
           priority: getPriority(activity.status),
           rawData: activity
         }));

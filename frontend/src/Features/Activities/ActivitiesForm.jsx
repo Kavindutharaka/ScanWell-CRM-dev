@@ -324,6 +324,8 @@ export default function ActivitiesForm({ onClose, initialActivity = null, isEdit
       };
 
       let response;
+
+      console.log("checking activities ", activityData);
       
       if (isEditMode) {
         // Update existing activity
@@ -349,7 +351,7 @@ export default function ActivitiesForm({ onClose, initialActivity = null, isEdit
       
       // Close modal after successful submission
       onClose(response);
-      window.location.reload();
+      // window.location.reload();
     } catch (error) {
       console.error('Error submitting form:', error);
       setApiError(

@@ -299,7 +299,7 @@ export default function ActivitiesDetails({ onOpen, onEdit, loading: initialLoad
                   <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Start Time</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">End Time</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Status</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Related Item</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Related Account</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
@@ -354,7 +354,7 @@ export default function ActivitiesDetails({ onOpen, onEdit, loading: initialLoad
                           <StatusBadge status={activity.status} color={activity.statusColor} />
                         </td>
                         <td className="px-4 py-4 text-sm text-slate-600">
-                          {activity.relatedItem}
+                          {activity.relatedAccount}
                         </td>
                         <td className="px-4 py-4">
                           <div className="flex items-center gap-2">
@@ -427,7 +427,7 @@ export default function ActivitiesDetails({ onOpen, onEdit, loading: initialLoad
                     </div>
                     <div className="flex items-center gap-2">
                       <AlertCircle className="w-4 h-4" />
-                      <span>Related: {activity.relatedItem}</span>
+                      <span>Related: {activity.relatedAccount}</span>
                     </div>
                   </div>
 

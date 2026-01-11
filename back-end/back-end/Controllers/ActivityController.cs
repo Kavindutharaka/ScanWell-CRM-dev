@@ -34,7 +34,7 @@ public ActionResult getActivities()
             a.[start_time],
             a.[end_time],
             a.[status],
-            a.[related_item]
+            a.[related_account]
         FROM [dbo].[activity] AS a
         LEFT JOIN [dbo].[emp_reg] AS e
             ON a.[owner] = e.[SysID]
@@ -63,7 +63,7 @@ public ActionResult getActivities()
         {
             string query = @"
                 INSERT INTO [dbo].[activity] 
-                    (activity_name, activity_type, owner, start_time, end_time, status, related_item) 
+                    (activity_name, activity_type, owner, start_time, end_time, status, related_account) 
                 VALUES 
                     (@activityName, @activityType, @owner, @startTime, @endTime, @status, @relatedItem);
                 SELECT CAST(SCOPE_IDENTITY() AS INT);";
@@ -81,7 +81,7 @@ public ActionResult getActivities()
                     myCom.Parameters.AddWithValue("@startTime", activity.startTime ?? (object)DBNull.Value);
                     myCom.Parameters.AddWithValue("@endTime", activity.endTime ?? (object)DBNull.Value);
                     myCom.Parameters.AddWithValue("@status", activity.status ?? (object)DBNull.Value);
-                    myCom.Parameters.AddWithValue("@relatedItem", activity.relatedItem ?? (object)DBNull.Value);
+                    myCom.Parameters.AddWithValue("@relatedItem", activity.relatedAccount ?? (object)DBNull.Value);
 
                     // Execute the insert and get the new ID
                     newActivityId = (int)myCom.ExecuteScalar();
@@ -102,7 +102,7 @@ public ActionResult getActivities()
         {
             string query = @"update [dbo].[activity] 
                              set activity_name = @activityName, activity_type = @activityType, owner = @owner, 
-                                 start_time = @startTime, end_time = @endTime, status = @status, related_item = @relatedItem 
+                                 start_time = @startTime, end_time = @endTime, status = @status, related_account = @relatedItem 
                              where id = @id;";
             using (SqlConnection myCon = new SqlConnection(_dbConnectionString))
             {
@@ -116,7 +116,7 @@ public ActionResult getActivities()
                     myCom.Parameters.AddWithValue("@startTime", activity.startTime ?? (object)DBNull.Value);
                     myCom.Parameters.AddWithValue("@endTime", activity.endTime ?? (object)DBNull.Value);
                     myCom.Parameters.AddWithValue("@status", activity.status ?? (object)DBNull.Value);
-                    myCom.Parameters.AddWithValue("@relatedItem", activity.relatedItem ?? (object)DBNull.Value);
+                    myCom.Parameters.AddWithValue("@relatedItem", activity.relatedAccount ?? (object)DBNull.Value);
                     myCom.ExecuteNonQuery();
                 }
                 myCon.Close();

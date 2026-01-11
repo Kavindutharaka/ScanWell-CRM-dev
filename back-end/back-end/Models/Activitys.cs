@@ -9,6 +9,6 @@ namespace back_end.Models
         public DateTime? startTime { get; set; }
         public DateTime? endTime { get; set; }
         public string? status { get; set; }
-        public string? relatedItem { get; set; }
+        public string? relatedAccount { get; set; }
     }
 }
