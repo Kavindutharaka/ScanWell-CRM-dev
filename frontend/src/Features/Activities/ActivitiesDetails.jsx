@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   ChevronDown,
   ChevronRight,
+  ChevronUp,
   Plus,
   Phone,
   Mail,
@@ -14,7 +15,8 @@ import {
   AlertCircle,
   Trash2,
   Edit2,
-  RefreshCw
+  RefreshCw,
+  X
 } from "lucide-react";
 import { fetchActivities, deleteActivity, fetchActivityHistory } from "../../api/ActivityApi";
 
@@ -25,6 +27,10 @@ export default function ActivitiesDetails({ onOpen, onEdit, loading: initialLoad
   const [expandedRows, setExpandedRows] = useState(new Set());
   const [activityHistory, setActivityHistory] = useState({});
   const [loadingHistory, setLoadingHistory] = useState({});
+  const [sortConfig, setSortConfig] = useState({
+    key: null,
+    direction: 'asc'
+  });
 
   // Fetch activity status history
   const fetchActivityHistoryData = async (activityId) => {
@@ -49,7 +55,19 @@ export default function ActivitiesDetails({ onOpen, onEdit, loading: initialLoad
     }
   };
 
-    
+  // Handle column sorting
+  const handleSort = (key) => {
+    let direction = 'asc';
+    if (sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key, direction });
+  };
+
+  // Clear sorting
+  const clearSort = () => {
+    setSortConfig({ key: null, direction: 'asc' });
+  };
 
   // Toggle expand/collapse
   const toggleExpand = async (activityId) => {
@@ -66,10 +84,42 @@ export default function ActivitiesDetails({ onOpen, onEdit, loading: initialLoad
     setExpandedRows(newExpanded);
   };
 
+  // Sort activities based on sortConfig
+  const sortedActivities = useMemo(() => {
+    if (!sortConfig.key) return activities;
+
+    const sorted = [...activities].sort((a, b) => {
+      let aValue, bValue;
+
+      switch(sortConfig.key) {
+        case 'startTime':
+          aValue = new Date(a.startTime).getTime();
+          bValue = new Date(b.startTime).getTime();
+          break;
+        case 'endTime':
+          aValue = new Date(a.endTime).getTime();
+          bValue = new Date(b.endTime).getTime();
+          break;
+        case 'owner':
+          aValue = (a.owner || '').toLowerCase();
+          bValue = (b.owner || '').toLowerCase();
+          return sortConfig.direction === 'asc' 
+            ? aValue.localeCompare(bValue)
+            : bValue.localeCompare(aValue);
+        default:
+          return 0;
+      }
+
+      return sortConfig.direction === 'asc' ? aValue - bValue : bValue - aValue;
+    });
+
+    return sorted;
+  }, [activities, sortConfig]);
+
   // Handle row selection
   const handleSelectAll = (e) => {
     if (e.target.checked) {
-      setSelectedIds(new Set(activities.map(a => a.id)));
+      setSelectedIds(new Set(sortedActivities.map(a => a.id)));
     } else {
       setSelectedIds(new Set());
     }
@@ -207,6 +257,31 @@ export default function ActivitiesDetails({ onOpen, onEdit, loading: initialLoad
     );
   };
 
+  // Sortable column header component
+  const SortableHeader = ({ label, sortKey, align = 'left' }) => {
+    const isActive = sortConfig.key === sortKey;
+    const direction = sortConfig.direction;
+    
+    return (
+      <th 
+        className={`px-4 py-3 text-${align} text-xs font-semibold text-slate-600 uppercase tracking-wider cursor-pointer hover:bg-slate-100 transition-colors select-none`}
+        onClick={() => handleSort(sortKey)}
+      >
+        <div className="flex items-center gap-1">
+          <span>{label}</span>
+          <div className="flex flex-col">
+            <ChevronUp 
+              className={`w-3 h-3 -mb-1 ${isActive && direction === 'asc' ? 'text-blue-600' : 'text-slate-400'}`}
+            />
+            <ChevronDown 
+              className={`w-3 h-3 ${isActive && direction === 'desc' ? 'text-blue-600' : 'text-slate-400'}`}
+            />
+          </div>
+        </div>
+      </th>
+    );
+  };
+
   // Activity History Row Component
   const ActivityHistoryRow = ({ activityId }) => {
     const history = activityHistory[activityId] || [];
@@ -313,16 +388,16 @@ export default function ActivitiesDetails({ onOpen, onEdit, loading: initialLoad
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Activity</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Type</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Owner</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Start Time</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">End Time</th>
+                  <SortableHeader label="Owner" sortKey="owner" />
+                  <SortableHeader label="Start Time" sortKey="startTime" />
+                  <SortableHeader label="End Time" sortKey="endTime" />
                   <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Status</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Related Account</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {activities.map((activity) => {
+                {sortedActivities.map((activity) => {
                   const TypeIcon = activity.typeIcon;
                   const isExpanded = expandedRows.has(activity.id);
                   
@@ -400,7 +475,7 @@ export default function ActivitiesDetails({ onOpen, onEdit, loading: initialLoad
 
           {/* Mobile Card View */}
           <div className="lg:hidden p-4 space-y-4">
-            {activities.map((activity) => {
+            {sortedActivities.map((activity) => {
               const TypeIcon = activity.typeIcon;
               const isExpanded = expandedRows.has(activity.id);
               const history = activityHistory[activity.id] || [];
@@ -435,7 +510,10 @@ export default function ActivitiesDetails({ onOpen, onEdit, loading: initialLoad
                         </div>
                       </div>
                     </div>
-                    <Avatar initials={activity.ownerInitial} fullName={activity.owner} />
+                    <div className="flex flex-col items-center gap-1">
+                      <Avatar initials={activity.ownerInitial} fullName={activity.owner} />
+                      <span className="text-xs text-slate-600 font-medium">{activity.owner || 'Unassigned'}</span>
+                    </div>
                   </div>
 
                   <div className="grid grid-cols-1 gap-2 text-sm text-slate-600">
@@ -517,7 +595,7 @@ export default function ActivitiesDetails({ onOpen, onEdit, loading: initialLoad
       </div>
 
       {/* Empty state */}
-      {activities.length === 0 && !error && (
+      {sortedActivities.length === 0 && !error && (
         <div className="text-center py-12">
           <Calendar className="w-12 h-12 text-slate-400 mx-auto mb-4" />
           <h3 className="text-lg font-medium text-slate-900 mb-2">No activities yet</h3>
