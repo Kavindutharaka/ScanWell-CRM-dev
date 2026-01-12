@@ -1,6 +1,6 @@
 // DirectQuoteForm.jsx
 import { useState, useEffect } from 'react';
-import { Save, ArrowLeft, FileDown, Plus } from 'lucide-react';
+import { Save, ArrowLeft, FileDown, Plus, Printer } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import BasicInfoSection from './components/BasicInfoSection';
 import PortDetailsSection from './components/PortDetailsSection';
@@ -9,7 +9,7 @@ import CarrierOptionSection from './components/CarrierOptionSection';
 import TermsConditionsSection from './components/TermsConditionsSection';
 import { generateQuoteNumber } from '../../utils/quoteUtils';
 import { fetchQuoteById, updateQuote, createNewQuote } from '../../api/QuoteApi';
-import { generateDirectQuotePDF } from './utils/pdfGenerator';
+import { generateDirectQuotePDF, printDirectQuotePDF } from './utils/pdfGenerator';
 import { fetchAccountAddress } from '../../api/AccountApi';
 
 export default function DirectQuoteForm({ category, mode }) {
@@ -268,6 +268,46 @@ export default function DirectQuoteForm({ category, mode }) {
     }));
   };
 
+  const preparePDFData = async () => {
+    let customerAddress = '';
+    if (formData.customer) {
+      try {
+        customerAddress = await fetchAccountAddress(formData.customer);
+        console.log("Customer Address:", customerAddress);
+      } catch (error) {
+        console.error("Error fetching customer address:", error);
+      }
+    }
+
+    return {
+      quoteNumber: formData.quoteNumber,
+      freightCategory: category,
+      freightMode: mode,
+      freightType: 'direct',
+      createdDate: formData.createdDate,
+      rateValidity: formData.rateValidity,
+      customer: formData.customer,
+      customerAddress: customerAddress,
+      pickupLocation: formData.pickupLocation,
+      deliveryLocation: formData.deliveryLocation,
+      portOfLoading: formData.portOfLoading,
+      portOfDischarge: formData.portOfDischarge,
+      equipment: JSON.stringify(formData.equipment),
+      carrierOptions: JSON.stringify(formData.carrierOptions),
+      termsConditions: JSON.stringify(formData.termsConditions)
+    };
+  };
+
+  const handleDownloadPDF = async () => {
+    const pdfData = await preparePDFData();
+    generateDirectQuotePDF(pdfData);
+  };
+
+  const handlePrintPDF = async () => {
+    const pdfData = await preparePDFData();
+    printDirectQuotePDF(pdfData);
+  };
+
   const disabled = isViewMode;
 
   if (loading) {
@@ -296,44 +336,24 @@ export default function DirectQuoteForm({ category, mode }) {
           </div>
           <div className="flex gap-2">
             {quoteId && (
-              <button
-                type="button"
-                onClick={async () => {
-                  // Fetch customer address
-                  let customerAddress = '';
-                  if (formData.customer) {
-                    try {
-                      customerAddress = await fetchAccountAddress(formData.customer);
-                      console.log("Customer Address:", customerAddress);
-                    } catch (error) {
-                      console.error("Error fetching customer address:", error);
-                    }
-                  }
-
-                  const pdfData = {
-                    quoteNumber: formData.quoteNumber,
-                    freightCategory: category,
-                    freightMode: mode,
-                    freightType: 'direct',
-                    createdDate: formData.createdDate,
-                    rateValidity: formData.rateValidity,
-                    customer: formData.customer,
-                    customerAddress: customerAddress,
-                    pickupLocation: formData.pickupLocation,
-                    deliveryLocation: formData.deliveryLocation,
-                    portOfLoading: formData.portOfLoading,
-                    portOfDischarge: formData.portOfDischarge,
-                    equipment: JSON.stringify(formData.equipment),
-                    carrierOptions: JSON.stringify(formData.carrierOptions),
-                    termsConditions: JSON.stringify(formData.termsConditions)
-                  };
-                  generateDirectQuotePDF(pdfData);
-                }}
-                className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
-              >
-                <FileDown size={18} />
-                Download PDF
-              </button>
+              <>
+                <button
+                  type="button"
+                  onClick={handleDownloadPDF}
+                  className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                >
+                  <FileDown size={18} />
+                  Download PDF
+                </button>
+                <button
+                  type="button"
+                  onClick={handlePrintPDF}
+                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                >
+                  <Printer size={18} />
+                  Print
+                </button>
+              </>
             )}
             <button
               type="button"

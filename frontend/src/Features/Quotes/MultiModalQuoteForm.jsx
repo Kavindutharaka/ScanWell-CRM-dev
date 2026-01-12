@@ -1,13 +1,13 @@
 // MultiModalQuoteForm.jsx
 import { useState, useEffect } from 'react';
-import { Save, Plus, ArrowLeft, Trash2, FileDown } from 'lucide-react';
+import { Save, Plus, ArrowLeft, Trash2, FileDown, Printer } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import BasicInfoSection from './components/BasicInfoSection';
 import MultiModalRouteConfiguration from './components/MultiModalRouteConfiguration';
 import TermsConditionsSection from './components/TermsConditionsSection';
 import { generateQuoteNumber } from '../../utils/quoteUtils';
 import { fetchQuoteById, updateQuote, createNewQuote } from '../../api/QuoteApi';
-import { generateMultiModalQuotePDF } from './utils/pdfGenerator';
+import { generateMultiModalQuotePDF, printMultiModalQuotePDF } from './utils/pdfGenerator';
 import { fetchAccountAddress } from '../../api/AccountApi';
 
 export default function MultiModalQuoteForm() {
@@ -220,6 +220,42 @@ export default function MultiModalQuoteForm() {
     }
   };
 
+  const preparePDFData = async () => {
+    let customerAddress = '';
+    if (formData.customer) {
+      try {
+        customerAddress = await fetchAccountAddress(formData.customer);
+        console.log("Customer Address:", customerAddress);
+      } catch (error) {
+        console.error("Error fetching customer address:", error);
+      }
+    }
+
+    return {
+      quoteNumber: formData.quoteNumber,
+      freightMode: formData.importExport,
+      freightType: 'multimodal',
+      createdDate: formData.createdDate,
+      rateValidity: formData.rateValidity,
+      customer: formData.customer,
+      customerAddress: customerAddress,
+      pickupLocation: formData.pickupLocation,
+      deliveryLocation: formData.deliveryLocation,
+      routes: JSON.stringify(formData.routeOptions),
+      termsConditions: JSON.stringify(formData.termsConditions)
+    };
+  };
+
+  const handleDownloadPDF = async () => {
+    const pdfData = await preparePDFData();
+    generateMultiModalQuotePDF(pdfData);
+  };
+
+  const handlePrintPDF = async () => {
+    const pdfData = await preparePDFData();
+    printMultiModalQuotePDF(pdfData);
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center items-center h-96">
@@ -243,43 +279,35 @@ export default function MultiModalQuoteForm() {
             )}
           </div>
           <div className="flex gap-2">
-  {quoteId && (
-    <button
-      type="button"
-      onClick={async () => {
-        // Fetch customer address
-                  let customerAddress = '';
-                  if (formData.customer) {
-                    try {
-                      customerAddress = await fetchAccountAddress(formData.customer);
-                      console.log("Customer Address:", customerAddress);
-                    } catch (error) {
-                      console.error("Error fetching customer address:", error);
-                    }
-                  }
-        const pdfData = {
-          quoteNumber: formData.quoteNumber,
-          freightMode: formData.importExport,
-          freightType: 'multimodal',
-          createdDate: formData.createdDate,
-          rateValidity: formData.rateValidity,
-          customer: formData.customer,
-           customerAddress: customerAddress,
-          pickupLocation: formData.pickupLocation,
-          deliveryLocation: formData.deliveryLocation,
-          routes: JSON.stringify(formData.routeOptions),
-          termsConditions: JSON.stringify(formData.termsConditions)
-        };
-        generateMultiModalQuotePDF(pdfData);
-      }}
-      className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
-    >
-      <FileDown size={18} />
-      Download PDF
-    </button>
-  )}
-  <button type="button" onClick={() => navigate(-1)}>Back</button>
-</div>
+            {quoteId && (
+              <>
+                <button
+                  type="button"
+                  onClick={handleDownloadPDF}
+                  className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                >
+                  <FileDown size={18} />
+                  Download PDF
+                </button>
+                <button
+                  type="button"
+                  onClick={handlePrintPDF}
+                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                >
+                  <Printer size={18} />
+                  Print
+                </button>
+              </>
+            )}
+            <button
+              type="button"
+              onClick={() => navigate(-1)}
+              className="flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
+            >
+              <ArrowLeft size={18} />
+              Back
+            </button>
+          </div>
         </div>
 
         {/* Import/Export Selector */}

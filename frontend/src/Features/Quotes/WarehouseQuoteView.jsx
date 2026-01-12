@@ -4,6 +4,7 @@ import {
   ArrowLeft,
   Edit2,
   Download,
+  Printer,
   Trash2,
   Save,
   X,
@@ -24,7 +25,7 @@ import {
   deleteWareQuote,
   updateWareQuoteStatus
 } from "../../api/QuoteApi";
-import { generateWarehousePDF } from "./utils/warehousePDFGenerator";
+import { generateWarehousePDF, printWarehousePDF } from "./utils/warehousePDFGenerator";
 
 const serviceCategories = [
   "Storage",
@@ -109,6 +110,21 @@ export default function WarehouseQuoteView() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handlePrintPDF = () => {
+    if (!quoteData) return;
+    
+    const pdfData = {
+      quoteNumber: quoteData.quoteNumber,
+      customerName: quoteData.customerName,
+      currency: quoteData.currency,
+      issuedDate: quoteData.issuedDate,
+      validityDays: quoteData.validityDays,
+      validityDate: quoteData.validityDate
+    };
+
+    printWarehousePDF(pdfData, quoteData.lineItems || [], quoteData.notes || []);
   };
 
   const handleEdit = () => {
@@ -347,6 +363,14 @@ export default function WarehouseQuoteView() {
                   <Download size={18} />
                   Download PDF
                 </button>
+                {/* ← ADD PRINT BUTTON HERE */}
+                <button
+                  onClick={handlePrintPDF}
+                  className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                >
+                  <Printer size={18} />
+                  Print
+                </button>
                 <button
                   onClick={handleEdit}
                   className="flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors"
@@ -354,13 +378,13 @@ export default function WarehouseQuoteView() {
                   <Edit2 size={18} />
                   Edit
                 </button>
-                <button
+                {/* <button
                   onClick={handleDelete}
                   className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
                 >
                   <Trash2 size={18} />
                   Delete
-                </button>
+                </button> */}
               </>
             )}
             {editMode && (
