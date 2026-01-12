@@ -25,7 +25,14 @@ namespace back_end.Controllers
         [HttpGet, Route("quote")]
         public ActionResult GetAllQuotes()
         {
-            string query = @"SELECT * FROM [dbo].[Quotes] ORDER BY QuoteId DESC;";
+            string query = @"
+        SELECT 
+            q.*,
+            e.fname + ' ' + e.lname AS fullName,
+            e.email
+        FROM [dbo].[Quotes] q
+        LEFT JOIN [dbo].[emp_reg] e ON q.CreatedBy = e.SysID
+        ORDER BY q.QuoteId DESC;";
             var tb = new DataTable();
 
             try
@@ -47,7 +54,14 @@ namespace back_end.Controllers
         [HttpGet, Route("quote/{id}")]
         public ActionResult GetQuoteById(int id)
         {
-            string query = @"SELECT * FROM [dbo].[Quotes] WHERE QuoteId = @id;";
+            string query = @"
+        SELECT 
+            q.*,
+            e.fname + ' ' + e.lname AS fullName,
+            e.email
+        FROM [dbo].[Quotes] q
+        LEFT JOIN [dbo].[emp_reg] e ON q.CreatedBy = e.SysID
+        WHERE q.QuoteId = @id;";
             var tb = new DataTable();
 
             try
@@ -189,7 +203,7 @@ namespace back_end.Controllers
                 cmd.Parameters.AddWithValue("@PortOfDischarge", quote.PortOfDischarge ?? (object)DBNull.Value);
                 cmd.Parameters.AddWithValue("@Carriers", quote.Carriers ?? (object)DBNull.Value);
                 cmd.Parameters.AddWithValue("@Equipment", quote.Equipment ?? (object)DBNull.Value);
-                cmd.Parameters.AddWithValue("@CarrierOptions", quote.CarrierOptions ?? (object)DBNull.Value);   
+                cmd.Parameters.AddWithValue("@CarrierOptions", quote.CarrierOptions ?? (object)DBNull.Value);
                 cmd.Parameters.AddWithValue("@FreightCharges", quote.FreightCharges ?? (object)DBNull.Value);
                 cmd.Parameters.AddWithValue("@DestinationCharges", quote.DestinationCharges ?? (object)DBNull.Value);
                 cmd.Parameters.AddWithValue("@OriginHandling", quote.OriginHandling ?? (object)DBNull.Value);
