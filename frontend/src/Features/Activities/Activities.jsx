@@ -18,7 +18,7 @@ import ActivitiesNotes from "./ActivitiesNotes";
 import { fetchUserDetailsByRoleID } from '../../api/UserRoleApi';
 
 export default function Activities() {
-  const { user, permission } = useContext(AuthContext);
+  const { user, permission, loading: authLoading } = useContext(AuthContext);
 
   const [activities, setActivities] = useState([]);
   const [openModal, setOpenModal] = useState(false);
@@ -110,21 +110,18 @@ export default function Activities() {
     };
 
   useEffect(() => {
-    if (permission && userDetails) {  // Wait for both permission and userDetails
+    if (userDetails) {
       loadActivities();
     }
-  }, [permission, userDetails]);  // Depend on permission and userDetails
+  }, [permission, userDetails]);  // Depend on permission and userDetails, but call only if userDetails
   
   const loadActivities = async () => {
     setLoading(true);
     setError('');
     console.log("check admin **** : ", permission);
-    var data;
+    let data;
     try {
-      if (!permission) {
-        throw new Error('Permission not available');
-      }
-      if (permission.IsAdmin) {
+      if (permission?.IsAdmin) {
         data = await fetchActivities();
       } else {
         if (!userDetails?.emp_id) {
@@ -258,6 +255,22 @@ export default function Activities() {
     });
   };
 
+  if (authLoading) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        Loading...
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="flex h-screen items-center justify-center text-red-500">
+        Please log in to access activities.
+      </div>
+    );
+  }
+
   return (
     <div className="h-screen bg-slate-50 flex flex-col overflow-hidden">
       {/* Fixed Header */}
@@ -276,14 +289,19 @@ export default function Activities() {
 
         {/* Main content area - scrollable */}
         <main className="flex-1 overflow-y-auto">
-          <ActivitiesSec
-          modalOpen={modalOpen} 
-          onEdit={handleEdit}
-          activities={activities}
-          setActivities={setActivities}
-          loadActivities={loadActivities}
-          isAdmin={permission.IsAdmin}
-          />
+          {error ? (
+            <div className="p-4 text-red-500">
+              {error}
+            </div>
+          ) : (
+            <ActivitiesSec
+              modalOpen={modalOpen} 
+              onEdit={handleEdit}
+              activities={activities}
+              setActivities={setActivities}
+              loadActivities={loadActivities}
+            />
+          )}
         </main>
       </div>
 
