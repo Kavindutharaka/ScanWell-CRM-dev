@@ -1,9 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useContext } from "react";
 import Header from "../../components/Header";
 import SideNav from "../../components/SideNav";
 import ActivitiesSec from "./ActivitiesSec";
 import ActivitiesForm from "./ActivitiesForm";
-import { fetchActivities } from "../../api/ActivityApi";
+import { fetchActivities, fetchbyEmpId, fetchFullName } from "../../api/ActivityApi";
+import { AuthContext } from "../../context/AuthContext";
 
 import {
   Phone,
@@ -14,8 +15,11 @@ import {
   AlertCircle,
 } from "lucide-react";
 import ActivitiesNotes from "./ActivitiesNotes";
+import { fetchUserDetailsByRoleID } from '../../api/UserRoleApi';
 
 export default function Activities() {
+  const { user, permission, loading: authLoading } = useContext(AuthContext);
+
   const [activities, setActivities] = useState([]);
   const [openModal, setOpenModal] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -28,7 +32,27 @@ export default function Activities() {
     status: "",
     activity_id: 0
   });
+  const [userDetails, setUserDetails] = useState(null);
 
+  useEffect(() => {
+    if (user) {
+      console.log("Current user in header:", user);
+      getUserById(user.id);
+    }
+  }, [user]);
+  
+  const getUserById = async (userId) => {
+    try {
+      const res = await fetchUserDetailsByRoleID(userId);
+      console.log("Fetched user data:", res);
+      // API returns an array, so take the first item
+      if (res && res.length > 0) {
+        setUserDetails(res[0]);
+      }
+    } catch (error) {
+      console.error("Error fetching user details:", error);
+    }
+  };
 
   const modalOpen = () => {
     setEditingActivity(null);
@@ -66,25 +90,57 @@ export default function Activities() {
     setOpenNoteModal(false);
   };
 
+  const getInitials = (fullName) => {
+      // Handle null, undefined, or empty string
+      if (!fullName || fullName === 'null' || fullName.trim() === '') {
+        return 'U';
+      }
+      
+      const names = fullName.trim().split(' ');
+      
+      // Single name - return first letter
+      if (names.length === 1) {
+        return names[0].charAt(0).toUpperCase();
+      }
+      
+      // Multiple names - return first letter of first name + first letter of last name
+      const firstInitial = names[0].charAt(0).toUpperCase();
+      const lastInitial = names[names.length - 1].charAt(0).toUpperCase();
+      return firstInitial + lastInitial;
+    };
 
-
-    useEffect(() => {
+  useEffect(() => {
+    if (userDetails) {
       loadActivities();
-    }, []);
+    }
+  }, [permission, userDetails]);  // Depend on permission and userDetails, but call only if userDetails
   
-    const loadActivities = async () => {
-      setLoading(true);
-      setError('');
-      try {
-        const data = await fetchActivities();
-        const transformedData = data.map(activity => ({
+  const loadActivities = async () => {
+    setLoading(true);
+    setError('');
+    console.log("check admin **** : ", permission);
+    let data;
+    try {
+      if (permission?.IsAdmin) {
+        data = await fetchActivities();
+      } else {
+        if (!userDetails?.emp_id) {
+          throw new Error('Employee ID not available');
+        }
+        data = await fetchbyEmpId(userDetails.emp_id);
+      }
+      
+      const transformedData = data.map((activity) => {
+        const ownerFullName = activity.owner_name || 'Unassigned';
+        
+        return {
           id: activity.id,
           title: activity.activity_name,
           type: getActivityTypeLabel(activity.activity_type),
           typeColor: getActivityTypeColor(activity.activity_type),
           typeIcon: getActivityTypeIcon(activity.activity_type),
-          owner: activity.owner || 'Unassigned',
-          ownerInitial: (activity.owner || 'U').charAt(0).toUpperCase(),
+          owner: ownerFullName,
+          ownerInitial: getInitials(ownerFullName),
           startTime: formatDateTime(activity.start_time),
           endTime: formatDateTime(activity.end_time),
           status: activity.status,
@@ -92,110 +148,128 @@ export default function Activities() {
           relatedAccount: activity.related_account || 'N/A',
           priority: getPriority(activity.status),
           rawData: activity
-        }));
-        setActivities(transformedData);
-      } catch (err) {
-        console.error('Error fetching activities:', err);
-        setError(err.response?.data?.message || 'Failed to load activities. Please try again.');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    const getActivityTypeLabel = (type) => {
-      const typeMap = {
-        'call': 'Phone Call',
-        'email': 'Email',
-        'meeting': 'Meeting',
-        'demo': 'Demo',
-        'follow-up': 'Follow-up',
-        'presentation': 'Presentation',
-        'proposal': 'Proposal',
-        'negotiation': 'Negotiation',
-        'site-visit': 'Site Visit',
-        'training': 'Training',
-        'webinar': 'Webinar',
-        'conference': 'Conference',
-        'task': 'Task',
-        'other': 'Other'
-      };
-      return typeMap[type] || type;
-    };
-  
-    // Get activity type color
-    const getActivityTypeColor = (type) => {
-      const colorMap = {
-        'call': 'bg-blue-500',
-        'email': 'bg-purple-500',
-        'meeting': 'bg-indigo-500',
-        'demo': 'bg-green-500',
-        'follow-up': 'bg-amber-500',
-        'presentation': 'bg-pink-500',
-        'proposal': 'bg-cyan-500',
-        'negotiation': 'bg-red-500',
-        'site-visit': 'bg-orange-500',
-        'training': 'bg-teal-500',
-        'webinar': 'bg-violet-500',
-        'conference': 'bg-lime-500',
-        'task': 'bg-slate-500',
-        'other': 'bg-gray-500'
-      };
-      return colorMap[type] || 'bg-slate-500';
-    };
-  
-    // Get activity type icon
-    const getActivityTypeIcon = (type) => {
-      const iconMap = {
-        'call': Phone,
-        'email': Mail,
-        'meeting': Users,
-        'demo': Calendar,
-        'follow-up': Mail,
-        'presentation': Users,
-        'proposal': Calendar,
-        'negotiation': Users,
-        'site-visit': Calendar,
-        'training': Users,
-        'webinar': Calendar,
-        'conference': Users,
-        'task': Clock,
-        'other': AlertCircle
-      };
-      return iconMap[type] || AlertCircle;
-    };
-  
-    // Get status color
-    const getStatusColor = (status) => {
-      const statusColorMap = {
-        'planned': 'bg-blue-500',
-        'in-progress': 'bg-amber-500',
-        'completed': 'bg-emerald-500',
-        'cancelled': 'bg-red-500',
-        'rescheduled': 'bg-purple-500',
-        'overdue': 'bg-orange-500'
-      };
-      return statusColorMap[status] || 'bg-slate-500';
-    };
-  
-    // Get priority based on status
-    const getPriority = (status) => {
-      if (status === 'overdue') return 'high';
-      if (status === 'in-progress' || status === 'planned') return 'medium';
-      return 'low';
-    };
-  
-    // Format date and time
-    const formatDateTime = (dateTimeString) => {
-      if (!dateTimeString) return 'N/A';
-      const date = new Date(dateTimeString);
-      return date.toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
+        };
       });
+      
+      setActivities(transformedData);
+    } catch (err) {
+      console.error('Error fetching activities:', err);
+      setError(err.message || 'Failed to load activities. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getActivityTypeLabel = (type) => {
+    const typeMap = {
+      'call': 'Phone Call',
+      'email': 'Email',
+      'meeting': 'Meeting',
+      'demo': 'Demo',
+      'follow-up': 'Follow-up',
+      'presentation': 'Presentation',
+      'proposal': 'Proposal',
+      'negotiation': 'Negotiation',
+      'site-visit': 'Site Visit',
+      'training': 'Training',
+      'webinar': 'Webinar',
+      'conference': 'Conference',
+      'task': 'Task',
+      'other': 'Other'
     };
+    return typeMap[type] || type;
+  };
+
+  // Get activity type color
+  const getActivityTypeColor = (type) => {
+    const colorMap = {
+      'call': 'bg-blue-500',
+      'email': 'bg-purple-500',
+      'meeting': 'bg-indigo-500',
+      'demo': 'bg-green-500',
+      'follow-up': 'bg-amber-500',
+      'presentation': 'bg-pink-500',
+      'proposal': 'bg-cyan-500',
+      'negotiation': 'bg-red-500',
+      'site-visit': 'bg-orange-500',
+      'training': 'bg-teal-500',
+      'webinar': 'bg-violet-500',
+      'conference': 'bg-lime-500',
+      'task': 'bg-slate-500',
+      'other': 'bg-gray-500'
+    };
+    return colorMap[type] || 'bg-slate-500';
+  };
+
+  // Get activity type icon
+  const getActivityTypeIcon = (type) => {
+    const iconMap = {
+      'call': Phone,
+      'email': Mail,
+      'meeting': Users,
+      'demo': Calendar,
+      'follow-up': Mail,
+      'presentation': Users,
+      'proposal': Calendar,
+      'negotiation': Users,
+      'site-visit': Calendar,
+      'training': Users,
+      'webinar': Calendar,
+      'conference': Users,
+      'task': Clock,
+      'other': AlertCircle
+    };
+    return iconMap[type] || AlertCircle;
+  };
+
+  // Get status color
+  const getStatusColor = (status) => {
+    const statusColorMap = {
+      'planned': 'bg-blue-500',
+      'in-progress': 'bg-amber-500',
+      'completed': 'bg-emerald-500',
+      'cancelled': 'bg-red-500',
+      'rescheduled': 'bg-purple-500',
+      'overdue': 'bg-orange-500'
+    };
+    return statusColorMap[status] || 'bg-slate-500';
+  };
+
+  // Get priority based on status
+  const getPriority = (status) => {
+    if (status === 'overdue') return 'high';
+    if (status === 'in-progress' || status === 'planned') return 'medium';
+    return 'low';
+  };
+
+  // Format date and time
+  const formatDateTime = (dateTimeString) => {
+    if (!dateTimeString) return 'N/A';
+    const date = new Date(dateTimeString);
+    return date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  if (authLoading) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        Loading...
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="flex h-screen items-center justify-center text-red-500">
+        Please log in to access activities.
+      </div>
+    );
+  }
 
   return (
     <div className="h-screen bg-slate-50 flex flex-col overflow-hidden">
@@ -215,13 +289,19 @@ export default function Activities() {
 
         {/* Main content area - scrollable */}
         <main className="flex-1 overflow-y-auto">
-          <ActivitiesSec
-          modalOpen={modalOpen} 
-          onEdit={handleEdit}
-          activities={activities}
-          setActivities={setActivities}
-          loadActivities={loadActivities}
-          />
+          {error ? (
+            <div className="p-4 text-red-500">
+              {error}
+            </div>
+          ) : (
+            <ActivitiesSec
+              modalOpen={modalOpen} 
+              onEdit={handleEdit}
+              activities={activities}
+              setActivities={setActivities}
+              loadActivities={loadActivities}
+            />
+          )}
         </main>
       </div>
 
@@ -265,7 +345,6 @@ export default function Activities() {
           </div>
         </div>
       )}
-
 
       <style jsx>{`
         @keyframes fadeIn {

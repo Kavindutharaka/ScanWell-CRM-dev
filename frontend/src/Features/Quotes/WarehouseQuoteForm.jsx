@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useContext } from "react";
 import {
   Plus,
   Trash2,
@@ -17,16 +17,41 @@ import AutocompleteInput from "./components/AutocompleteInput";
 import { fetchAccountNames } from "../../api/AccountApi";
 import { useNavigate } from 'react-router-dom';
 
+import { AuthContext } from "../../context/AuthContext";
+import { fetchUserDetailsByRoleID } from '../../api/UserRoleApi';
+
 export default function WarehouseQuoteForm({ disabled = false }) {
+    const { user } = useContext(AuthContext);
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [customers, setCustomers] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
   const [accountNames, setAccountNames] = useState([]);
+    const [userDetails, setUserDetails] = useState(null);
   const updateField = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
+
+  useEffect(() => {
+      if (user) {
+        console.log("Current user in header:", user);
+        getUserById(user.id);
+      }
+    }, [user]);
+    
+    const getUserById = async (userId) => {
+      try {
+        const res = await fetchUserDetailsByRoleID(userId);
+        console.log("Fetched user data:", res);
+        // API returns an array, so take the first item
+        if (res && res.length > 0) {
+          setUserDetails(res[0]);
+        }
+      } catch (error) {
+        console.error("Error fetching user details:", error);
+      }
+    };
 
   useEffect(() => {
     const loadAccountNames = async () => {
@@ -39,7 +64,7 @@ export default function WarehouseQuoteForm({ disabled = false }) {
 
   // Form state
   const [formData, setFormData] = useState({
-    customerId: "",
+    customerId: userDetails.emp_id,
     customerName: "",
     currency: "LKR",
     issuedDate: new Date().toISOString().split('T')[0],

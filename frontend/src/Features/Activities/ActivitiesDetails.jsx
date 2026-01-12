@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   ChevronDown,
   ChevronRight,
+  ChevronUp,
   Plus,
   Phone,
   Mail,
@@ -14,7 +15,8 @@ import {
   AlertCircle,
   Trash2,
   Edit2,
-  RefreshCw
+  RefreshCw,
+  X
 } from "lucide-react";
 import { fetchActivities, deleteActivity, fetchActivityHistory } from "../../api/ActivityApi";
 
@@ -25,6 +27,10 @@ export default function ActivitiesDetails({ onOpen, onEdit, loading: initialLoad
   const [expandedRows, setExpandedRows] = useState(new Set());
   const [activityHistory, setActivityHistory] = useState({});
   const [loadingHistory, setLoadingHistory] = useState({});
+  const [sortConfig, setSortConfig] = useState({
+    key: null,
+    direction: 'asc'
+  });
 
   // Fetch activity status history
   const fetchActivityHistoryData = async (activityId) => {
@@ -49,6 +55,20 @@ export default function ActivitiesDetails({ onOpen, onEdit, loading: initialLoad
     }
   };
 
+  // Handle column sorting
+  const handleSort = (key) => {
+    let direction = 'asc';
+    if (sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key, direction });
+  };
+
+  // Clear sorting
+  const clearSort = () => {
+    setSortConfig({ key: null, direction: 'asc' });
+  };
+
   // Toggle expand/collapse
   const toggleExpand = async (activityId) => {
     const newExpanded = new Set(expandedRows);
@@ -64,10 +84,42 @@ export default function ActivitiesDetails({ onOpen, onEdit, loading: initialLoad
     setExpandedRows(newExpanded);
   };
 
+  // Sort activities based on sortConfig
+  const sortedActivities = useMemo(() => {
+    if (!sortConfig.key) return activities;
+
+    const sorted = [...activities].sort((a, b) => {
+      let aValue, bValue;
+
+      switch(sortConfig.key) {
+        case 'startTime':
+          aValue = new Date(a.startTime).getTime();
+          bValue = new Date(b.startTime).getTime();
+          break;
+        case 'endTime':
+          aValue = new Date(a.endTime).getTime();
+          bValue = new Date(b.endTime).getTime();
+          break;
+        case 'owner':
+          aValue = (a.owner || '').toLowerCase();
+          bValue = (b.owner || '').toLowerCase();
+          return sortConfig.direction === 'asc' 
+            ? aValue.localeCompare(bValue)
+            : bValue.localeCompare(aValue);
+        default:
+          return 0;
+      }
+
+      return sortConfig.direction === 'asc' ? aValue - bValue : bValue - aValue;
+    });
+
+    return sorted;
+  }, [activities, sortConfig]);
+
   // Handle row selection
   const handleSelectAll = (e) => {
     if (e.target.checked) {
-      setSelectedIds(new Set(activities.map(a => a.id)));
+      setSelectedIds(new Set(sortedActivities.map(a => a.id)));
     } else {
       setSelectedIds(new Set());
     }
@@ -110,16 +162,22 @@ export default function ActivitiesDetails({ onOpen, onEdit, loading: initialLoad
     }
   };
 
-  // Format date
+  // Format date to MM/DD/YYYY HH:mm AM/PM
   const formatDate = (dateString) => {
+    if (!dateString) return '';
+    
     const date = new Date(dateString);
-    return date.toLocaleString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const year = date.getFullYear();
+    
+    let hours = date.getHours();
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    hours = hours % 12 || 12; // Convert to 12-hour format
+    const formattedHours = String(hours).padStart(2, '0');
+    
+    return `${month}/${day}/${year} ${formattedHours}:${minutes} ${ampm}`;
   };
 
   // Loading skeleton
@@ -177,15 +235,50 @@ export default function ActivitiesDetails({ onOpen, onEdit, loading: initialLoad
   };
 
   // Avatar component
-  const Avatar = ({ name }) => {
+  const Avatar = ({ initials, fullName }) => {
     const colors = ['bg-blue-500', 'bg-purple-500', 'bg-pink-500', 'bg-green-500', 'bg-indigo-500', 'bg-red-500'];
-    const hashCode = name.split('').reduce((a, b) => a + b.charCodeAt(0), 0);
+    
+    // Safely handle null or undefined fullName
+    const safeName = fullName || 'Unassigned';
+    const hashCode = safeName.split('').reduce((a, b) => a + b.charCodeAt(0), 0);
     const color = colors[hashCode % colors.length];
 
     return (
-      <div className={`${color} text-white rounded-full w-8 h-8 flex items-center justify-center shadow-sm text-xs font-semibold`}>
-        {name.charAt(0).toUpperCase()}
+      <div className="relative group">
+        <div className={`${color} text-white rounded-full w-8 h-8 flex items-center justify-center shadow-sm text-xs font-semibold cursor-pointer transition-transform hover:scale-110`}>
+          {initials}
+        </div>
+        {/* Tooltip */}
+        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 bg-slate-900 text-white text-xs rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 whitespace-nowrap z-10">
+          {safeName}
+          <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent border-t-slate-900"></div>
+        </div>
       </div>
+    );
+  };
+
+  // Sortable column header component
+  const SortableHeader = ({ label, sortKey, align = 'left' }) => {
+    const isActive = sortConfig.key === sortKey;
+    const direction = sortConfig.direction;
+    
+    return (
+      <th 
+        className={`px-4 py-3 text-${align} text-xs font-semibold text-slate-600 uppercase tracking-wider cursor-pointer hover:bg-slate-100 transition-colors select-none`}
+        onClick={() => handleSort(sortKey)}
+      >
+        <div className="flex items-center gap-1">
+          <span>{label}</span>
+          <div className="flex flex-col">
+            <ChevronUp 
+              className={`w-3 h-3 -mb-1 ${isActive && direction === 'asc' ? 'text-blue-600' : 'text-slate-400'}`}
+            />
+            <ChevronDown 
+              className={`w-3 h-3 ${isActive && direction === 'desc' ? 'text-blue-600' : 'text-slate-400'}`}
+            />
+          </div>
+        </div>
+      </th>
     );
   };
 
@@ -295,16 +388,16 @@ export default function ActivitiesDetails({ onOpen, onEdit, loading: initialLoad
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Activity</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Type</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Owner</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Start Time</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">End Time</th>
+                  <SortableHeader label="Owner" sortKey="owner" />
+                  <SortableHeader label="Start Time" sortKey="startTime" />
+                  <SortableHeader label="End Time" sortKey="endTime" />
                   <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Status</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Related Account</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {activities.map((activity) => {
+                {sortedActivities.map((activity) => {
                   const TypeIcon = activity.typeIcon;
                   const isExpanded = expandedRows.has(activity.id);
                   
@@ -342,13 +435,13 @@ export default function ActivitiesDetails({ onOpen, onEdit, loading: initialLoad
                           </div>
                         </td>
                         <td className="px-4 py-4">
-                          <Avatar name={activity.owner} />
+                          <Avatar initials={activity.ownerInitial} fullName={activity.owner} />
                         </td>
                         <td className="px-4 py-4 text-sm text-slate-600 whitespace-nowrap">
-                          {activity.startTime}
+                          {formatDate(activity.startTime)}
                         </td>
                         <td className="px-4 py-4 text-sm text-slate-600 whitespace-nowrap">
-                          {activity.endTime}
+                          {formatDate(activity.endTime)}
                         </td>
                         <td className="px-4 py-4">
                           <StatusBadge status={activity.status} color={activity.statusColor} />
@@ -382,7 +475,7 @@ export default function ActivitiesDetails({ onOpen, onEdit, loading: initialLoad
 
           {/* Mobile Card View */}
           <div className="lg:hidden p-4 space-y-4">
-            {activities.map((activity) => {
+            {sortedActivities.map((activity) => {
               const TypeIcon = activity.typeIcon;
               const isExpanded = expandedRows.has(activity.id);
               const history = activityHistory[activity.id] || [];
@@ -417,13 +510,16 @@ export default function ActivitiesDetails({ onOpen, onEdit, loading: initialLoad
                         </div>
                       </div>
                     </div>
-                    <Avatar name={activity.owner} />
+                    <div className="flex flex-col items-center gap-1">
+                      <Avatar initials={activity.ownerInitial} fullName={activity.owner} />
+                      <span className="text-xs text-slate-600 font-medium">{activity.owner || 'Unassigned'}</span>
+                    </div>
                   </div>
 
                   <div className="grid grid-cols-1 gap-2 text-sm text-slate-600">
                     <div className="flex items-center gap-2">
                       <Clock className="w-4 h-4" />
-                      <span>{activity.startTime} - {activity.endTime}</span>
+                      <span>{formatDate(activity.startTime)} - {formatDate(activity.endTime)}</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <AlertCircle className="w-4 h-4" />
@@ -499,7 +595,7 @@ export default function ActivitiesDetails({ onOpen, onEdit, loading: initialLoad
       </div>
 
       {/* Empty state */}
-      {activities.length === 0 && !error && (
+      {sortedActivities.length === 0 && !error && (
         <div className="text-center py-12">
           <Calendar className="w-12 h-12 text-slate-400 mx-auto mb-4" />
           <h3 className="text-lg font-medium text-slate-900 mb-2">No activities yet</h3>

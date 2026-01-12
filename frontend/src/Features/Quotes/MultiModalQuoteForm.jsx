@@ -1,23 +1,51 @@
 // MultiModalQuoteForm.jsx
-import { useState, useEffect } from 'react';
-import { Save, Plus, ArrowLeft, Trash2, FileDown } from 'lucide-react';
+import { useState, useEffect, useContext } from 'react';
+import { Save, Plus, ArrowLeft, Trash2, FileDown, Printer } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import BasicInfoSection from './components/BasicInfoSection';
 import MultiModalRouteConfiguration from './components/MultiModalRouteConfiguration';
 import TermsConditionsSection from './components/TermsConditionsSection';
 import { generateQuoteNumber } from '../../utils/quoteUtils';
 import { fetchQuoteById, updateQuote, createNewQuote } from '../../api/QuoteApi';
-import { generateMultiModalQuotePDF } from './utils/pdfGenerator';
+import { generateMultiModalQuotePDF, printMultiModalQuotePDF } from './utils/pdfGenerator';
 import { fetchAccountAddress } from '../../api/AccountApi';
 
+import { AuthContext } from "../../context/AuthContext";
+import { fetchUserDetailsByRoleID } from '../../api/UserRoleApi';
+
 export default function MultiModalQuoteForm() {
+    const { user } = useContext(AuthContext);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const quoteId = searchParams.get('id');
   const isEditMode = searchParams.get('edit') === 'true';
   const isViewMode = quoteId && !isEditMode;
+    const [userDetails, setUserDetails] = useState(null);
 
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+      if (user) {
+        console.log("Current user in header:", user);
+        getUserById(user.id);
+      }
+    }, [user]);
+    
+    const getUserById = async (userId) => {
+      try {
+        const res = await fetchUserDetailsByRoleID(userId);
+        console.log("Fetched user data:", res);
+        // API returns an array, so take the first item
+        if (res && res.length > 0) {
+          setUserDetails(res[0]);
+        }
+      } catch (error) {
+        console.error("Error fetching user details:", error);
+      }
+    };
+
+
+
   const [formData, setFormData] = useState({
     quoteNumber: '',
     createdDate: new Date().toISOString().split('T')[0],
@@ -99,7 +127,10 @@ export default function MultiModalQuoteForm() {
         deliveryLocation: data[0].deliveryLocation || '',
         importExport: data[0].freightMode || 'import',
         routeOptions: data[0].routes ? JSON.parse(data[0].routes) : formData.routeOptions,
-        termsConditions: data[0].termsConditions ? JSON.parse(data[0].termsConditions) : []
+        termsConditions: data[0].termsConditions ? JSON.parse(data[0].termsConditions) : [],
+        // Store user details from backend for PDF generation
+        fullName: data[0].fullName || '',
+        email: data[0].email || ''
       });
     } catch (error) {
       console.error('Error loading quote:', error);
@@ -196,7 +227,7 @@ export default function MultiModalQuoteForm() {
       totalTransitTime: calculateTotalTransitTime(),
       termsConditions: JSON.stringify(formData.termsConditions),
       status: 'draft',
-      createdBy: 11,
+      createdBy: userDetails.emp_id,
       createdAt: new Date().toISOString()
     };
 
@@ -218,6 +249,71 @@ export default function MultiModalQuoteForm() {
       console.error('Error saving quote:', error);
       alert('Failed to save quote');
     }
+  };
+
+  const preparePDFData = async () => {
+    let customerAddress = '';
+    if (formData.customer) {
+      try {
+        customerAddress = await fetchAccountAddress(formData.customer);
+        console.log("Customer Address:", customerAddress);
+      } catch (error) {
+        console.error("Error fetching customer address:", error);
+      }
+    }
+
+    return {
+      quoteNumber: formData.quoteNumber,
+      freightMode: formData.importExport,
+      freightType: 'multimodal',
+      createdDate: formData.createdDate,
+      rateValidity: formData.rateValidity,
+      customer: formData.customer,
+      customerAddress: customerAddress,
+      pickupLocation: formData.pickupLocation,
+      deliveryLocation: formData.deliveryLocation,
+      routes: JSON.stringify(formData.routeOptions),
+      termsConditions: JSON.stringify(formData.termsConditions)
+    };
+  };
+
+  const getUserDataForPDF = () => {
+    // When viewing existing quote, use data from formData if available
+    if (quoteId && formData.fullName) {
+      // Split fullName into firstName and lastName
+      const nameParts = formData.fullName.trim().split(' ');
+      const firstName = nameParts[0] || '';
+      const lastName = nameParts.slice(1).join(' ') || '';
+      
+      return {
+        firstName: firstName,
+        lastName: lastName,
+        email: formData.email || ''
+      };
+    }
+    
+    // For new quotes or edit mode, use current user details
+    if (userDetails) {
+      return {
+        firstName: userDetails.fname || '',
+        lastName: userDetails.lname || '',
+        email: userDetails.email || ''
+      };
+    }
+    
+    return null;
+  };
+
+  const handleDownloadPDF = async () => {
+    const pdfData = await preparePDFData();
+    const userData = getUserDataForPDF();
+    generateMultiModalQuotePDF(pdfData, userData);
+  };
+
+  const handlePrintPDF = async () => {
+    const pdfData = await preparePDFData();
+    const userData = getUserDataForPDF();
+    printMultiModalQuotePDF(pdfData, userData);
   };
 
   if (loading) {
@@ -243,43 +339,35 @@ export default function MultiModalQuoteForm() {
             )}
           </div>
           <div className="flex gap-2">
-  {quoteId && (
-    <button
-      type="button"
-      onClick={async () => {
-        // Fetch customer address
-                  let customerAddress = '';
-                  if (formData.customer) {
-                    try {
-                      customerAddress = await fetchAccountAddress(formData.customer);
-                      console.log("Customer Address:", customerAddress);
-                    } catch (error) {
-                      console.error("Error fetching customer address:", error);
-                    }
-                  }
-        const pdfData = {
-          quoteNumber: formData.quoteNumber,
-          freightMode: formData.importExport,
-          freightType: 'multimodal',
-          createdDate: formData.createdDate,
-          rateValidity: formData.rateValidity,
-          customer: formData.customer,
-           customerAddress: customerAddress,
-          pickupLocation: formData.pickupLocation,
-          deliveryLocation: formData.deliveryLocation,
-          routes: JSON.stringify(formData.routeOptions),
-          termsConditions: JSON.stringify(formData.termsConditions)
-        };
-        generateMultiModalQuotePDF(pdfData);
-      }}
-      className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
-    >
-      <FileDown size={18} />
-      Download PDF
-    </button>
-  )}
-  <button type="button" onClick={() => navigate(-1)}>Back</button>
-</div>
+            {quoteId && (
+              <>
+                <button
+                  type="button"
+                  onClick={handleDownloadPDF}
+                  className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                >
+                  <FileDown size={18} />
+                  Download PDF
+                </button>
+                <button
+                  type="button"
+                  onClick={handlePrintPDF}
+                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                >
+                  <Printer size={18} />
+                  Print
+                </button>
+              </>
+            )}
+            <button
+              type="button"
+              onClick={() => navigate(-1)}
+              className="flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
+            >
+              <ArrowLeft size={18} />
+              Back
+            </button>
+          </div>
         </div>
 
         {/* Import/Export Selector */}

@@ -566,3 +566,35 @@ export const generateWarehousePDFBlob = (quoteData, lineItems, notes, userData =
 
   return doc.output('blob');
 };
+
+export const printWarehousePDF = (quoteData, lineItems, notes, userData = null) => {
+  try {
+    const pdfBlob = generateWarehousePDFBlob(quoteData, lineItems, notes, userData);
+    const blobUrl = URL.createObjectURL(pdfBlob);
+    
+    const iframe = document.createElement('iframe');
+    iframe.style.position = 'fixed';
+    iframe.style.right = '0';
+    iframe.style.bottom = '0';
+    iframe.style.width = '0';
+    iframe.style.height = '0';
+    iframe.style.border = 'none';
+    
+    document.body.appendChild(iframe);
+    
+    iframe.src = blobUrl;
+    iframe.onload = function() {
+      setTimeout(() => {
+        iframe.contentWindow.focus();
+        iframe.contentWindow.print();
+        setTimeout(() => {
+          document.body.removeChild(iframe);
+          URL.revokeObjectURL(blobUrl);
+        }, 1000);
+      }, 100);
+    };
+  } catch (error) {
+    console.error('Error printing warehouse PDF:', error);
+    alert('Failed to print PDF. Please try downloading instead.');
+  }
+};

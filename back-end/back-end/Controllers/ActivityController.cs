@@ -23,9 +23,9 @@ namespace back_end.Controllers
         }
 
         [HttpGet]
-public ActionResult getActivities()
-{
-    string query = @"
+        public ActionResult getActivities()
+        {
+            string query = @"
         SELECT 
             a.[id],
             a.[activity_name],
@@ -40,22 +40,91 @@ public ActionResult getActivities()
             ON a.[owner] = e.[SysID]
         ORDER BY a.[id] DESC;";
 
-    DataTable table = new DataTable();
-    using (SqlConnection myCon = new SqlConnection(_dbConnectionString))
-    {
-        myCon.Open();
-        using (SqlCommand myCom = new SqlCommand(query, myCon))
-        {
-            using (SqlDataReader myR = myCom.ExecuteReader())
+            DataTable table = new DataTable();
+            using (SqlConnection myCon = new SqlConnection(_dbConnectionString))
             {
-                table.Load(myR);
+                myCon.Open();
+                using (SqlCommand myCom = new SqlCommand(query, myCon))
+                {
+                    using (SqlDataReader myR = myCom.ExecuteReader())
+                    {
+                        table.Load(myR);
+                    }
+                }
+                myCon.Close();
             }
-        }
-        myCon.Close();
-    }
 
-    return Ok(table);
-}
+            return Ok(table);
+        }
+
+        [HttpGet("{id}")]
+        public ActionResult getActivitiesById(int id)
+        {
+            string query = @"
+                            SELECT
+                            a.[id],
+                            a.[activity_name],
+                            a.[activity_type],
+                            e.[fname] + ' ' + e.[lname] AS [owner_name],
+                            a.[start_time],
+                            a.[end_time],
+                            a.[status],
+                            a.[related_account]
+                            FROM [dbo].[activity] AS a
+                            LEFT JOIN [dbo].[emp_reg] AS e
+                            ON a.[owner] = e.[SysID]
+                            WHERE a.[owner] = @id
+                            ORDER BY a.[id] DESC;";
+
+            DataTable table = new DataTable();
+            using (SqlConnection myCon = new SqlConnection(_dbConnectionString))
+            {
+                myCon.Open();
+                using (SqlCommand myCom = new SqlCommand(query, myCon))
+                {
+                    myCom.Parameters.AddWithValue("@id", id);
+                    using (SqlDataReader myR = myCom.ExecuteReader())
+                    {
+                        table.Load(myR);
+                    }
+                }
+                myCon.Close();
+            }
+
+            return Ok(table);
+        }
+
+        [HttpGet("owner/{id}")]
+        public ActionResult GetActivityOwner(long id)
+        {
+            string query = @"SELECT fname + ' ' + lname AS fullName 
+                     FROM [phvtechc_crm].[dbo].[emp_reg] 
+                     WHERE SysID = @id;";
+
+            string fullName = null;
+
+            using (SqlConnection myCon = new SqlConnection(_dbConnectionString))
+            {
+                myCon.Open();
+                using (SqlCommand myCom = new SqlCommand(query, myCon))
+                {
+                    myCom.Parameters.AddWithValue("@id", id);
+                    using (SqlDataReader reader = myCom.ExecuteReader())
+                    {
+                        if (reader.Read())
+                        {
+                            fullName = reader["fullName"].ToString();
+                        }
+                    }
+                }
+            }
+
+            if (fullName == null)
+                return NotFound("Employee not found");
+
+            return Ok(new { fullName });
+        }
+
 
 
         [HttpPost]
@@ -78,8 +147,33 @@ public ActionResult getActivities()
                     myCom.Parameters.AddWithValue("@activityName", activity.activityName ?? (object)DBNull.Value);
                     myCom.Parameters.AddWithValue("@activityType", activity.activityType ?? (object)DBNull.Value);
                     myCom.Parameters.AddWithValue("@owner", activity.owner ?? (object)DBNull.Value);
-                    myCom.Parameters.AddWithValue("@startTime", activity.startTime ?? (object)DBNull.Value);
-                    myCom.Parameters.AddWithValue("@endTime", activity.endTime ?? (object)DBNull.Value);
+
+                    // ═══════════════════════════════════════════════════════════════
+                    // DATETIME FIX: Prevent timezone conversion by using Unspecified
+                    // ═══════════════════════════════════════════════════════════════
+                    if (activity.startTime.HasValue)
+                    {
+                        // Remove any timezone info and store as-is
+                        var localStart = DateTime.SpecifyKind(activity.startTime.Value, DateTimeKind.Unspecified);
+                        myCom.Parameters.Add("@startTime", SqlDbType.DateTime2).Value = localStart;
+                    }
+                    else
+                    {
+                        myCom.Parameters.AddWithValue("@startTime", DBNull.Value);
+                    }
+
+                    if (activity.endTime.HasValue)
+                    {
+                        // Remove any timezone info and store as-is
+                        var localEnd = DateTime.SpecifyKind(activity.endTime.Value, DateTimeKind.Unspecified);
+                        myCom.Parameters.Add("@endTime", SqlDbType.DateTime2).Value = localEnd;
+                    }
+                    else
+                    {
+                        myCom.Parameters.AddWithValue("@endTime", DBNull.Value);
+                    }
+                    // ═══════════════════════════════════════════════════════════════
+
                     myCom.Parameters.AddWithValue("@status", activity.status ?? (object)DBNull.Value);
                     myCom.Parameters.AddWithValue("@relatedItem", activity.relatedAccount ?? (object)DBNull.Value);
 
@@ -89,10 +183,10 @@ public ActionResult getActivities()
             }
 
             // Return both ID and message
-            return Ok(new 
-            { 
-                message = "Activity added successfully.", 
-                activityId = newActivityId 
+            return Ok(new
+            {
+                message = "Activity added successfully.",
+                activityId = newActivityId
             });
         }
 
@@ -113,8 +207,33 @@ public ActionResult getActivities()
                     myCom.Parameters.AddWithValue("@activityName", activity.activityName ?? (object)DBNull.Value);
                     myCom.Parameters.AddWithValue("@activityType", activity.activityType ?? (object)DBNull.Value);
                     myCom.Parameters.AddWithValue("@owner", activity.owner ?? (object)DBNull.Value);
-                    myCom.Parameters.AddWithValue("@startTime", activity.startTime ?? (object)DBNull.Value);
-                    myCom.Parameters.AddWithValue("@endTime", activity.endTime ?? (object)DBNull.Value);
+
+                    // ═══════════════════════════════════════════════════════════════
+                    // DATETIME FIX: Prevent timezone conversion by using Unspecified
+                    // ═══════════════════════════════════════════════════════════════
+                    if (activity.startTime.HasValue)
+                    {
+                        // Remove any timezone info and store as-is
+                        var localStart = DateTime.SpecifyKind(activity.startTime.Value, DateTimeKind.Unspecified);
+                        myCom.Parameters.Add("@startTime", SqlDbType.DateTime2).Value = localStart;
+                    }
+                    else
+                    {
+                        myCom.Parameters.AddWithValue("@startTime", DBNull.Value);
+                    }
+
+                    if (activity.endTime.HasValue)
+                    {
+                        // Remove any timezone info and store as-is
+                        var localEnd = DateTime.SpecifyKind(activity.endTime.Value, DateTimeKind.Unspecified);
+                        myCom.Parameters.Add("@endTime", SqlDbType.DateTime2).Value = localEnd;
+                    }
+                    else
+                    {
+                        myCom.Parameters.AddWithValue("@endTime", DBNull.Value);
+                    }
+                    // ═══════════════════════════════════════════════════════════════
+
                     myCom.Parameters.AddWithValue("@status", activity.status ?? (object)DBNull.Value);
                     myCom.Parameters.AddWithValue("@relatedItem", activity.relatedAccount ?? (object)DBNull.Value);
                     myCom.ExecuteNonQuery();
