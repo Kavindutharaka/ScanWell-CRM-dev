@@ -11,13 +11,16 @@ import {
   Users,
   Share2,
   Sparkles,
-  MoreHorizontal
+  MoreHorizontal,
+  Calendar1
 } from "lucide-react";
 import ActivitiesDetails from "./ActivitiesDetails";
+import ActivityView from "./ActivityView";
 
 export default function ActivitiesSec({ modalOpen, onEdit, activities, setActivities, loadActivities }) {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+  const [viewCalendar, setViewCalender] = useState(false);
 
   // Simulate loading
   useEffect(() => {
@@ -27,6 +30,14 @@ export default function ActivitiesSec({ modalOpen, onEdit, activities, setActivi
 
     return () => clearTimeout(timer);
   }, []);
+
+  const openCalenderModal = () => {
+    setViewCalender(true);
+  };
+
+  const closeCalenderModal = () => {
+    setViewCalender(false);
+  };
 
   // Handle refresh
   const handleRefresh = () => {
@@ -102,6 +113,15 @@ export default function ActivitiesSec({ modalOpen, onEdit, activities, setActivi
             </button>
           </div>
 
+          {/* View Activity Button */}
+          <button 
+            onClick={openCalenderModal}
+            className="flex items-center gap-2 px-4 py-2.5 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-all duration-200 shadow-sm hover:shadow-md active:scale-95"
+          >
+            <Calendar1 className="w-5 h-5" />
+            <span>View Activities</span>
+          </button>
+
           {/* Search */}
           <div className="flex-1 max-w-md ml-auto">
             <div className="relative">
@@ -151,6 +171,17 @@ export default function ActivitiesSec({ modalOpen, onEdit, activities, setActivi
         {/* Bottom spacing */}
         <div className="h-8"></div>
       </div>
+
+      {/* Activity View Modal */}
+      {viewCalendar && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <ActivityView 
+            data={activities}
+            onClose={closeCalenderModal}
+            isAdmin={true}
+          />
+        </div>
+      )}
     </div>
   );
 }

@@ -3,6 +3,7 @@ import { useEffect, useState, useRef, useContext  } from "react";
 import { createNewActivity, saveNotes, updateActivity } from "../../api/ActivityApi";
 import { fetchAccounts } from "../../api/AccountApi";
 import { AuthContext } from "../../context/AuthContext";
+import { fetchUserDetailsByRoleID } from "../../api/UserRoleApi";
 
 export default function ActivitiesForm({ onClose, initialActivity = null, isEditMode = false, noteModalOpen, isSuccesssNote, setCurrentStatus }) {
 
@@ -231,8 +232,18 @@ export default function ActivitiesForm({ onClose, initialActivity = null, isEdit
 
   const formatDateTime = (dateTimeString) => {
     if (!dateTimeString) return null;
-    // Convert local datetime string to ISO format for backend
-    return new Date(dateTimeString).toISOString();
+    // Send datetime as local time WITHOUT timezone conversion
+    // datetime-local gives us "YYYY-MM-DDTHH:mm", we add seconds
+    // Backend will receive and store this as local time
+    return dateTimeString.includes(':') && dateTimeString.split(':').length === 2 
+      ? `${dateTimeString}:00` 
+      : dateTimeString;
+  };
+
+  const getOwner =async(id)=>{
+    const res = await fetchUserDetailsByRoleID(id);
+    console.log("this is user id: ", res[0].emp_id);
+    return res[0].emp_id;
   };
 
   const autoTriggerEdit = async () => {
@@ -250,7 +261,7 @@ export default function ActivitiesForm({ onClose, initialActivity = null, isEdit
         ...(isEditMode && { id: formData.id }),
         activityName: formData.activityName.trim(),
         activityType: formData.activityType,
-        owner: user.id || null,
+        owner: await getOwner(user.id) || null,
         startTime: formatDateTime(formData.startTime),
         endTime: formData.endTime ? formatDateTime(formData.endTime) : null,
         status: formData.status,
@@ -315,7 +326,7 @@ export default function ActivitiesForm({ onClose, initialActivity = null, isEdit
         ...(isEditMode && { id: formData.id }),
         activityName: formData.activityName.trim(),
         activityType: formData.activityType,
-        owner: user.id || null,
+        owner: await getOwner(user.id) || null,
         startTime: formatDateTime(formData.startTime),
         endTime: formData.endTime ? formatDateTime(formData.endTime) : null,
         status: formData.status,
@@ -326,7 +337,7 @@ export default function ActivitiesForm({ onClose, initialActivity = null, isEdit
       let response;
 
       console.log("checking activities ", activityData);
-      
+  
       if (isEditMode) {
         // Update existing activity
         response = await updateActivity(activityData);

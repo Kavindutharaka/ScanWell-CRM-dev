@@ -49,6 +49,8 @@ export default function ActivitiesDetails({ onOpen, onEdit, loading: initialLoad
     }
   };
 
+    
+
   // Toggle expand/collapse
   const toggleExpand = async (activityId) => {
     const newExpanded = new Set(expandedRows);
@@ -110,16 +112,22 @@ export default function ActivitiesDetails({ onOpen, onEdit, loading: initialLoad
     }
   };
 
-  // Format date
+  // Format date to MM/DD/YYYY HH:mm AM/PM
   const formatDate = (dateString) => {
+    if (!dateString) return '';
+    
     const date = new Date(dateString);
-    return date.toLocaleString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const year = date.getFullYear();
+    
+    let hours = date.getHours();
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    hours = hours % 12 || 12; // Convert to 12-hour format
+    const formattedHours = String(hours).padStart(2, '0');
+    
+    return `${month}/${day}/${year} ${formattedHours}:${minutes} ${ampm}`;
   };
 
   // Loading skeleton
@@ -177,14 +185,24 @@ export default function ActivitiesDetails({ onOpen, onEdit, loading: initialLoad
   };
 
   // Avatar component
-  const Avatar = ({ name }) => {
+  const Avatar = ({ initials, fullName }) => {
     const colors = ['bg-blue-500', 'bg-purple-500', 'bg-pink-500', 'bg-green-500', 'bg-indigo-500', 'bg-red-500'];
-    const hashCode = name.split('').reduce((a, b) => a + b.charCodeAt(0), 0);
+    
+    // Safely handle null or undefined fullName
+    const safeName = fullName || 'Unassigned';
+    const hashCode = safeName.split('').reduce((a, b) => a + b.charCodeAt(0), 0);
     const color = colors[hashCode % colors.length];
 
     return (
-      <div className={`${color} text-white rounded-full w-8 h-8 flex items-center justify-center shadow-sm text-xs font-semibold`}>
-        {name.charAt(0).toUpperCase()}
+      <div className="relative group">
+        <div className={`${color} text-white rounded-full w-8 h-8 flex items-center justify-center shadow-sm text-xs font-semibold cursor-pointer transition-transform hover:scale-110`}>
+          {initials}
+        </div>
+        {/* Tooltip */}
+        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 bg-slate-900 text-white text-xs rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 whitespace-nowrap z-10">
+          {safeName}
+          <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent border-t-slate-900"></div>
+        </div>
       </div>
     );
   };
@@ -342,13 +360,13 @@ export default function ActivitiesDetails({ onOpen, onEdit, loading: initialLoad
                           </div>
                         </td>
                         <td className="px-4 py-4">
-                          <Avatar name={activity.owner} />
+                          <Avatar initials={activity.ownerInitial} fullName={activity.owner} />
                         </td>
                         <td className="px-4 py-4 text-sm text-slate-600 whitespace-nowrap">
-                          {activity.startTime}
+                          {formatDate(activity.startTime)}
                         </td>
                         <td className="px-4 py-4 text-sm text-slate-600 whitespace-nowrap">
-                          {activity.endTime}
+                          {formatDate(activity.endTime)}
                         </td>
                         <td className="px-4 py-4">
                           <StatusBadge status={activity.status} color={activity.statusColor} />
@@ -417,13 +435,13 @@ export default function ActivitiesDetails({ onOpen, onEdit, loading: initialLoad
                         </div>
                       </div>
                     </div>
-                    <Avatar name={activity.owner} />
+                    <Avatar initials={activity.ownerInitial} fullName={activity.owner} />
                   </div>
 
                   <div className="grid grid-cols-1 gap-2 text-sm text-slate-600">
                     <div className="flex items-center gap-2">
                       <Clock className="w-4 h-4" />
-                      <span>{activity.startTime} - {activity.endTime}</span>
+                      <span>{formatDate(activity.startTime)} - {formatDate(activity.endTime)}</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <AlertCircle className="w-4 h-4" />

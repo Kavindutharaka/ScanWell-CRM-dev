@@ -3,7 +3,7 @@ import Header from "../../components/Header";
 import SideNav from "../../components/SideNav";
 import ActivitiesSec from "./ActivitiesSec";
 import ActivitiesForm from "./ActivitiesForm";
-import { fetchActivities } from "../../api/ActivityApi";
+import { fetchActivities, fetchFullName } from "../../api/ActivityApi";
 
 import {
   Phone,
@@ -66,6 +66,25 @@ export default function Activities() {
     setOpenNoteModal(false);
   };
 
+  const getInitials = (fullName) => {
+      // Handle null, undefined, or empty string
+      if (!fullName || fullName === 'null' || fullName.trim() === '') {
+        return 'U';
+      }
+      
+      const names = fullName.trim().split(' ');
+      
+      // Single name - return first letter
+      if (names.length === 1) {
+        return names[0].charAt(0).toUpperCase();
+      }
+      
+      // Multiple names - return first letter of first name + first letter of last name
+      const firstInitial = names[0].charAt(0).toUpperCase();
+      const lastInitial = names[names.length - 1].charAt(0).toUpperCase();
+      return firstInitial + lastInitial;
+    };
+
 
 
     useEffect(() => {
@@ -77,22 +96,28 @@ export default function Activities() {
       setError('');
       try {
         const data = await fetchActivities();
-        const transformedData = data.map(activity => ({
-          id: activity.id,
-          title: activity.activity_name,
-          type: getActivityTypeLabel(activity.activity_type),
-          typeColor: getActivityTypeColor(activity.activity_type),
-          typeIcon: getActivityTypeIcon(activity.activity_type),
-          owner: activity.owner || 'Unassigned',
-          ownerInitial: (activity.owner || 'U').charAt(0).toUpperCase(),
-          startTime: formatDateTime(activity.start_time),
-          endTime: formatDateTime(activity.end_time),
-          status: activity.status,
-          statusColor: getStatusColor(activity.status),
-          relatedAccount: activity.related_account || 'N/A',
-          priority: getPriority(activity.status),
-          rawData: activity
-        }));
+        
+        const transformedData = data.map((activity) => {
+          const ownerFullName = activity.owner_name || 'Unassigned';
+          
+          return {
+            id: activity.id,
+            title: activity.activity_name,
+            type: getActivityTypeLabel(activity.activity_type),
+            typeColor: getActivityTypeColor(activity.activity_type),
+            typeIcon: getActivityTypeIcon(activity.activity_type),
+            owner: ownerFullName,
+            ownerInitial: getInitials(ownerFullName),
+            startTime: formatDateTime(activity.start_time),
+            endTime: formatDateTime(activity.end_time),
+            status: activity.status,
+            statusColor: getStatusColor(activity.status),
+            relatedAccount: activity.related_account || 'N/A',
+            priority: getPriority(activity.status),
+            rawData: activity
+          };
+        });
+        
         setActivities(transformedData);
       } catch (err) {
         console.error('Error fetching activities:', err);

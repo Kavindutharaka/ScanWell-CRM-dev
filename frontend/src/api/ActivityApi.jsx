@@ -31,3 +31,8 @@ export const fetchActivityHistory = async (id) => {
   return response.data;
 };
 
+export const fetchFullName = async(id) =>{
+    const response = await axios.get(`${BASE_URL}/owner/${id}`);
+    return response.data;
+};
+
