@@ -24,5 +24,6 @@ namespace back_end.Models
         public string? note { get; set; }
         public string? remark { get; set; }
         public string? owner { get; set; }
+        
     }
 }

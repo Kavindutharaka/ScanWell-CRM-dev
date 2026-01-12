@@ -13,6 +13,9 @@ namespace back_end.Models
         public string TtRouting { get; set; }     // Transit Time / Routing
         public DateTime? Valid { get; set; }      // Validity date
         public string Category { get; set; }      // Shipping line (MSC, ONE, etc.)
+        public string? LinerType { get; set; }  // NEW: 'LINER' or 'DESTINATION'
+        public string? DestinationHeader { get; set; }  // NEW: For destination grouping
+        public string? Remark { get; set; }  // NEW
     }
 
     public class LinearRateBulkRequest

@@ -276,11 +276,11 @@ namespace back_end.Controllers
             int failCount = 0;
 
             string query = @"
-                INSERT INTO [dbo].[linear_rates]
-                (pol, pod, gp20_usd, hq40_usd, tt_routing, valid, category)
-                VALUES 
-                (@pol, @pod, @gp20_usd, @hq40_usd, @tt_routing, @valid, @category);
-                SELECT SCOPE_IDENTITY();";
+        INSERT INTO [dbo].[linear_rates]
+        (pol, pod, gp20_usd, hq40_usd, tt_routing, valid, category, liner_type, destination_header, remark)
+        VALUES 
+        (@pol, @pod, @gp20_usd, @hq40_usd, @tt_routing, @valid, @category, @liner_type, @destination_header, @remark);
+        SELECT SCOPE_IDENTITY();";
 
             using (myCon)
             {
@@ -299,6 +299,9 @@ namespace back_end.Controllers
                             myCom.Parameters.AddWithValue("@tt_routing", rate.TtRouting ?? (object)DBNull.Value);
                             myCom.Parameters.AddWithValue("@valid", rate.Valid ?? (object)DBNull.Value);
                             myCom.Parameters.AddWithValue("@category", rate.Category ?? (object)DBNull.Value);
+                            myCom.Parameters.AddWithValue("@liner_type", rate.LinerType ?? (object)DBNull.Value);
+                            myCom.Parameters.AddWithValue("@destination_header", rate.DestinationHeader ?? (object)DBNull.Value);
+                            myCom.Parameters.AddWithValue("@remark", rate.Remark ?? (object)DBNull.Value);
 
                             var newId = myCom.ExecuteScalar();
                             results.Add(new { success = true, id = newId });
@@ -315,16 +318,16 @@ namespace back_end.Controllers
                 myCon.Close();
             }
 
-            return Ok(new 
-            { 
-                message = $"Processed {request.Rates.Count} rates. Success: {successCount}, Failed: {failCount}", 
+            return Ok(new
+            {
+                message = $"Processed {request.Rates.Count} rates. Success: {successCount}, Failed: {failCount}",
                 successCount,
                 failCount,
-                results 
+                results
             });
         }
 
-        // PUT: api/rates/linear/{id}
+        // PUT: api/rates/linear/{id} - UPDATE
         [HttpPut, Route("linear/{id}")]
         public IActionResult UpdateLinearRate(int id, [FromBody] LinearRate rate)
         {
@@ -334,15 +337,18 @@ namespace back_end.Controllers
             }
 
             string query = @"
-                UPDATE [dbo].[linear_rates]
-                SET pol = @pol,
-                    pod = @pod,
-                    gp20_usd = @gp20_usd,
-                    hq40_usd = @hq40_usd,
-                    tt_routing = @tt_routing,
-                    valid = @valid,
-                    category = @category
-                WHERE id = @id;";
+        UPDATE [dbo].[linear_rates]
+        SET pol = @pol,
+            pod = @pod,
+            gp20_usd = @gp20_usd,
+            hq40_usd = @hq40_usd,
+            tt_routing = @tt_routing,
+            valid = @valid,
+            category = @category,
+            liner_type = @liner_type,
+            destination_header = @destination_header,
+            remark = @remark
+        WHERE id = @id;";
 
             using (myCon)
             {
@@ -357,6 +363,9 @@ namespace back_end.Controllers
                     myCom.Parameters.AddWithValue("@tt_routing", rate.TtRouting ?? (object)DBNull.Value);
                     myCom.Parameters.AddWithValue("@valid", rate.Valid ?? (object)DBNull.Value);
                     myCom.Parameters.AddWithValue("@category", rate.Category ?? (object)DBNull.Value);
+                    myCom.Parameters.AddWithValue("@liner_type", rate.LinerType ?? (object)DBNull.Value);
+                    myCom.Parameters.AddWithValue("@destination_header", rate.DestinationHeader ?? (object)DBNull.Value);
+                    myCom.Parameters.AddWithValue("@remark", rate.Remark ?? (object)DBNull.Value);
 
                     int rowsAffected = myCom.ExecuteNonQuery();
 
@@ -414,7 +423,7 @@ namespace back_end.Controllers
 
                     int rowsAffected = myCom.ExecuteNonQuery();
                     myCon.Close();
-                    
+
                     return Ok(new { message = $"Deleted {rowsAffected} rates for category {category}", count = rowsAffected });
                 }
             }
