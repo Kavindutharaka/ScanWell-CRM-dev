@@ -1,5 +1,5 @@
 // DirectQuoteForm.jsx
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useContext } from 'react';
 import { Save, ArrowLeft, FileDown, Plus, Printer } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import BasicInfoSection from './components/BasicInfoSection';
@@ -11,15 +11,39 @@ import { generateQuoteNumber } from '../../utils/quoteUtils';
 import { fetchQuoteById, updateQuote, createNewQuote } from '../../api/QuoteApi';
 import { generateDirectQuotePDF, printDirectQuotePDF } from './utils/pdfGenerator';
 import { fetchAccountAddress } from '../../api/AccountApi';
+import { AuthContext } from "../../context/AuthContext";
+import { fetchUserDetailsByRoleID } from '../../api/UserRoleApi';
 
 export default function DirectQuoteForm({ category, mode }) {
+  const { user } = useContext(AuthContext);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const quoteId = searchParams.get('id');
   const isEditMode = searchParams.get('edit') === 'true';
   const isViewMode = quoteId && !isEditMode;
+  const [userDetails, setUserDetails] = useState(null);
 
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+      if (user) {
+        console.log("Current user in header:", user);
+        getUserById(user.id);
+      }
+    }, [user]);
+    
+    const getUserById = async (userId) => {
+      try {
+        const res = await fetchUserDetailsByRoleID(userId);
+        console.log("Fetched user data:", res);
+        // API returns an array, so take the first item
+        if (res && res.length > 0) {
+          setUserDetails(res[0]);
+        }
+      } catch (error) {
+        console.error("Error fetching user details:", error);
+      }
+    };
   
   // Create default carrier option structure
   const createDefaultOption = () => ({
@@ -231,7 +255,7 @@ export default function DirectQuoteForm({ category, mode }) {
       carrierOptions: JSON.stringify(formData.carrierOptions),
       termsConditions: JSON.stringify(formData.termsConditions),
       status: 'draft',
-      createdBy: 11,
+      createdBy: userDetails.emp_id,
       createdAt: quoteId ? (formData.createdAt || new Date().toISOString()) : new Date().toISOString()
     };
 
