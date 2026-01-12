@@ -57,6 +57,43 @@ namespace back_end.Controllers
             return Ok(table);
         }
 
+        [HttpGet("{id}")]
+        public ActionResult getActivitiesById(int id)
+        {
+            string query = @"
+                            SELECT
+                            a.[id],
+                            a.[activity_name],
+                            a.[activity_type],
+                            e.[fname] + ' ' + e.[lname] AS [owner_name],
+                            a.[start_time],
+                            a.[end_time],
+                            a.[status],
+                            a.[related_account]
+                            FROM [dbo].[activity] AS a
+                            LEFT JOIN [dbo].[emp_reg] AS e
+                            ON a.[owner] = e.[SysID]
+                            WHERE a.[owner] = @id
+                            ORDER BY a.[id] DESC;";
+
+            DataTable table = new DataTable();
+            using (SqlConnection myCon = new SqlConnection(_dbConnectionString))
+            {
+                myCon.Open();
+                using (SqlCommand myCom = new SqlCommand(query, myCon))
+                {
+                    myCom.Parameters.AddWithValue("@id", id);
+                    using (SqlDataReader myR = myCom.ExecuteReader())
+                    {
+                        table.Load(myR);
+                    }
+                }
+                myCon.Close();
+            }
+
+            return Ok(table);
+        }
+
         [HttpGet("owner/{id}")]
         public ActionResult GetActivityOwner(long id)
         {
@@ -110,7 +147,7 @@ namespace back_end.Controllers
                     myCom.Parameters.AddWithValue("@activityName", activity.activityName ?? (object)DBNull.Value);
                     myCom.Parameters.AddWithValue("@activityType", activity.activityType ?? (object)DBNull.Value);
                     myCom.Parameters.AddWithValue("@owner", activity.owner ?? (object)DBNull.Value);
-                    
+
                     // ═══════════════════════════════════════════════════════════════
                     // DATETIME FIX: Prevent timezone conversion by using Unspecified
                     // ═══════════════════════════════════════════════════════════════
@@ -124,7 +161,7 @@ namespace back_end.Controllers
                     {
                         myCom.Parameters.AddWithValue("@startTime", DBNull.Value);
                     }
-                    
+
                     if (activity.endTime.HasValue)
                     {
                         // Remove any timezone info and store as-is
@@ -136,7 +173,7 @@ namespace back_end.Controllers
                         myCom.Parameters.AddWithValue("@endTime", DBNull.Value);
                     }
                     // ═══════════════════════════════════════════════════════════════
-                    
+
                     myCom.Parameters.AddWithValue("@status", activity.status ?? (object)DBNull.Value);
                     myCom.Parameters.AddWithValue("@relatedItem", activity.relatedAccount ?? (object)DBNull.Value);
 
@@ -170,7 +207,7 @@ namespace back_end.Controllers
                     myCom.Parameters.AddWithValue("@activityName", activity.activityName ?? (object)DBNull.Value);
                     myCom.Parameters.AddWithValue("@activityType", activity.activityType ?? (object)DBNull.Value);
                     myCom.Parameters.AddWithValue("@owner", activity.owner ?? (object)DBNull.Value);
-                    
+
                     // ═══════════════════════════════════════════════════════════════
                     // DATETIME FIX: Prevent timezone conversion by using Unspecified
                     // ═══════════════════════════════════════════════════════════════
@@ -184,7 +221,7 @@ namespace back_end.Controllers
                     {
                         myCom.Parameters.AddWithValue("@startTime", DBNull.Value);
                     }
-                    
+
                     if (activity.endTime.HasValue)
                     {
                         // Remove any timezone info and store as-is
@@ -196,7 +233,7 @@ namespace back_end.Controllers
                         myCom.Parameters.AddWithValue("@endTime", DBNull.Value);
                     }
                     // ═══════════════════════════════════════════════════════════════
-                    
+
                     myCom.Parameters.AddWithValue("@status", activity.status ?? (object)DBNull.Value);
                     myCom.Parameters.AddWithValue("@relatedItem", activity.relatedAccount ?? (object)DBNull.Value);
                     myCom.ExecuteNonQuery();

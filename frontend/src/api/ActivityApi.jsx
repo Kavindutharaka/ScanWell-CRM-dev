@@ -36,3 +36,8 @@ export const fetchFullName = async(id) =>{
     return response.data;
 };
 
+export const fetchbyEmpId = async(id) =>{
+    const response = await axios.get(`${BASE_URL}/Activity/${id}`);
+    return response.data;
+};
+

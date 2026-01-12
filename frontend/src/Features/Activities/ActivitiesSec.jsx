@@ -17,7 +17,7 @@ import {
 import ActivitiesDetails from "./ActivitiesDetails";
 import ActivityView from "./ActivityView";
 
-export default function ActivitiesSec({ modalOpen, onEdit, activities, setActivities, loadActivities }) {
+export default function ActivitiesSec({ modalOpen, onEdit, activities, setActivities, loadActivities, isAdmin }) {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [viewCalendar, setViewCalender] = useState(false);
@@ -178,7 +178,7 @@ export default function ActivitiesSec({ modalOpen, onEdit, activities, setActivi
           <ActivityView 
             data={activities}
             onClose={closeCalenderModal}
-            isAdmin={true}
+            isAdmin={isAdmin}
           />
         </div>
       )}
