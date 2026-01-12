@@ -127,7 +127,10 @@ export default function MultiModalQuoteForm() {
         deliveryLocation: data[0].deliveryLocation || '',
         importExport: data[0].freightMode || 'import',
         routeOptions: data[0].routes ? JSON.parse(data[0].routes) : formData.routeOptions,
-        termsConditions: data[0].termsConditions ? JSON.parse(data[0].termsConditions) : []
+        termsConditions: data[0].termsConditions ? JSON.parse(data[0].termsConditions) : [],
+        // Store user details from backend for PDF generation
+        fullName: data[0].fullName || '',
+        email: data[0].email || ''
       });
     } catch (error) {
       console.error('Error loading quote:', error);
@@ -274,14 +277,43 @@ export default function MultiModalQuoteForm() {
     };
   };
 
+  const getUserDataForPDF = () => {
+    // When viewing existing quote, use data from formData if available
+    if (quoteId && formData.fullName) {
+      // Split fullName into firstName and lastName
+      const nameParts = formData.fullName.trim().split(' ');
+      const firstName = nameParts[0] || '';
+      const lastName = nameParts.slice(1).join(' ') || '';
+      
+      return {
+        firstName: firstName,
+        lastName: lastName,
+        email: formData.email || ''
+      };
+    }
+    
+    // For new quotes or edit mode, use current user details
+    if (userDetails) {
+      return {
+        firstName: userDetails.fname || '',
+        lastName: userDetails.lname || '',
+        email: userDetails.email || ''
+      };
+    }
+    
+    return null;
+  };
+
   const handleDownloadPDF = async () => {
     const pdfData = await preparePDFData();
-    generateMultiModalQuotePDF(pdfData);
+    const userData = getUserDataForPDF();
+    generateMultiModalQuotePDF(pdfData, userData);
   };
 
   const handlePrintPDF = async () => {
     const pdfData = await preparePDFData();
-    printMultiModalQuotePDF(pdfData);
+    const userData = getUserDataForPDF();
+    printMultiModalQuotePDF(pdfData, userData);
   };
 
   if (loading) {

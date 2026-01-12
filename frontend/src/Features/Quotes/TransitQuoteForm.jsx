@@ -152,7 +152,10 @@ export default function TransitQuoteForm({ category, mode }) {
         portOfDischarge: data[0].portOfDischarge || '',
         routeOptions: data[0].transitRoutes ? JSON.parse(data[0].transitRoutes) : formData.routeOptions,
         equipment: data[0].equipment ? JSON.parse(data[0].equipment) : formData.equipment,
-        termsConditions: data[0].termsConditions ? JSON.parse(data[0].termsConditions) : []
+        termsConditions: data[0].termsConditions ? JSON.parse(data[0].termsConditions) : [],
+        // Store user details from backend for PDF generation
+        fullName: data[0].fullName || '',
+        email: data[0].email || ''
       });
     } catch (error) {
       console.error('Error loading quote:', error);
@@ -369,14 +372,43 @@ export default function TransitQuoteForm({ category, mode }) {
     };
   };
 
+  const getUserDataForPDF = () => {
+    // When viewing existing quote, use data from formData if available
+    if (quoteId && formData.fullName) {
+      // Split fullName into firstName and lastName
+      const nameParts = formData.fullName.trim().split(' ');
+      const firstName = nameParts[0] || '';
+      const lastName = nameParts.slice(1).join(' ') || '';
+      
+      return {
+        firstName: firstName,
+        lastName: lastName,
+        email: formData.email || ''
+      };
+    }
+    
+    // For new quotes or edit mode, use current user details
+    if (userDetails) {
+      return {
+        firstName: userDetails.fname || '',
+        lastName: userDetails.lname || '',
+        email: userDetails.email || ''
+      };
+    }
+    
+    return null;
+  };
+
   const handleDownloadPDF = async () => {
     const pdfData = await preparePDFData();
-    generateTransitQuotePDF(pdfData);
+    const userData = getUserDataForPDF();
+    generateTransitQuotePDF(pdfData, userData);
   };
 
   const handlePrintPDF = async () => {
     const pdfData = await preparePDFData();
-    printTransitQuotePDF(pdfData);
+    const userData = getUserDataForPDF();
+    printTransitQuotePDF(pdfData, userData);
   };
 
   if (loading) {

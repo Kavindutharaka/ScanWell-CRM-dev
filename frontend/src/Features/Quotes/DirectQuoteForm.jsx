@@ -216,7 +216,10 @@ export default function DirectQuoteForm({ category, mode }) {
         equipment: (data[0].equipment || data[0].Equipment) ? JSON.parse(data[0].equipment || data[0].Equipment) : { equipment: '', units: '', netWeight: '', grossWeight: '', volume: '', chargeableWeight: '' },
         carrierOptions: parsedCarrierOptions,
         termsConditions: (data[0].termsConditions || data[0].TermsConditions) ? JSON.parse(data[0].termsConditions || data[0].TermsConditions) : [],
-        createdAt: data[0].createdAt || data[0].CreatedAt || ''
+        createdAt: data[0].createdAt || data[0].CreatedAt || '',
+        // Store user details from backend for PDF generation
+        fullName: data[0].fullName || '',
+        email: data[0].email || ''
       };
       
       console.log("Final form data to set:", newFormData);
@@ -322,14 +325,43 @@ export default function DirectQuoteForm({ category, mode }) {
     };
   };
 
+  const getUserDataForPDF = () => {
+    // When viewing existing quote, use data from formData if available
+    if (quoteId && formData.fullName) {
+      // Split fullName into firstName and lastName
+      const nameParts = formData.fullName.trim().split(' ');
+      const firstName = nameParts[0] || '';
+      const lastName = nameParts.slice(1).join(' ') || '';
+      
+      return {
+        firstName: firstName,
+        lastName: lastName,
+        email: formData.email || ''
+      };
+    }
+    
+    // For new quotes or edit mode, use current user details
+    if (userDetails) {
+      return {
+        firstName: userDetails.fname || '',
+        lastName: userDetails.lname || '',
+        email: userDetails.email || ''
+      };
+    }
+    
+    return null;
+  };
+
   const handleDownloadPDF = async () => {
     const pdfData = await preparePDFData();
-    generateDirectQuotePDF(pdfData);
+    const userData = getUserDataForPDF();
+    generateDirectQuotePDF(pdfData, userData);
   };
 
   const handlePrintPDF = async () => {
     const pdfData = await preparePDFData();
-    printDirectQuotePDF(pdfData);
+    const userData = getUserDataForPDF();
+    printDirectQuotePDF(pdfData, userData);
   };
 
   const disabled = isViewMode;
