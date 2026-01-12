@@ -191,23 +191,26 @@ function addFreightChargesTableTransit(doc, charges, yPos, isAir, segmentNum) {
     const tableData = validCharges.map(charge => {
       const units = charge.numberOfUnits || '';
       const total = calculateChargeTotal(charge);
+      const currency = charge.currency || '';
+      const amount = charge.amount || '';
+      const formattedAmount = currency && amount ? `${currency} ${amount}` : amount;
+      const formattedTotal = currency ? `${currency} ${Math.round(total)}` : Math.round(total).toString();
       
       const row = [
         charge.carrier || '',
         charge.unitType || '',
         units,
-        charge.amount || '',
-        charge.currency || '',
+        formattedAmount,
         charge.transitTime || '',
         charge.numberOfRouting || ''
       ];
       
-      row.push(Math.round(total).toString());
+      row.push(formattedTotal);
       row.push(formatRemarksWithBreaks(charge.remarks || ''));
       return row;
     });
     
-    const headers = ['Carrier', 'Unit Type', 'Units', 'Amount', 'Currency', 'Transit', 'Routing', 'Total', 'Remarks'];
+    const headers = ['Carrier', 'Unit Type', 'Units', 'Amount', 'Transit', 'Routing', 'Total', 'Remarks'];
     
     autoTable(doc, {
       startY: yPos,
@@ -220,12 +223,11 @@ function addFreightChargesTableTransit(doc, charges, yPos, isAir, segmentNum) {
         0: { cellWidth: 16 },  // Carrier
         1: { cellWidth: 13 },  // Unit Type
         2: { cellWidth: 8 },   // Units
-        3: { cellWidth: 12 },  // Amount
-        4: { cellWidth: 13 },  // Currency
-        5: { cellWidth: 12 },  // Transit
-        6: { cellWidth: 14 },  // Routing
-        7: { cellWidth: 11 },  // Total
-        8: { cellWidth: 63, overflow: 'linebreak', fontSize: 6.5 }  // Remarks - much wider
+        3: { cellWidth: 25 },  // Amount (with currency)
+        4: { cellWidth: 12 },  // Transit
+        5: { cellWidth: 14 },  // Routing
+        6: { cellWidth: 24 },  // Total (with currency)
+        7: { cellWidth: 50, overflow: 'linebreak', fontSize: 6.5 }  // Remarks
       },
       margin: { left: 15, right: 15 }
     });
@@ -256,21 +258,24 @@ function addFreightChargesTableTransit(doc, charges, yPos, isAir, segmentNum) {
       const weight = parseFloat(charge.chargeableWeight) || 0;
       const rate = parseFloat(charge.charge) || 0;
       const total = weight * rate;
+      const currency = charge.currency || 'USD';
+      const chargeAmount = charge.charge || '';
+      const formattedCharge = chargeAmount ? `${currency} ${chargeAmount}` : '';
+      const formattedTotal = `${currency} ${Math.round(total)}`;
       
       return [
         charge.chargeableWeight || '',
         charge.weightBreaker || '',
         charge.pricingUnit || '',
-        charge.charge || '',
-        charge.currency || 'USD',
-        Math.round(total).toString(),
+        formattedCharge,
+        formattedTotal,
         formatRemarksWithBreaks(charge.remarks || '')
       ];
     });
     
     autoTable(doc, {
       startY: yPos,
-      head: [['Chargeable Weight', 'Weight Breaker', 'Pricing Unit', 'Charge', 'Currency', 'Total', 'Remarks']],
+      head: [['Chargeable Weight', 'Weight Breaker', 'Pricing Unit', 'Charge', 'Total', 'Remarks']],
       body: tableData,
       theme: 'grid',
       headStyles: { fillColor: [200, 200, 200], textColor: 0, fontSize: 7, fontStyle: 'bold' },
@@ -279,10 +284,9 @@ function addFreightChargesTableTransit(doc, charges, yPos, isAir, segmentNum) {
         0: { cellWidth: 22 },
         1: { cellWidth: 22 },
         2: { cellWidth: 22 },
-        3: { cellWidth: 18 },
-        4: { cellWidth: 16 },
-        5: { cellWidth: 18 },
-        6: { cellWidth: 42, overflow: 'linebreak' }  // Much wider for Remarks
+        3: { cellWidth: 28 },  // Charge (with currency)
+        4: { cellWidth: 28 },  // Total (with currency)
+        5: { cellWidth: 48, overflow: 'linebreak' }  // Remarks
       },
       margin: { left: 15, right: 15 }
     });
@@ -880,23 +884,26 @@ function addFreightChargesTable(doc, charges, yPos, isAir) {
   const tableData = validCharges.map(charge => {
     const units = charge.numberOfUnits || '';
     const total = calculateChargeTotal(charge);
+    const currency = charge.currency || '';
+    const amount = charge.amount || '';
+    const formattedAmount = currency && amount ? `${currency} ${amount}` : amount;
+    const formattedTotal = currency ? `${currency} ${Math.round(total)}` : Math.round(total).toString();
     
     const row = [
       charge.carrier || '',
       charge.unitType || '',
       units,
-      charge.amount || '',
-      charge.currency || '',
+      formattedAmount,
       charge.transitTime || '',
       charge.numberOfRouting || ''
     ];
     
-    row.push(Math.round(total).toString());
+    row.push(formattedTotal);
     row.push(formatRemarksWithBreaks(charge.remarks || ''));
     return row;
   });
   
-  const headers = ['Carrier', 'Unit Type', 'Units', 'Amount', 'Currency', 'Transit', 'Routing', 'Total', 'Remarks'];
+  const headers = ['Carrier', 'Unit Type', 'Units', 'Amount', 'Transit', 'Routing', 'Total', 'Remarks'];
   
   autoTable(doc, {
     startY: yPos,
@@ -909,12 +916,11 @@ function addFreightChargesTable(doc, charges, yPos, isAir) {
       0: { cellWidth: 16 },  // Carrier
       1: { cellWidth: 13 },  // Unit Type
       2: { cellWidth: 8 },   // Units
-      3: { cellWidth: 12 },  // Amount
-      4: { cellWidth: 13 },  // Currency
-      5: { cellWidth: 12 },  // Transit
-      6: { cellWidth: 14 },  // Routing
-      7: { cellWidth: 11 },  // Total
-      8: { cellWidth: 63, overflow: 'linebreak', fontSize: 6.5 }  // Remarks - much wider
+      3: { cellWidth: 25 },  // Amount (with currency)
+      4: { cellWidth: 12 },  // Transit
+      5: { cellWidth: 14 },  // Routing
+      6: { cellWidth: 24 },  // Total (with currency)
+      7: { cellWidth: 50, overflow: 'linebreak', fontSize: 6.5 }  // Remarks
     },
     margin: { left: 15, right: 15 }
   });
@@ -946,21 +952,24 @@ function addOtherChargesTable(doc, charges, title, yPos) {
   const tableData = validCharges.map(charge => {
     const units = charge.numberOfUnits || (charge.unitType === 'SHIPMENT' ? '1' : '');
     const total = calculateChargeTotal(charge);
+    const currency = charge.currency || '';
+    const amount = charge.amount || '';
+    const formattedAmount = currency && amount ? `${currency} ${amount}` : amount;
+    const formattedTotal = currency ? `${currency} ${Math.round(total)}` : Math.round(total).toString();
     
     return [
       charge.chargeName || '',
       charge.unitType || '',
       units,
-      charge.amount || '',
-      charge.currency || '',
-      Math.round(total).toString(),
+      formattedAmount,
+      formattedTotal,
       formatRemarksWithBreaks(charge.remark || '')
     ];
   });
   
   autoTable(doc, {
     startY: yPos,
-    head: [['Charge Name', 'Unit Type', 'Units', 'Amount', 'Currency', 'Total', 'Remark']],
+    head: [['Charge Name', 'Unit Type', 'Units', 'Amount', 'Total', 'Remark']],
     body: tableData,
     theme: 'grid',
     headStyles: { fillColor: [200, 200, 200], textColor: 0, fontSize: 7, fontStyle: 'bold' },
@@ -969,10 +978,9 @@ function addOtherChargesTable(doc, charges, title, yPos) {
       0: { cellWidth: 36 },
       1: { cellWidth: 22 },
       2: { cellWidth: 12 },
-      3: { cellWidth: 18 },
-      4: { cellWidth: 16 },
-      5: { cellWidth: 18 },
-      6: { cellWidth: 48, overflow: 'linebreak' }  // Much wider for Remark
+      3: { cellWidth: 28 },  // Amount (with currency)
+      4: { cellWidth: 28 },  // Total (with currency)
+      5: { cellWidth: 44, overflow: 'linebreak' }  // Remark
     },
     margin: { left: 15, right: 15 }
   });
