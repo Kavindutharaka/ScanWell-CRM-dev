@@ -20,6 +20,7 @@ import Info from './Features/InfoUpdates/InfoAndUpdates';
 import EmployeeRoleManagement from './Features/RoleBase/EmployeeRoleManagement';
 import Profile from './Features/Profile/Profile';
 import Quotes from './Features/Quotes/Quotes';
+import WarehouseQuoteView from './Features/Quotes/WarehouseQuoteView';
 
 function App() {
   return (
@@ -46,13 +47,14 @@ function App() {
             <Route path="/hr/manage" element={<HRSystemManagement />} />
             <Route path="/rolebase" element={<EmployeeRoleManagement />} />
             <Route path="/profile" element={<Profile />} />
+            <Route path="/warehouse-quotes/:id" element={<WarehouseQuoteView />} />
             
             {/* Default redirect when logged in */}
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
           </Route>
 
           {/* Catch all */}
-          <Route path="*" element={<Navigate to="/login" replace />} />
+          {/* <Route path="*" element={<Navigate to="/login" replace />} /> */}
         </Routes>
       </Router>
     </AuthProvider>

@@ -1,89 +1,95 @@
 import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
+import logo from '../../../assets/images/logo.png'; // Import company logo
 
 /**
  * Generate a professional PDF for warehouse quotation
  * @param {Object} quoteData - The warehouse quote data
  * @param {Array} lineItems - Array of service line items
  * @param {Array} notes - Array of terms and notes
+ * @param {Object} userData - User information for footer (optional)
  */
-export const generateWarehousePDF = (quoteData, lineItems, notes) => {
+export const generateWarehousePDF = (quoteData, lineItems, notes, userData = null) => {
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.width;
   const pageHeight = doc.internal.pageSize.height;
   const margin = 15;
+  let yPos = 15;
 
-  // Company Logo/Header
-  doc.setFillColor(13, 148, 136); // Teal color
-  doc.rect(0, 0, pageWidth, 35, 'F');
+  // ===== HEADER SECTION (Matching Company Style) =====
+  // Logo - maintaining aspect ratio (50 x 10)
+  doc.addImage(logo, 'PNG', margin, yPos, 50, 10);
   
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(22);
+  // Company Info (Right aligned)
+  doc.setFontSize(11);
   doc.setFont('helvetica', 'bold');
-  doc.text('SCANWELL LOGISTICS', margin, 15);
-  
-  doc.setFontSize(10);
+  doc.text('Scanwell Logistics Colombo (Pvt) Ltd.', pageWidth - margin, yPos + 2, { align: 'right' });
+  doc.setFontSize(9);
   doc.setFont('helvetica', 'normal');
-  doc.text('Scan Distribution Centre Lanka (Pvt) Ltd', margin, 22);
-  doc.text('Warehouse & Distribution Services', margin, 28);
+  doc.text('67/1 Hudson Road Colombo 3 Sri Lanka.', pageWidth - margin, yPos + 7, { align: 'right' });
+  doc.text('Office #+94 11 2426600/4766400', pageWidth - margin, yPos + 12, { align: 'right' });
+  
+  yPos += 25;
 
-  // Reset text color
-  doc.setTextColor(0, 0, 0);
-
-  // Quote Title
-  doc.setFontSize(18);
+  // Title (Centered)
+  doc.setFontSize(16);
   doc.setFont('helvetica', 'bold');
-  doc.text('WAREHOUSE QUOTATION', margin, 50);
+  doc.text('WAREHOUSE QUOTATION', pageWidth / 2, yPos, { align: 'center' });
+  
+  yPos += 12;
+
+  // ===== QUOTE DETAILS SECTION =====
+  doc.setFontSize(11);
+  doc.setFont('helvetica', 'bold');
+  doc.text(quoteData.quoteNumber || 'N/A', margin, yPos);
+  
+  // Warehouse Service label (right aligned)
+  doc.text('Warehouse Services', pageWidth - margin, yPos, { align: 'right' });
+  
+  yPos += 5;
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  
+  if (quoteData.validityDate) {
+    const validityDate = new Date(quoteData.validityDate).toLocaleDateString('en-GB');
+    doc.text(`Valid Until: ${validityDate}`, pageWidth - margin, yPos, { align: 'right' });
+  }
+  
+  yPos += 10;
+
+  // Customer Information
+  doc.setFont('helvetica', 'bold');
+  doc.text('Customer', margin, yPos);
+  doc.setFont('helvetica', 'normal');
+  yPos += 4;
+  doc.text(quoteData.customerName || 'N/A', margin, yPos);
+  
+  yPos += 8;
 
   // Quote Details Box
-  const detailsY = 60;
-  doc.setFillColor(240, 253, 250); // Light teal
-  doc.rect(margin, detailsY, pageWidth - 2 * margin, 35, 'F');
-  doc.setDrawColor(13, 148, 136);
-  doc.rect(margin, detailsY, pageWidth - 2 * margin, 35, 'S');
-
-  doc.setFontSize(10);
-  doc.setFont('helvetica', 'normal');
-
-  // Left column
   doc.setFont('helvetica', 'bold');
-  doc.text('Customer:', margin + 5, detailsY + 8);
-  doc.text('Currency:', margin + 5, detailsY + 16);
-  doc.text('Issued:', margin + 5, detailsY + 24);
-
-  doc.setFont('helvetica', 'normal');
-  doc.text(quoteData.customerName || '', margin + 30, detailsY + 8);
-  doc.text(quoteData.currency || 'LKR', margin + 30, detailsY + 16);
-  doc.text(new Date(quoteData.issuedDate).toLocaleDateString('en-US', { 
-    year: 'numeric', 
-    month: 'long', 
-    day: 'numeric' 
-  }), margin + 30, detailsY + 24);
-
-  // Right column
-  const rightCol = pageWidth - 80;
-  doc.setFont('helvetica', 'bold');
-  doc.text('Quote No:', rightCol, detailsY + 8);
-  doc.text('Validity:', rightCol, detailsY + 16);
-
-  doc.setFont('helvetica', 'normal');
-  doc.text(quoteData.quoteNumber || 'Pending', rightCol + 25, detailsY + 8);
-  doc.text(`${quoteData.validityDays} days`, rightCol + 25, detailsY + 16);
-
-  if (quoteData.validityDate) {
-    doc.setFont('helvetica', 'bold');
-    doc.text('Valid Until:', rightCol, detailsY + 24);
-    doc.setFont('helvetica', 'normal');
-    doc.text(new Date(quoteData.validityDate).toLocaleDateString('en-US', { 
-      year: 'numeric', 
-      month: 'long', 
-      day: 'numeric' 
-    }), rightCol + 25, detailsY + 24);
-  }
-
-  // Service Items Table
-  const tableStartY = detailsY + 45;
+  doc.text('Currency', margin, yPos);
+  doc.text('Issued Date', 70, yPos);
+  doc.text('Validity Period', 130, yPos);
   
+  yPos += 4;
+  doc.setFont('helvetica', 'normal');
+  doc.text(quoteData.currency || 'LKR', margin, yPos);
+  doc.text(new Date(quoteData.issuedDate).toLocaleDateString('en-GB'), 70, yPos);
+  doc.text(`${quoteData.validityDays} days`, 130, yPos);
+  
+  yPos += 8;
+
+  // Line separator
+  doc.line(margin, yPos, pageWidth - margin, yPos);
+  yPos += 8;
+
+  // ===== SERVICE ITEMS TABLE =====
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(10);
+  doc.text('Service Items', margin, yPos);
+  yPos += 5;
+
   const tableData = lineItems.map((item, index) => {
     return [
       (index + 1).toString(),
@@ -98,130 +104,299 @@ export const generateWarehousePDF = (quoteData, lineItems, notes) => {
     ];
   });
 
-  doc.autoTable({
-    startY: tableStartY,
-    head: [['#', 'Category', 'Description', 'Remarks', 'Unit', 'Amount']],
+  // Calculate total
+  const total = lineItems.reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0);
+
+  autoTable(doc, {
+    startY: yPos,
+    head: [['#', 'Category', 'Description', 'Remarks', 'Unit', `Amount (${quoteData.currency})`]],
     body: tableData,
     theme: 'grid',
     headStyles: {
-      fillColor: [13, 148, 136],
-      textColor: [255, 255, 255],
+      fillColor: [200, 200, 200],
+      textColor: 0,
       fontStyle: 'bold',
-      fontSize: 9,
+      fontSize: 8,
       halign: 'center'
     },
     bodyStyles: {
       fontSize: 8,
-      cellPadding: 3
+      cellPadding: 2
     },
     columnStyles: {
       0: { cellWidth: 10, halign: 'center' },
-      1: { cellWidth: 25 },
-      2: { cellWidth: 60 },
-      3: { cellWidth: 40 },
+      1: { cellWidth: 28 },
+      2: { cellWidth: 55 },
+      3: { cellWidth: 35 },
       4: { cellWidth: 25 },
-      5: { cellWidth: 25, halign: 'right', fontStyle: 'bold' }
+      5: { cellWidth: 27, halign: 'right', fontStyle: 'bold' }
     },
     margin: { left: margin, right: margin },
-    didDrawPage: (data) => {
-      // Add page numbers
-      const pageCount = doc.internal.getNumberOfPages();
-      doc.setFontSize(8);
-      doc.setTextColor(100);
-      for (let i = 1; i <= pageCount; i++) {
-        doc.setPage(i);
-        doc.text(
-          `Page ${i} of ${pageCount}`,
-          pageWidth - margin - 20,
-          pageHeight - 10
-        );
+    foot: [[
+      '', '', '', '', 
+      { content: 'TOTAL:', styles: { halign: 'right', fontStyle: 'bold', fontSize: 9 } },
+      { 
+        content: total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), 
+        styles: { halign: 'right', fontStyle: 'bold', fontSize: 9, fillColor: [240, 240, 240] } 
       }
+    ]],
+    footStyles: {
+      fillColor: [240, 240, 240],
+      textColor: 0,
+      fontStyle: 'bold'
     }
   });
 
-  // Notes Section
-  let notesY = doc.lastAutoTable.finalY + 15;
-  
-  // Check if we need a new page for notes
-  if (notesY > pageHeight - 80) {
-    doc.addPage();
-    notesY = 20;
-  }
+  // Get final Y position after table
+  yPos = doc.lastAutoTable.finalY + 10;
 
-  doc.setFontSize(12);
-  doc.setFont('helvetica', 'bold');
-  doc.text('Terms & Conditions:', margin, notesY);
-  
-  notesY += 8;
-  doc.setFontSize(8);
-  doc.setFont('helvetica', 'normal');
-
-  notes.forEach((note, index) => {
-    if (note && note.trim()) {
-      // Check if we need a new page
-      if (notesY > pageHeight - 20) {
-        doc.addPage();
-        notesY = 20;
-      }
-
-      const noteLines = doc.splitTextToSize(`@ ${note}`, pageWidth - 2 * margin - 5);
-      doc.text(noteLines, margin + 3, notesY);
-      notesY += noteLines.length * 4;
+  // ===== TERMS & CONDITIONS SECTION =====
+  if (notes && notes.length > 0) {
+    // Check if we need a new page for notes
+    if (yPos > pageHeight - 80) {
+      doc.addPage();
+      yPos = 20;
     }
-  });
 
-  // Services Footer
-  notesY += 10;
-  
-  // Check if we need a new page for footer
-  if (notesY > pageHeight - 50) {
-    doc.addPage();
-    notesY = 20;
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Terms & Conditions:', margin, yPos);
+    yPos += 5;
+    
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'normal');
+
+    notes.forEach((note) => {
+      if (note && note.trim()) {
+        // Check if we need a new page
+        if (yPos > pageHeight - 25) {
+          doc.addPage();
+          yPos = 20;
+        }
+
+        const noteLines = doc.splitTextToSize(`- ${note}`, pageWidth - 2 * margin);
+        noteLines.forEach(line => {
+          doc.text(line, margin, yPos);
+          yPos += 4;
+        });
+      }
+    });
   }
 
-  doc.setFillColor(13, 148, 136);
-  doc.rect(margin, notesY, pageWidth - 2 * margin, 30, 'F');
-  
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(11);
-  doc.setFont('helvetica', 'bold');
-  doc.text('SERVICES WE OFFER', margin + 5, notesY + 8);
+  // ===== FOOTER SECTION (System Generated) =====
+  // Position footer at bottom of last page
+  const finalY = pageHeight - 15;
   
   doc.setFontSize(8);
-  doc.setFont('helvetica', 'normal');
-  const services = [
-    '*Bonded warehousing  *Cross Dock Operations  *Pick & Pack operations',
-    '*Distributions & Transportation  *Freight forwarding  *Clearing & Forwarding',
-    '*Common user warehousing  *Other Value added services'
-  ];
+  doc.setFont('helvetica', 'italic');
   
-  services.forEach((service, index) => {
-    doc.text(service, margin + 5, notesY + 15 + (index * 4));
-  });
+  // Format user information
+  const userName = userData ? `${userData.firstName || ''} ${userData.lastName || ''}`.trim() : 'System';
+  const userEmail = userData?.email ? ` (${userData.email})` : '';
+  
+  doc.text(`Quotation generated by - ${userName}${userEmail}`, margin, finalY);
+  doc.text('This is a Computer generated Document and no Signature required.', margin, finalY + 4);
 
-  // Company Contact Footer
-  doc.setFillColor(248, 250, 252);
-  doc.rect(0, pageHeight - 20, pageWidth, 20, 'F');
-  
-  doc.setTextColor(71, 85, 105);
-  doc.setFontSize(7);
-  doc.setFont('helvetica', 'normal');
-  const contactInfo = 'Scanwell Logistics | Tel: +94 11 234 5678 | Email: info@scanwell.lk | www.scanwell.lk';
-  const contactWidth = doc.getTextWidth(contactInfo);
-  doc.text(contactInfo, (pageWidth - contactWidth) / 2, pageHeight - 10);
+  // Page numbering
+  const pageCount = doc.internal.getNumberOfPages();
+  for (let i = 1; i <= pageCount; i++) {
+    doc.setPage(i);
+    doc.setFontSize(8);
+    doc.setTextColor(100);
+    doc.text(
+      `Page ${i} of ${pageCount}`,
+      pageWidth - margin - 15,
+      pageHeight - 10,
+      { align: 'right' }
+    );
+  }
 
   // Save the PDF
-  const fileName = `Warehouse_Quote_${quoteData.quoteNumber || 'Draft'}_${new Date().toISOString().split('T')[0]}.pdf`;
+  const fileName = `${quoteData.quoteNumber || 'Warehouse-Quote'}.pdf`;
   doc.save(fileName);
 };
 
 /**
  * Generate PDF and open in new window for preview
  */
-export const previewWarehousePDF = (quoteData, lineItems, notes) => {
+export const previewWarehousePDF = (quoteData, lineItems, notes, userData = null) => {
   const doc = new jsPDF();
-  // ... same generation code as above ...
+  const pageWidth = doc.internal.pageSize.width;
+  const pageHeight = doc.internal.pageSize.height;
+  const margin = 15;
+  let yPos = 15;
+
+  // Header Section
+  doc.addImage(logo, 'PNG', margin, yPos, 50, 10);
   
+  doc.setFontSize(11);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Scanwell Logistics Colombo (Pvt) Ltd.', pageWidth - margin, yPos + 2, { align: 'right' });
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  doc.text('67/1 Hudson Road Colombo 3 Sri Lanka.', pageWidth - margin, yPos + 7, { align: 'right' });
+  doc.text('Office #+94 11 2426600/4766400', pageWidth - margin, yPos + 12, { align: 'right' });
+  
+  yPos += 25;
+
+  doc.setFontSize(16);
+  doc.setFont('helvetica', 'bold');
+  doc.text('WAREHOUSE QUOTATION', pageWidth / 2, yPos, { align: 'center' });
+  
+  yPos += 12;
+
+  doc.setFontSize(11);
+  doc.setFont('helvetica', 'bold');
+  doc.text(quoteData.quoteNumber || 'N/A', margin, yPos);
+  doc.text('Warehouse Services', pageWidth - margin, yPos, { align: 'right' });
+  
+  yPos += 5;
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  
+  if (quoteData.validityDate) {
+    const validityDate = new Date(quoteData.validityDate).toLocaleDateString('en-GB');
+    doc.text(`Valid Until: ${validityDate}`, pageWidth - margin, yPos, { align: 'right' });
+  }
+  
+  yPos += 10;
+
+  doc.setFont('helvetica', 'bold');
+  doc.text('Customer', margin, yPos);
+  doc.setFont('helvetica', 'normal');
+  yPos += 4;
+  doc.text(quoteData.customerName || 'N/A', margin, yPos);
+  
+  yPos += 8;
+
+  doc.setFont('helvetica', 'bold');
+  doc.text('Currency', margin, yPos);
+  doc.text('Issued Date', 70, yPos);
+  doc.text('Validity Period', 130, yPos);
+  
+  yPos += 4;
+  doc.setFont('helvetica', 'normal');
+  doc.text(quoteData.currency || 'LKR', margin, yPos);
+  doc.text(new Date(quoteData.issuedDate).toLocaleDateString('en-GB'), 70, yPos);
+  doc.text(`${quoteData.validityDays} days`, 130, yPos);
+  
+  yPos += 8;
+  doc.line(margin, yPos, pageWidth - margin, yPos);
+  yPos += 8;
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(10);
+  doc.text('Service Items', margin, yPos);
+  yPos += 5;
+
+  const tableData = lineItems.map((item, index) => [
+    (index + 1).toString(),
+    item.category || '',
+    item.description || '',
+    item.remarks || '',
+    item.unitOfMeasurement || '',
+    parseFloat(item.amount || 0).toLocaleString('en-US', { 
+      minimumFractionDigits: 2, 
+      maximumFractionDigits: 2 
+    })
+  ]);
+
+  const total = lineItems.reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0);
+
+  autoTable(doc, {
+    startY: yPos,
+    head: [['#', 'Category', 'Description', 'Remarks', 'Unit', `Amount (${quoteData.currency})`]],
+    body: tableData,
+    theme: 'grid',
+    headStyles: {
+      fillColor: [200, 200, 200],
+      textColor: 0,
+      fontStyle: 'bold',
+      fontSize: 8,
+      halign: 'center'
+    },
+    bodyStyles: {
+      fontSize: 8,
+      cellPadding: 2
+    },
+    columnStyles: {
+      0: { cellWidth: 10, halign: 'center' },
+      1: { cellWidth: 28 },
+      2: { cellWidth: 55 },
+      3: { cellWidth: 35 },
+      4: { cellWidth: 25 },
+      5: { cellWidth: 27, halign: 'right', fontStyle: 'bold' }
+    },
+    margin: { left: margin, right: margin },
+    foot: [[
+      '', '', '', '', 
+      { content: 'TOTAL:', styles: { halign: 'right', fontStyle: 'bold', fontSize: 9 } },
+      { 
+        content: total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), 
+        styles: { halign: 'right', fontStyle: 'bold', fontSize: 9, fillColor: [240, 240, 240] } 
+      }
+    ]],
+    footStyles: {
+      fillColor: [240, 240, 240],
+      textColor: 0,
+      fontStyle: 'bold'
+    }
+  });
+
+  yPos = doc.lastAutoTable.finalY + 10;
+
+  if (notes && notes.length > 0) {
+    if (yPos > pageHeight - 80) {
+      doc.addPage();
+      yPos = 20;
+    }
+
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Terms & Conditions:', margin, yPos);
+    yPos += 5;
+    
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'normal');
+
+    notes.forEach((note) => {
+      if (note && note.trim()) {
+        if (yPos > pageHeight - 25) {
+          doc.addPage();
+          yPos = 20;
+        }
+        const noteLines = doc.splitTextToSize(`- ${note}`, pageWidth - 2 * margin);
+        noteLines.forEach(line => {
+          doc.text(line, margin, yPos);
+          yPos += 4;
+        });
+      }
+    });
+  }
+
+  const finalY = pageHeight - 15;
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'italic');
+  
+  const userName = userData ? `${userData.firstName || ''} ${userData.lastName || ''}`.trim() : 'System';
+  const userEmail = userData?.email ? ` (${userData.email})` : '';
+  
+  doc.text(`Quotation generated by - ${userName}${userEmail}`, margin, finalY);
+  doc.text('This is a Computer generated Document and no Signature required.', margin, finalY + 4);
+
+  const pageCount = doc.internal.getNumberOfPages();
+  for (let i = 1; i <= pageCount; i++) {
+    doc.setPage(i);
+    doc.setFontSize(8);
+    doc.setTextColor(100);
+    doc.text(
+      `Page ${i} of ${pageCount}`,
+      pageWidth - margin - 15,
+      pageHeight - 10,
+      { align: 'right' }
+    );
+  }
+
   // Open in new window instead of downloading
   const pdfBlob = doc.output('blob');
   const pdfUrl = URL.createObjectURL(pdfBlob);
@@ -231,9 +406,163 @@ export const previewWarehousePDF = (quoteData, lineItems, notes) => {
 /**
  * Generate PDF as blob for uploading or emailing
  */
-export const generateWarehousePDFBlob = (quoteData, lineItems, notes) => {
+export const generateWarehousePDFBlob = (quoteData, lineItems, notes, userData = null) => {
   const doc = new jsPDF();
-  // ... same generation code as above ...
+  const pageWidth = doc.internal.pageSize.width;
+  const pageHeight = doc.internal.pageSize.height;
+  const margin = 15;
+  let yPos = 15;
+
+  // Header
+  doc.addImage(logo, 'PNG', margin, yPos, 50, 10);
+  doc.setFontSize(11);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Scanwell Logistics Colombo (Pvt) Ltd.', pageWidth - margin, yPos + 2, { align: 'right' });
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  doc.text('67/1 Hudson Road Colombo 3 Sri Lanka.', pageWidth - margin, yPos + 7, { align: 'right' });
+  doc.text('Office #+94 11 2426600/4766400', pageWidth - margin, yPos + 12, { align: 'right' });
+  yPos += 25;
+
+  doc.setFontSize(16);
+  doc.setFont('helvetica', 'bold');
+  doc.text('WAREHOUSE QUOTATION', pageWidth / 2, yPos, { align: 'center' });
+  yPos += 12;
+
+  doc.setFontSize(11);
+  doc.setFont('helvetica', 'bold');
+  doc.text(quoteData.quoteNumber || 'N/A', margin, yPos);
+  doc.text('Warehouse Services', pageWidth - margin, yPos, { align: 'right' });
+  yPos += 5;
+
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  if (quoteData.validityDate) {
+    const validityDate = new Date(quoteData.validityDate).toLocaleDateString('en-GB');
+    doc.text(`Valid Until: ${validityDate}`, pageWidth - margin, yPos, { align: 'right' });
+  }
+  yPos += 10;
+
+  doc.setFont('helvetica', 'bold');
+  doc.text('Customer', margin, yPos);
+  doc.setFont('helvetica', 'normal');
+  yPos += 4;
+  doc.text(quoteData.customerName || 'N/A', margin, yPos);
+  yPos += 8;
+
+  doc.setFont('helvetica', 'bold');
+  doc.text('Currency', margin, yPos);
+  doc.text('Issued Date', 70, yPos);
+  doc.text('Validity Period', 130, yPos);
+  yPos += 4;
+
+  doc.setFont('helvetica', 'normal');
+  doc.text(quoteData.currency || 'LKR', margin, yPos);
+  doc.text(new Date(quoteData.issuedDate).toLocaleDateString('en-GB'), 70, yPos);
+  doc.text(`${quoteData.validityDays} days`, 130, yPos);
+  yPos += 8;
+
+  doc.line(margin, yPos, pageWidth - margin, yPos);
+  yPos += 8;
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(10);
+  doc.text('Service Items', margin, yPos);
+  yPos += 5;
+
+  const tableData = lineItems.map((item, index) => [
+    (index + 1).toString(),
+    item.category || '',
+    item.description || '',
+    item.remarks || '',
+    item.unitOfMeasurement || '',
+    parseFloat(item.amount || 0).toLocaleString('en-US', { 
+      minimumFractionDigits: 2, 
+      maximumFractionDigits: 2 
+    })
+  ]);
+
+  const total = lineItems.reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0);
+
+  autoTable(doc, {
+    startY: yPos,
+    head: [['#', 'Category', 'Description', 'Remarks', 'Unit', `Amount (${quoteData.currency})`]],
+    body: tableData,
+    theme: 'grid',
+    headStyles: {
+      fillColor: [200, 200, 200],
+      textColor: 0,
+      fontStyle: 'bold',
+      fontSize: 8,
+      halign: 'center'
+    },
+    bodyStyles: {
+      fontSize: 8,
+      cellPadding: 2
+    },
+    columnStyles: {
+      0: { cellWidth: 10, halign: 'center' },
+      1: { cellWidth: 28 },
+      2: { cellWidth: 55 },
+      3: { cellWidth: 35 },
+      4: { cellWidth: 25 },
+      5: { cellWidth: 27, halign: 'right', fontStyle: 'bold' }
+    },
+    margin: { left: margin, right: margin },
+    foot: [[
+      '', '', '', '', 
+      { content: 'TOTAL:', styles: { halign: 'right', fontStyle: 'bold', fontSize: 9 } },
+      { 
+        content: total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), 
+        styles: { halign: 'right', fontStyle: 'bold', fontSize: 9, fillColor: [240, 240, 240] } 
+      }
+    ]],
+    footStyles: {
+      fillColor: [240, 240, 240],
+      textColor: 0,
+      fontStyle: 'bold'
+    }
+  });
+
+  yPos = doc.lastAutoTable.finalY + 10;
+
+  if (notes && notes.length > 0) {
+    if (yPos > pageHeight - 80) {
+      doc.addPage();
+      yPos = 20;
+    }
+
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Terms & Conditions:', margin, yPos);
+    yPos += 5;
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'normal');
+
+    notes.forEach((note) => {
+      if (note && note.trim()) {
+        if (yPos > pageHeight - 25) {
+          doc.addPage();
+          yPos = 20;
+        }
+        const noteLines = doc.splitTextToSize(`- ${note}`, pageWidth - 2 * margin);
+        noteLines.forEach(line => {
+          doc.text(line, margin, yPos);
+          yPos += 4;
+        });
+      }
+    });
+  }
+
+  const finalY = pageHeight - 15;
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'italic');
   
+  const userName = userData ? `${userData.firstName || ''} ${userData.lastName || ''}`.trim() : 'System';
+  const userEmail = userData?.email ? ` (${userData.email})` : '';
+  
+  doc.text(`Quotation generated by - ${userName}${userEmail}`, margin, finalY);
+  doc.text('This is a Computer generated Document and no Signature required.', margin, finalY + 4);
+
   return doc.output('blob');
 };

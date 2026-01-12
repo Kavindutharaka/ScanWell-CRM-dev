@@ -1,13 +1,15 @@
-// QuotesInvoiceSec.jsx - MINIMAL CHANGES - Only outcome fixes
+// QuotesInvoiceSec.jsx - MINIMAL CHANGES - Only outcome fixes + Warehouse Quotes
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Search, Filter, Eye, Edit2, Trash2, Plane, Ship, Package, Container, Truck, Route as RouteIcon, Layers, MapPin, Calendar, User, DollarSign, ArrowRight, Award, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
-import { fetchQuotes, deleteQuote } from '../../api/QuoteApi';
+import { Plus, Search, Filter, Eye, Edit2, Trash2, Plane, Ship, Package, Container, Truck, Route as RouteIcon, Layers, MapPin, Calendar, User, DollarSign, ArrowRight, Award, CheckCircle, XCircle, AlertCircle, Warehouse } from 'lucide-react';
+import { fetchQuotes, deleteQuote, fetchWareQuote } from '../../api/QuoteApi';
 import { fetchOutComeById, saveQuoteOutCome } from '../../api/QuotesOutComeApi';
+import axios from 'axios';
 
 export default function QuotesInvoiceSec({ modalOpen }) {
   const navigate = useNavigate();
   const [quotes, setQuotes] = useState([]);
+  const [warehouseQuotes, setWarehouseQuotes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('all');
@@ -52,7 +54,7 @@ export default function QuotesInvoiceSec({ modalOpen }) {
         <div className="flex items-center gap-2">
           <button
             onClick={() => {
-              const quote = quotes.find(q => q.quoteId === quoteId);
+              const quote = allQuotes.find(q => q.quoteId === quoteId);
               setCurrentQuote(quote);
               setWinForm({ wonAmount: '' });
               setWinModalShow(true);
@@ -64,7 +66,7 @@ export default function QuotesInvoiceSec({ modalOpen }) {
           </button>
           <button
             onClick={() => {
-              const quote = quotes.find(q => q.quoteId === quoteId);
+              const quote = allQuotes.find(q => q.quoteId === quoteId);
               setCurrentQuote(quote);
               setLostForm({ lostReason: '', lostNote: '' });
               setLostModalShow(true);
@@ -174,6 +176,7 @@ export default function QuotesInvoiceSec({ modalOpen }) {
 
   useEffect(() => {
     loadQuotes();
+    loadWarehouseQuotes();
   }, []);
 
   const loadQuotes = async () => {
@@ -193,7 +196,45 @@ export default function QuotesInvoiceSec({ modalOpen }) {
     }
   };
 
+  // NEW: Load warehouse quotes
+  const loadWarehouseQuotes = async () => {
+    try {
+      const warehouseData = await fetchWareQuote();
+      // const warehouseData = response.data;
+      
+      // Transform warehouse quotes to match freight quote structure
+      const transformedWarehouse = warehouseData.map(wq => ({
+        quoteId: `WH-${wq.sysId}`,
+        quoteNumber: wq.quoteNumber,
+        customer: wq.customerName,
+        freightCategory: 'warehouse',
+        freightType: 'warehouse',
+        freightMode: 'storage',
+        portOfLoading: null,
+        portOfDischarge: null,
+        createdDate: wq.createdAt,
+        rateValidity: wq.validityDate,
+        status: wq.status?.toLowerCase() || 'active',
+        warehouseData: wq, // Store original warehouse data
+        isWarehouse: true
+      }));
+      
+      setWarehouseQuotes(transformedWarehouse);
+    } catch (error) {
+      console.error('Error loading warehouse quotes:', error);
+    }
+  };
+
+  // Combine all quotes
+  const allQuotes = [...quotes, ...warehouseQuotes];
+
   const handleView = (quote) => {
+    if (quote.isWarehouse) {
+      // Navigate to warehouse quote view
+      navigate(`/warehouse-quotes/${quote.warehouseData.sysId}`);
+      return;
+    }
+    
     if (quote.freightType === 'multimodal') {
       navigate(`/quotes?type=multimodal&id=${quote.quoteId}`);
     } else {
@@ -208,6 +249,12 @@ export default function QuotesInvoiceSec({ modalOpen }) {
   };
 
   const handleEdit = (quote) => {
+    if (quote.isWarehouse) {
+      // Navigate to warehouse quote edit
+      navigate(`/warehouse-quotes/${quote.warehouseData.sysId}?edit=true`);
+      return;
+    }
+    
     if (quote.freightType === 'multimodal') {
       navigate(`/quotes?type=multimodal&id=${quote.quoteId}&edit=true`);
     } else {
@@ -226,15 +273,25 @@ export default function QuotesInvoiceSec({ modalOpen }) {
     setDeleteModal({
       show: true,
       quoteId: quote.quoteId,
-      quoteNumber: quote.quoteNumber
+      quoteNumber: quote.quoteNumber,
+      isWarehouse: quote.isWarehouse || false
     });
   };
 
   const handleDelete = async () => {
     try {
-      await deleteQuote(deleteModal.quoteId);
-      setDeleteModal({ show: false, quoteId: null, quoteNumber: '' });
-      loadQuotes();
+      if (deleteModal.isWarehouse) {
+        // Delete warehouse quote
+        const warehouseId = deleteModal.quoteId.replace('WH-', '');
+        await axios.delete(`/api/WarehouseQuotes/${warehouseId}`);
+        loadWarehouseQuotes();
+      } else {
+        // Delete freight quote
+        await deleteQuote(deleteModal.quoteId);
+        loadQuotes();
+      }
+      
+      setDeleteModal({ show: false, quoteId: null, quoteNumber: '', isWarehouse: false });
       alert('Quote deleted successfully!');
     } catch (error) {
       console.error('Error deleting quote:', error);
@@ -243,6 +300,7 @@ export default function QuotesInvoiceSec({ modalOpen }) {
   };
 
   const getFreightIcon = (category, mode) => {
+    if (category === 'warehouse') return { icon: Warehouse, color: 'text-amber-600', bg: 'bg-amber-50', badge: 'bg-amber-100 text-amber-800' };
     if (category === 'air' && mode === 'import') return { icon: Plane, color: 'text-sky-600', bg: 'bg-sky-50', badge: 'bg-sky-100 text-sky-800' };
     if (category === 'air' && mode === 'export') return { icon: Plane, color: 'text-blue-600', bg: 'bg-blue-50', badge: 'bg-blue-100 text-blue-800' };
     if (category === 'sea' && (mode === 'import' || mode === 'fcl' || mode === 'lcl')) return { icon: Container, color: 'text-teal-600', bg: 'bg-teal-50', badge: 'bg-teal-100 text-teal-800' };
@@ -252,6 +310,7 @@ export default function QuotesInvoiceSec({ modalOpen }) {
   };
 
   const getTypeIcon = (type) => {
+    if (type === 'warehouse') return { icon: Warehouse, color: 'text-amber-600', badge: 'bg-amber-100 text-amber-800' };
     if (type === 'direct') return { icon: RouteIcon, color: 'text-green-600', badge: 'bg-green-100 text-green-800' };
     if (type === 'transit') return { icon: Layers, color: 'text-orange-600', badge: 'bg-orange-100 text-orange-800' };
     if (type === 'multimodal') return { icon: Truck, color: 'text-purple-600', badge: 'bg-purple-100 text-purple-800' };
@@ -263,7 +322,8 @@ export default function QuotesInvoiceSec({ modalOpen }) {
       draft: { bg: 'bg-gray-100', text: 'text-gray-800', label: 'Draft' },
       pending: { bg: 'bg-yellow-100', text: 'text-yellow-800', label: 'Pending' },
       approved: { bg: 'bg-green-100', text: 'text-green-800', label: 'Approved' },
-      rejected: { bg: 'bg-red-100', text: 'text-red-800', label: 'Rejected' }
+      rejected: { bg: 'bg-red-100', text: 'text-red-800', label: 'Rejected' },
+      active: { bg: 'bg-green-100', text: 'text-green-800', label: 'Active' }
     };
     const config = statusConfig[status] || statusConfig.draft;
     return (
@@ -318,10 +378,17 @@ export default function QuotesInvoiceSec({ modalOpen }) {
     }
   };
 
-  // Updated to calculate total across all segments for multimodal
+  // Updated to calculate total across all segments for multimodal and warehouse
   const calculateTotalAmount = (quote) => {
     try {
       let total = 0;
+
+      // Warehouse quote calculation
+      if (quote.isWarehouse && quote.warehouseData) {
+        const lineItems = quote.warehouseData.lineItems || [];
+        total = lineItems.reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0);
+        return total.toFixed(2);
+      }
 
       if (quote.freightType === 'multimodal' && quote.routes) {
         const routeOptions = JSON.parse(quote.routes);
@@ -394,7 +461,7 @@ export default function QuotesInvoiceSec({ modalOpen }) {
     }
   };
 
-  const filteredQuotes = quotes.filter(quote => {
+  const filteredQuotes = allQuotes.filter(quote => {
     const matchesSearch = quote.quoteNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       quote.customer?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesTypeFilter = filterType === 'all' || quote.freightType === filterType;
@@ -443,6 +510,7 @@ export default function QuotesInvoiceSec({ modalOpen }) {
               <option value="air">Air</option>
               <option value="sea">Sea</option>
               <option value="multimodal">MultiModal</option>
+              <option value="warehouse">Warehouse</option>
             </select>
             <select
               value={filterType}
@@ -453,18 +521,19 @@ export default function QuotesInvoiceSec({ modalOpen }) {
               <option value="direct">Direct</option>
               <option value="transit">Transit</option>
               <option value="multimodal">MultiModal</option>
+              <option value="warehouse">Warehouse</option>
             </select>
           </div>
         </div>
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600">Total Quotes</p>
-              <p className="text-2xl font-bold text-gray-800">{quotes.length}</p>
+              <p className="text-2xl font-bold text-gray-800">{allQuotes.length}</p>
             </div>
             <div className="w-12 h-12 bg-teal-50 rounded-lg flex items-center justify-center">
               <Package className="text-teal-600" size={24} />
@@ -476,7 +545,7 @@ export default function QuotesInvoiceSec({ modalOpen }) {
             <div>
               <p className="text-sm text-gray-600">Air Freight</p>
               <p className="text-2xl font-bold text-gray-800">
-                {quotes.filter(q => q.freightCategory === 'air').length}
+                {allQuotes.filter(q => q.freightCategory === 'air').length}
               </p>
             </div>
             <div className="w-12 h-12 bg-blue-50 rounded-lg flex items-center justify-center">
@@ -489,7 +558,7 @@ export default function QuotesInvoiceSec({ modalOpen }) {
             <div>
               <p className="text-sm text-gray-600">Sea Freight</p>
               <p className="text-2xl font-bold text-gray-800">
-                {quotes.filter(q => q.freightCategory === 'sea').length}
+                {allQuotes.filter(q => q.freightCategory === 'sea').length}
               </p>
             </div>
             <div className="w-12 h-12 bg-teal-50 rounded-lg flex items-center justify-center">
@@ -502,11 +571,24 @@ export default function QuotesInvoiceSec({ modalOpen }) {
             <div>
               <p className="text-sm text-gray-600">MultiModal</p>
               <p className="text-2xl font-bold text-gray-800">
-                {quotes.filter(q => q.freightCategory === 'multimodal').length}
+                {allQuotes.filter(q => q.freightCategory === 'multimodal').length}
               </p>
             </div>
             <div className="w-12 h-12 bg-purple-50 rounded-lg flex items-center justify-center">
               <Truck className="text-purple-600" size={24} />
+            </div>
+          </div>
+        </div>
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-600">Warehouse</p>
+              <p className="text-2xl font-bold text-gray-800">
+                {allQuotes.filter(q => q.freightCategory === 'warehouse').length}
+              </p>
+            </div>
+            <div className="w-12 h-12 bg-amber-50 rounded-lg flex items-center justify-center">
+              <Warehouse className="text-amber-600" size={24} />
             </div>
           </div>
         </div>
@@ -591,7 +673,7 @@ export default function QuotesInvoiceSec({ modalOpen }) {
                               <div className="font-semibold text-gray-900">{quote.quoteNumber}</div>
                               <div className="flex items-center gap-2 mt-1">
                                 <TypeIconComponent size={14} className={typeIcon.color} />
-                                <span className={`text-xs px-2 py-0.5 rounded-full ${typeIcon.badge}`}>
+                                <span className={`text-xs px-2 py-0.5 rounded-full ${typeIcon.badge} capitalize`}>
                                   {quote.freightType}
                                 </span>
                               </div>
@@ -613,7 +695,9 @@ export default function QuotesInvoiceSec({ modalOpen }) {
                           </div>
                         </td>
                         <td className="px-6 py-4">
-                          {quote.freightType === 'multimodal' ? (
+                          {quote.isWarehouse ? (
+                            <span className="text-xs text-gray-500 italic">Warehouse Services</span>
+                          ) : quote.freightType === 'multimodal' ? (
                             <div className="max-w-xs">
                               {getMultiModalRouteDisplay(quote)}
                             </div>
@@ -653,39 +737,37 @@ export default function QuotesInvoiceSec({ modalOpen }) {
                           </div>
                         </td>
                         <td className="px-6 py-4">
-                          <div className="flex items-center gap-2">
-                            <DollarSign size={14} className="text-green-600" />
-                            <span className="font-semibold text-gray-900">
-                              {calculateTotalAmount(quote)}
-                            </span>
+                          <div className="flex items-center gap-1 font-semibold text-gray-900">
+                            <DollarSign size={16} className="text-green-600" />
+                            {calculateTotalAmount(quote)}
                           </div>
                         </td>
                         <td className="px-6 py-4">
                           {getStatusBadge(quote.status)}
                         </td>
                         <td className="px-6 py-4">
-                          {getOutcomeBadge(quote.quoteId)}
+                          {!quote.isWarehouse && getOutcomeBadge(quote.quoteId)}
                         </td>
                         <td className="px-6 py-4">
                           <div className="flex items-center justify-end gap-2">
-                            {/* <button
+                            <button
                               onClick={() => handleView(quote)}
-                              className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                              title="View Quote"
+                              className="p-2 text-teal-600 hover:bg-teal-50 rounded-lg transition-colors"
+                              title="View"
                             >
                               <Eye size={18} />
-                            </button> */}
+                            </button>
                             <button
                               onClick={() => handleEdit(quote)}
-                              className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
-                              title="Edit Quote"
+                              className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                              title="Edit"
                             >
                               <Edit2 size={18} />
                             </button>
                             <button
                               onClick={() => confirmDelete(quote)}
                               className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                              title="Delete Quote"
+                              title="Delete"
                             >
                               <Trash2 size={18} />
                             </button>
@@ -699,8 +781,8 @@ export default function QuotesInvoiceSec({ modalOpen }) {
             </div>
           </div>
 
-          {/* Mobile/Tablet Card View */}
-          <div className="lg:hidden space-y-4">
+          {/* Mobile Card View */}
+          <div className="lg:hidden grid grid-cols-1 md:grid-cols-2 gap-4">
             {filteredQuotes.map((quote) => {
               const freightIcon = getFreightIcon(quote.freightCategory, quote.freightMode);
               const typeIcon = getTypeIcon(quote.freightType);
@@ -708,19 +790,17 @@ export default function QuotesInvoiceSec({ modalOpen }) {
               const TypeIconComponent = typeIcon.icon;
 
               return (
-                <div key={quote.quoteId} className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+                <div key={quote.quoteId} className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 hover:shadow-md transition-shadow">
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex items-center gap-3">
-                      <div className={`w-10 h-10 rounded-lg ${freightIcon.bg} ${freightIcon.color} flex items-center justify-center`}>
-                        <FreightIconComponent size={20} />
+                      <div className={`w-12 h-12 rounded-lg ${freightIcon.bg} ${freightIcon.color} flex items-center justify-center flex-shrink-0`}>
+                        <FreightIconComponent size={24} />
                       </div>
                       <div>
                         <div className="font-semibold text-gray-900">{quote.quoteNumber}</div>
                         <div className="flex items-center gap-2 mt-1">
-                          <span className={`text-xs px-2 py-0.5 rounded-full ${freightIcon.badge} capitalize`}>
-                            {quote.freightCategory}
-                          </span>
-                          <span className={`text-xs px-2 py-0.5 rounded-full ${typeIcon.badge}`}>
+                          <TypeIconComponent size={12} className={typeIcon.color} />
+                          <span className={`text-xs px-2 py-0.5 rounded-full ${typeIcon.badge} capitalize`}>
                             {quote.freightType}
                           </span>
                         </div>
@@ -734,17 +814,24 @@ export default function QuotesInvoiceSec({ modalOpen }) {
                       <User size={14} className="text-gray-400" />
                       <span className="text-gray-700">{quote.customer || '-'}</span>
                     </div>
-                    {quote.freightType === 'multimodal' ? (
-                      getMultiModalRouteDisplay(quote)
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${freightIcon.badge} capitalize`}>
+                      {quote.freightCategory} - {quote.freightMode}
+                    </span>
+                    {quote.isWarehouse ? (
+                      <span className="block text-xs text-gray-500 italic mt-2">Warehouse Services</span>
+                    ) : quote.freightType === 'multimodal' ? (
+                      <div className="mt-2">
+                        {getMultiModalRouteDisplay(quote)}
+                      </div>
                     ) : (
                       <>
-                        <div className="flex items-center gap-2 text-sm">
+                        <div className="flex items-center gap-2 text-sm text-gray-700">
                           <MapPin size={14} className="text-green-500" />
-                          <span className="text-gray-600">{quote.portOfLoading || '-'}</span>
+                          <span className="truncate">{quote.portOfLoading || '-'}</span>
                         </div>
-                        <div className="flex items-center gap-2 text-sm">
+                        <div className="flex items-center gap-2 text-sm text-gray-700">
                           <MapPin size={14} className="text-red-500" />
-                          <span className="text-gray-600">{quote.portOfDischarge || '-'}</span>
+                          <span className="truncate">{quote.portOfDischarge || '-'}</span>
                         </div>
                       </>
                     )}
@@ -767,7 +854,7 @@ export default function QuotesInvoiceSec({ modalOpen }) {
                   </div>
 
                   <div className="border-t border-gray-200 pt-3">
-                    {getOutcomeBadge(quote.quoteId)}
+                    {!quote.isWarehouse && getOutcomeBadge(quote.quoteId)}
                   </div>
 
                   <div className="flex items-center gap-2 pt-3 border-t border-gray-100 mt-3">
@@ -813,7 +900,7 @@ export default function QuotesInvoiceSec({ modalOpen }) {
 
             <div className="flex gap-3">
               <button
-                onClick={() => setDeleteModal({ show: false, quoteId: null, quoteNumber: '' })}
+                onClick={() => setDeleteModal({ show: false, quoteId: null, quoteNumber: '', isWarehouse: false })}
                 className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
               >
                 Cancel

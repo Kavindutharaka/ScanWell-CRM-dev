@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
 using System.Data;
+using System.Text.Json;
 
 namespace back_end.Controllers
 {
@@ -51,7 +52,7 @@ namespace back_end.Controllers
 
                 var quotes = new List<object>();
                 using var reader = await command.ExecuteReaderAsync();
-                
+
                 while (await reader.ReadAsync())
                 {
                     quotes.Add(new
@@ -81,6 +82,8 @@ namespace back_end.Controllers
         }
 
         // GET: api/warehouse-quotes/{id}
+        // GET: api/warehouse-quotes/{id}
+        // GET: api/warehouse-quotes/{id}
         [HttpGet("{id}")]
         public async Task<IActionResult> GetWarehouseQuote(int id)
         {
@@ -89,116 +92,70 @@ namespace back_end.Controllers
                 using var connection = new SqlConnection(_connectionString);
                 await connection.OpenAsync();
 
-                // Get main quote data
-                var quoteQuery = @"
-                    SELECT 
-                        wq.SysID,
-                        wq.QuoteNumber,
-                        wq.CustomerId,
-                        wq.CustomerName,
-                        wq.Currency,
-                        wq.IssuedDate,
-                        wq.ValidityDays,
-                        wq.ValidityDate,
-                        wq.Status,
-                        wq.CreatedBy,
-                        wq.CreatedAt,
-                        wq.UpdatedAt
-                    FROM WarehouseQuotes wq
-                    WHERE wq.SysID = @QuoteId";
+                var query = @"
+            SELECT 
+                wq.SysID,
+                wq.QuoteNumber,
+                wq.CustomerId,
+                wq.CustomerName,
+                wq.Currency,
+                wq.IssuedDate,
+                wq.ValidityDays,
+                wq.ValidityDate,
+                wq.Status,
+                wq.LineItemsJson,
+                wq.NotesJson,
+                wq.CreatedBy,
+                wq.CreatedAt,
+                wq.UpdatedAt
+            FROM WarehouseQuotes wq
+            WHERE wq.SysID = @QuoteId";
 
-                using var quoteCommand = new SqlCommand(quoteQuery, connection);
-                quoteCommand.Parameters.AddWithValue("@QuoteId", id);
+                using var command = new SqlCommand(query, connection);
+                command.Parameters.AddWithValue("@QuoteId", id);
 
-                object quoteData = null;
-                using (var reader = await quoteCommand.ExecuteReaderAsync())
-                {
-                    if (await reader.ReadAsync())
-                    {
-                        quoteData = new
-                        {
-                            sysId = reader["SysID"],
-                            quoteNumber = reader["QuoteNumber"],
-                            customerId = reader["CustomerId"],
-                            customerName = reader["CustomerName"],
-                            currency = reader["Currency"],
-                            issuedDate = reader["IssuedDate"],
-                            validityDays = reader["ValidityDays"],
-                            validityDate = reader["ValidityDate"],
-                            status = reader["Status"],
-                            createdBy = reader["CreatedBy"],
-                            createdAt = reader["CreatedAt"],
-                            updatedAt = reader["UpdatedAt"]
-                        };
-                    }
-                }
+                using var reader = await command.ExecuteReaderAsync();
 
-                if (quoteData == null)
+                if (!await reader.ReadAsync())
                 {
                     return NotFound(new { message = "Warehouse quote not found" });
                 }
 
-                // Get line items
-                var lineItemsQuery = @"
-                    SELECT 
-                        SysID,
-                        ItemSequence,
-                        Category,
-                        Description,
-                        Remarks,
-                        UnitOfMeasurement,
-                        Amount
-                    FROM WarehouseQuoteLineItems
-                    WHERE WarehouseQuoteId = @QuoteId
-                    ORDER BY ItemSequence";
-
-                var lineItems = new List<object>();
-                using var lineItemsCommand = new SqlCommand(lineItemsQuery, connection);
-                lineItemsCommand.Parameters.AddWithValue("@QuoteId", id);
-
-                using (var reader = await lineItemsCommand.ExecuteReaderAsync())
+                // Deserialize JSON strings to objects WITH CASE-INSENSITIVE OPTION
+                var jsonOptions = new JsonSerializerOptions
                 {
-                    while (await reader.ReadAsync())
-                    {
-                        lineItems.Add(new
-                        {
-                            id = reader["SysID"],
-                            category = reader["Category"],
-                            description = reader["Description"],
-                            remarks = reader["Remarks"] == DBNull.Value ? null : reader["Remarks"],
-                            unitOfMeasurement = reader["UnitOfMeasurement"] == DBNull.Value ? null : reader["UnitOfMeasurement"],
-                            amount = reader["Amount"]
-                        });
-                    }
-                }
+                    PropertyNameCaseInsensitive = true
+                };
 
-                // Get notes
-                var notesQuery = @"
-                    SELECT 
-                        SysID,
-                        NoteSequence,
-                        NoteText
-                    FROM WarehouseQuoteNotes
-                    WHERE WarehouseQuoteId = @QuoteId
-                    ORDER BY NoteSequence";
+                var lineItemsJson = reader["LineItemsJson"] == DBNull.Value ? "[]" : reader["LineItemsJson"].ToString();
+                var notesJson = reader["NotesJson"] == DBNull.Value ? "[]" : reader["NotesJson"].ToString();
 
-                var notes = new List<string>();
-                using var notesCommand = new SqlCommand(notesQuery, connection);
-                notesCommand.Parameters.AddWithValue("@QuoteId", id);
-
-                using (var reader = await notesCommand.ExecuteReaderAsync())
-                {
-                    while (await reader.ReadAsync())
-                    {
-                        notes.Add(reader["NoteText"].ToString());
-                    }
-                }
+                var lineItems = JsonSerializer.Deserialize<List<LineItemResponse>>(lineItemsJson, jsonOptions);
+                var notes = JsonSerializer.Deserialize<List<NoteResponse>>(notesJson, jsonOptions);
 
                 var result = new
                 {
-                    quote = quoteData,
-                    lineItems = lineItems,
-                    notes = notes
+                    sysId = reader["SysID"],
+                    quoteNumber = reader["QuoteNumber"],
+                    customerId = reader["CustomerId"],
+                    customerName = reader["CustomerName"],
+                    currency = reader["Currency"],
+                    issuedDate = reader["IssuedDate"],
+                    validityDays = reader["ValidityDays"],
+                    validityDate = reader["ValidityDate"],
+                    status = reader["Status"],
+                    lineItems = lineItems?.Select(item => new
+                    {
+                        category = item.Category,
+                        description = item.Description,
+                        remarks = item.Remarks,
+                        unitOfMeasurement = item.UnitOfMeasurement,
+                        amount = item.Amount
+                    }),
+                    notes = notes?.Select(n => n.Value).ToList() ?? new List<string>(),
+                    createdBy = reader["CreatedBy"],
+                    createdAt = reader["CreatedAt"],
+                    updatedAt = reader["UpdatedAt"]
                 };
 
                 return Ok(result);
@@ -223,92 +180,46 @@ namespace back_end.Controllers
 
                 try
                 {
-                    // Insert main quote
-                    var insertQuoteQuery = @"
+                    // Serialize line items and notes to JSON
+                    var lineItemsJson = request.LineItems != null && request.LineItems.Any()
+                        ? JsonSerializer.Serialize(request.LineItems)
+                        : "[]";
+
+                    var notesJson = request.Notes != null && request.Notes.Any()
+                        ? JsonSerializer.Serialize(request.Notes.Select(n => new { value = n }))
+                        : "[]";
+
+                    // Insert main quote with JSON data
+                    var insertQuery = @"
                         INSERT INTO WarehouseQuotes (
-                            CustomerId, CustomerName, Currency, IssuedDate, 
-                            ValidityDays, ValidityDate, Status, CreatedBy
+                            CustomerId, CustomerName, Currency, IssuedDate, ValidityDays,
+                            LineItemsJson, NotesJson, Status, CreatedBy, CreatedAt, UpdatedAt
                         )
-                        OUTPUT INSERTED.SysID
                         VALUES (
-                            @CustomerId, @CustomerName, @Currency, @IssuedDate,
-                            @ValidityDays, @ValidityDate, 'Draft', @CreatedBy
-                        )";
+                            @CustomerId, @CustomerName, @Currency, @IssuedDate, @ValidityDays,
+                            @LineItemsJson, @NotesJson, 'Active', @CreatedBy, GETDATE(), GETDATE()
+                        );
+                        SELECT SCOPE_IDENTITY();";
 
                     int quoteId;
-                    using (var command = new SqlCommand(insertQuoteQuery, connection, transaction))
+                    using (var command = new SqlCommand(insertQuery, connection, transaction))
                     {
-                        command.Parameters.AddWithValue("@CustomerId", request.CustomerId);
+                        command.Parameters.AddWithValue("@CustomerId", string.IsNullOrEmpty(request.CustomerId) ? (object)DBNull.Value : request.CustomerId);
                         command.Parameters.AddWithValue("@CustomerName", request.CustomerName ?? (object)DBNull.Value);
                         command.Parameters.AddWithValue("@Currency", request.Currency);
-                        command.Parameters.AddWithValue("@IssuedDate", request.IssuedDate);
-                        command.Parameters.AddWithValue("@ValidityDays", request.ValidityDays);
-                        command.Parameters.AddWithValue("@ValidityDate", request.ValidityDate ?? (object)DBNull.Value);
-                        command.Parameters.AddWithValue("@CreatedBy", "System"); // Replace with actual user
+                        command.Parameters.AddWithValue("@IssuedDate", request.IssuedDate ?? DateTime.Now);
+                        command.Parameters.AddWithValue("@ValidityDays", request.ValidityDays ?? 30);
+                        command.Parameters.AddWithValue("@LineItemsJson", lineItemsJson);
+                        command.Parameters.AddWithValue("@NotesJson", notesJson);
+                        command.Parameters.AddWithValue("@CreatedBy", "System");
 
-                        quoteId = (int)await command.ExecuteScalarAsync();
-                    }
-
-                    // Insert line items
-                    if (request.LineItems != null && request.LineItems.Any())
-                    {
-                        var insertLineItemQuery = @"
-                            INSERT INTO WarehouseQuoteLineItems (
-                                WarehouseQuoteId, ItemSequence, Category, Description,
-                                Remarks, UnitOfMeasurement, Amount
-                            )
-                            VALUES (
-                                @WarehouseQuoteId, @ItemSequence, @Category, @Description,
-                                @Remarks, @UnitOfMeasurement, @Amount
-                            )";
-
-                        for (int i = 0; i < request.LineItems.Count; i++)
-                        {
-                            var item = request.LineItems[i];
-                            using var command = new SqlCommand(insertLineItemQuery, connection, transaction);
-                            command.Parameters.AddWithValue("@WarehouseQuoteId", quoteId);
-                            command.Parameters.AddWithValue("@ItemSequence", i + 1);
-                            command.Parameters.AddWithValue("@Category", item.Category ?? (object)DBNull.Value);
-                            command.Parameters.AddWithValue("@Description", item.Description);
-                            command.Parameters.AddWithValue("@Remarks", item.Remarks ?? (object)DBNull.Value);
-                            command.Parameters.AddWithValue("@UnitOfMeasurement", item.UnitOfMeasurement ?? (object)DBNull.Value);
-                            command.Parameters.AddWithValue("@Amount", item.Amount);
-
-                            await command.ExecuteNonQueryAsync();
-                        }
-                    }
-
-                    // Insert notes
-                    if (request.Notes != null && request.Notes.Any())
-                    {
-                        var insertNoteQuery = @"
-                            INSERT INTO WarehouseQuoteNotes (
-                                WarehouseQuoteId, NoteSequence, NoteText
-                            )
-                            VALUES (
-                                @WarehouseQuoteId, @NoteSequence, @NoteText
-                            )";
-
-                        for (int i = 0; i < request.Notes.Count; i++)
-                        {
-                            if (!string.IsNullOrWhiteSpace(request.Notes[i]))
-                            {
-                                using var command = new SqlCommand(insertNoteQuery, connection, transaction);
-                                command.Parameters.AddWithValue("@WarehouseQuoteId", quoteId);
-                                command.Parameters.AddWithValue("@NoteSequence", i + 1);
-                                command.Parameters.AddWithValue("@NoteText", request.Notes[i]);
-
-                                await command.ExecuteNonQueryAsync();
-                            }
-                        }
+                        var result = await command.ExecuteScalarAsync();
+                        quoteId = Convert.ToInt32(result);
                     }
 
                     transaction.Commit();
 
-                    return Ok(new { 
-                        message = "Warehouse quote created successfully", 
-                        quoteId = quoteId 
-                    });
+                    return Ok(new { message = "Warehouse quote created successfully", quoteId });
                 }
                 catch
                 {
@@ -336,96 +247,40 @@ namespace back_end.Controllers
 
                 try
                 {
-                    // Update main quote
-                    var updateQuoteQuery = @"
+                    // Serialize line items and notes to JSON
+                    var lineItemsJson = request.LineItems != null && request.LineItems.Any()
+                        ? JsonSerializer.Serialize(request.LineItems)
+                        : "[]";
+
+                    var notesJson = request.Notes != null && request.Notes.Any()
+                        ? JsonSerializer.Serialize(request.Notes.Select(n => new { value = n }))
+                        : "[]";
+
+                    // Update main quote with JSON data
+                    var updateQuery = @"
                         UPDATE WarehouseQuotes
                         SET CustomerId = @CustomerId,
                             CustomerName = @CustomerName,
                             Currency = @Currency,
                             IssuedDate = @IssuedDate,
                             ValidityDays = @ValidityDays,
-                            ValidityDate = @ValidityDate,
+                            LineItemsJson = @LineItemsJson,
+                            NotesJson = @NotesJson,
                             UpdatedAt = GETDATE()
                         WHERE SysID = @QuoteId";
 
-                    using (var command = new SqlCommand(updateQuoteQuery, connection, transaction))
+                    using (var command = new SqlCommand(updateQuery, connection, transaction))
                     {
                         command.Parameters.AddWithValue("@QuoteId", id);
-                        command.Parameters.AddWithValue("@CustomerId", request.CustomerId);
+                        command.Parameters.AddWithValue("@CustomerId", string.IsNullOrEmpty(request.CustomerId) ? (object)DBNull.Value : request.CustomerId);
                         command.Parameters.AddWithValue("@CustomerName", request.CustomerName ?? (object)DBNull.Value);
                         command.Parameters.AddWithValue("@Currency", request.Currency);
                         command.Parameters.AddWithValue("@IssuedDate", request.IssuedDate);
                         command.Parameters.AddWithValue("@ValidityDays", request.ValidityDays);
-                        command.Parameters.AddWithValue("@ValidityDate", request.ValidityDate ?? (object)DBNull.Value);
+                        command.Parameters.AddWithValue("@LineItemsJson", lineItemsJson);
+                        command.Parameters.AddWithValue("@NotesJson", notesJson);
 
                         await command.ExecuteNonQueryAsync();
-                    }
-
-                    // Delete existing line items and notes
-                    using (var command = new SqlCommand("DELETE FROM WarehouseQuoteLineItems WHERE WarehouseQuoteId = @QuoteId", connection, transaction))
-                    {
-                        command.Parameters.AddWithValue("@QuoteId", id);
-                        await command.ExecuteNonQueryAsync();
-                    }
-
-                    using (var command = new SqlCommand("DELETE FROM WarehouseQuoteNotes WHERE WarehouseQuoteId = @QuoteId", connection, transaction))
-                    {
-                        command.Parameters.AddWithValue("@QuoteId", id);
-                        await command.ExecuteNonQueryAsync();
-                    }
-
-                    // Insert new line items
-                    if (request.LineItems != null && request.LineItems.Any())
-                    {
-                        var insertLineItemQuery = @"
-                            INSERT INTO WarehouseQuoteLineItems (
-                                WarehouseQuoteId, ItemSequence, Category, Description,
-                                Remarks, UnitOfMeasurement, Amount
-                            )
-                            VALUES (
-                                @WarehouseQuoteId, @ItemSequence, @Category, @Description,
-                                @Remarks, @UnitOfMeasurement, @Amount
-                            )";
-
-                        for (int i = 0; i < request.LineItems.Count; i++)
-                        {
-                            var item = request.LineItems[i];
-                            using var command = new SqlCommand(insertLineItemQuery, connection, transaction);
-                            command.Parameters.AddWithValue("@WarehouseQuoteId", id);
-                            command.Parameters.AddWithValue("@ItemSequence", i + 1);
-                            command.Parameters.AddWithValue("@Category", item.Category ?? (object)DBNull.Value);
-                            command.Parameters.AddWithValue("@Description", item.Description);
-                            command.Parameters.AddWithValue("@Remarks", item.Remarks ?? (object)DBNull.Value);
-                            command.Parameters.AddWithValue("@UnitOfMeasurement", item.UnitOfMeasurement ?? (object)DBNull.Value);
-                            command.Parameters.AddWithValue("@Amount", item.Amount);
-
-                            await command.ExecuteNonQueryAsync();
-                        }
-                    }
-
-                    // Insert new notes
-                    if (request.Notes != null && request.Notes.Any())
-                    {
-                        var insertNoteQuery = @"
-                            INSERT INTO WarehouseQuoteNotes (
-                                WarehouseQuoteId, NoteSequence, NoteText
-                            )
-                            VALUES (
-                                @WarehouseQuoteId, @NoteSequence, @NoteText
-                            )";
-
-                        for (int i = 0; i < request.Notes.Count; i++)
-                        {
-                            if (!string.IsNullOrWhiteSpace(request.Notes[i]))
-                            {
-                                using var command = new SqlCommand(insertNoteQuery, connection, transaction);
-                                command.Parameters.AddWithValue("@WarehouseQuoteId", id);
-                                command.Parameters.AddWithValue("@NoteSequence", i + 1);
-                                command.Parameters.AddWithValue("@NoteText", request.Notes[i]);
-
-                                await command.ExecuteNonQueryAsync();
-                            }
-                        }
                     }
 
                     transaction.Commit();
@@ -455,7 +310,7 @@ namespace back_end.Controllers
                 await connection.OpenAsync();
 
                 var query = "DELETE FROM WarehouseQuotes WHERE SysID = @QuoteId";
-                
+
                 using var command = new SqlCommand(query, connection);
                 command.Parameters.AddWithValue("@QuoteId", id);
 
@@ -513,12 +368,12 @@ namespace back_end.Controllers
     // Request models
     public class WarehouseQuoteRequest
     {
-        public string CustomerId { get; set; } = null!;          // Changed to string to match table NVARCHAR(128)
+        public string? CustomerId { get; set; } = null!;
         public string? CustomerName { get; set; }
-        public string Currency { get; set; } = "LKR";
-        public DateTime IssuedDate { get; set; }
-        public int ValidityDays { get; set; } = 30;
-        public DateTime? ValidityDate { get; set; }              // Kept for client convenience but IGNORED in INSERT/UPDATE (computed column)
+        public string? Currency { get; set; } = "LKR";
+        public DateTime? IssuedDate { get; set; }
+        public int? ValidityDays { get; set; } = 30;
+        public DateTime? ValidityDate { get; set; }              // Ignored on save – computed in DB
         public List<LineItemRequest>? LineItems { get; set; }
         public List<string>? Notes { get; set; }
     }
@@ -526,14 +381,29 @@ namespace back_end.Controllers
     public class LineItemRequest
     {
         public string? Category { get; set; }
-        public string Description { get; set; } = null!;
+        public string? Description { get; set; } = null!;
         public string? Remarks { get; set; }
         public string? UnitOfMeasurement { get; set; }
-        public decimal Amount { get; set; }
+        public decimal? Amount { get; set; }
     }
 
     public class UpdateStatusRequest
     {
-        public string Status { get; set; } = null!;
+        public string? Status { get; set; } = null!;
+    }
+
+    // Response models for deserialization
+    public class LineItemResponse
+    {
+        public string? Category { get; set; }
+        public string? Description { get; set; }
+        public string? Remarks { get; set; }
+        public string? UnitOfMeasurement { get; set; }
+        public decimal? Amount { get; set; }
+    }
+
+    public class NoteResponse
+    {
+        public string? Value { get; set; }
     }
 }

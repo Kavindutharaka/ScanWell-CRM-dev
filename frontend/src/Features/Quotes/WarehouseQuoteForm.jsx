@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from "react";
-import { 
-  Plus, 
-  Trash2, 
-  Save, 
-  FileText, 
-  Warehouse, 
+import {
+  Plus,
+  Trash2,
+  Save,
+  FileText,
+  Warehouse,
   Calendar,
   DollarSign,
   Building2,
@@ -13,12 +13,29 @@ import {
 } from "lucide-react";
 import axios from "axios";
 import { createWareQuote } from "../../api/QuoteApi";
+import AutocompleteInput from "./components/AutocompleteInput";
+import { fetchAccountNames } from "../../api/AccountApi";
+import { useNavigate } from 'react-router-dom';
 
-export default function WarehouseQuoteForm() {
+export default function WarehouseQuoteForm({ disabled = false }) {
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [customers, setCustomers] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
+  const [accountNames, setAccountNames] = useState([]);
+  const updateField = (field, value) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  useEffect(() => {
+    const loadAccountNames = async () => {
+      const names = await fetchAccountNames();
+      // console.log('Fetched Account Names:', names);
+      setAccountNames(names);
+    };
+    loadAccountNames();
+  }, []);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -27,7 +44,7 @@ export default function WarehouseQuoteForm() {
     currency: "LKR",
     issuedDate: new Date().toISOString().split('T')[0],
     validityDays: 30,
-    validityDate: "",
+    // validityDate: "",
     lineItems: [
       {
         id: Date.now(),
@@ -154,9 +171,9 @@ export default function WarehouseQuoteForm() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     //Validation
-    if (!formData.customerId) {
+    if (!formData.customerName) {
       alert("Please select a customer");
       return;
     }
@@ -170,18 +187,30 @@ export default function WarehouseQuoteForm() {
 
     console.log("this is form data: ", formData);
     try {
-      const response = await createWareQuote(formData);
+      const data = await createWareQuote(formData);  // 'data' is the parsed object from backend
 
-      if (response.ok) {
-        alert("Warehouse quote created successfully!");
-        // Reset form or navigate away
-      } else {
-        const error = await response.json();
-        alert(`Error: ${error.message}`);
-      }
+      // Success: backend returns 200 with { message: "...", quoteId: ... }
+      alert(`Warehouse quote created successfully! Quote ID: ${data.quoteId || 'N/A'}`);
+      // Reset form, navigate, etc.
+      navigate(-1);
+
     } catch (error) {
+      let errorMessage = "Failed to save warehouse quote";
+
+      if (error.response) {
+        // Server error response (e.g., 500 with { message: "...", error: "..." })
+        const errorData = error.response.data;
+        errorMessage = errorData.message || errorData.error || errorMessage;
+      } else if (error.request) {
+        // Network issue (no response)
+        errorMessage = "Network error – please check your connection";
+      } else {
+        // Other error
+        errorMessage = error.message || errorMessage;
+      }
+
       console.error('Error saving warehouse quote:', error);
-      alert("Failed to save warehouse quote");
+      alert(`Error: ${errorMessage}`);
     } finally {
       setLoading(false);
     }
@@ -224,7 +253,7 @@ export default function WarehouseQuoteForm() {
           <div className="p-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* Customer Selection */}
-              <div className="relative">
+              {/* <div className="relative">
                 <label className="block text-sm font-medium text-slate-700 mb-2 flex items-center gap-2">
                   <User className="w-4 h-4 text-teal-600" />
                   Customer *
@@ -256,7 +285,15 @@ export default function WarehouseQuoteForm() {
                     ))}
                   </div>
                 )}
-              </div>
+              </div> */}
+
+              <AutocompleteInput
+                label="Customer"
+                value={formData.customerName || ''}
+                onChange={(value) => updateField('customerName', value)}
+                suggestions={accountNames}
+                disabled={disabled}
+              />
 
               {/* Currency */}
               <div>
