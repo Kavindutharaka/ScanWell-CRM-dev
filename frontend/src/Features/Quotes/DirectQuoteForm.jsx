@@ -51,42 +51,60 @@ export default function DirectQuoteForm({ category, mode }) {
     incoterm: '',
     currency: '',
     cargoType: '',
-    freightCharges: [{ 
-      carrier: '', 
-      unitType: '', 
-      numberOfUnits: '', 
-      amount: '', 
-      currency: '', 
-      transitTime: '', 
-      numberOfRouting: '', 
-      surcharge: '', 
-      frequency: '', 
+    // New structure: freightChargesTables (array of tables)
+    freightChargesTables: [{
+      tableName: 'Default',
+      charges: [{
+        carrier: '',
+        unitType: '',
+        numberOfUnits: '',
+        amount: '',
+        currency: '',
+        transitTime: '',
+        numberOfRouting: '',
+        surcharge: '',
+        frequency: '',
+        total: 0,
+        remarks: ''
+      }]
+    }],
+    // Keep old format for backward compatibility during migration
+    freightCharges: [{
+      carrier: '',
+      unitType: '',
+      numberOfUnits: '',
+      amount: '',
+      currency: '',
+      transitTime: '',
+      numberOfRouting: '',
+      surcharge: '',
+      frequency: '',
       total: 0,
       remarks: ''
     }],
-    destinationCharges: [{ 
-      chargeName: '', 
-      unitType: '', 
-      numberOfUnits: '', 
-      amount: '', 
-      currency: '', 
-      total: 0 
+    destinationCharges: [{
+      chargeName: '',
+      unitType: '',
+      numberOfUnits: '',
+      amount: '',
+      currency: '',
+      total: 0
     }],
-    originHandling: [{ 
-      chargeName: '', 
-      unitType: '', 
-      numberOfUnits: '', 
-      amount: '', 
-      currency: '', 
-      total: 0 
+    originHandling: [{
+      chargeName: '',
+      unitType: '',
+      numberOfUnits: '',
+      amount: '',
+      currency: '',
+      total: 0
     }],
-    destinationHandling: [{ 
-      chargeName: '', 
-      unitType: '', 
-      numberOfUnits: '', 
-      amount: '', 
-      currency: '', 
-      total: 0 
+    destinationHandling: [{
+      chargeName: '',
+      unitType: '',
+      numberOfUnits: '',
+      amount: '',
+      currency: '',
+      total: 0
     }]
   });
 
@@ -294,6 +312,64 @@ export default function DirectQuoteForm({ category, mode }) {
       carrierOptions: prev.carrierOptions.filter((_, i) => i !== index)
     }));
   };
+
+  // Add freight charges table to a carrier option
+  const addFreightChargesTable = (carrierIdx) => {
+    if (disabled) return;
+
+    const updated = [...formData.carrierOptions];
+    const tables = updated[carrierIdx].freightChargesTables || [];
+    const nextTableNum = tables.length + 1;
+
+    const newTable = {
+      tableName: `Option ${nextTableNum}`,
+      charges: [{
+        carrier: updated[carrierIdx].carrier || '',
+        unitType: '',
+        numberOfUnits: '',
+        amount: '',
+        currency: updated[carrierIdx].currency || '',
+        transitTime: '',
+        numberOfRouting: '',
+        surcharge: '',
+        frequency: '',
+        total: 0,
+        remarks: ''
+      }]
+    };
+
+    // Initialize freightChargesTables if it doesn't exist
+    if (!updated[carrierIdx].freightChargesTables) {
+      updated[carrierIdx].freightChargesTables = [{
+        tableName: 'Default',
+        charges: updated[carrierIdx].freightCharges || []
+      }];
+    }
+
+    updated[carrierIdx].freightChargesTables.push(newTable);
+    setFormData(prev => ({ ...prev, carrierOptions: updated }));
+  };
+
+  // Remove freight charges table from a carrier option
+  const removeFreightChargesTable = (carrierIdx, tableIdx) => {
+    if (disabled || tableIdx === 0) return; // Can't remove first table
+
+    const updated = [...formData.carrierOptions];
+    if (updated[carrierIdx].freightChargesTables) {
+      updated[carrierIdx].freightChargesTables = updated[carrierIdx].freightChargesTables.filter((_, i) => i !== tableIdx);
+      setFormData(prev => ({ ...prev, carrierOptions: updated }));
+    }
+  };
+
+  // Expose functions to window for CarrierOptionSection to use
+  useEffect(() => {
+    window.addFreightChargesTable = addFreightChargesTable;
+    window.removeFreightChargesTable = removeFreightChargesTable;
+    return () => {
+      delete window.addFreightChargesTable;
+      delete window.removeFreightChargesTable;
+    };
+  }, [formData, disabled]);
 
   const preparePDFData = async () => {
     let customerAddress = '';

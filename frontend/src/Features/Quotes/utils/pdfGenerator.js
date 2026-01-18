@@ -666,10 +666,32 @@ export const generateDirectQuotePDF = (quoteData, userData = null, returnDoc = f
           yPos += 8;
         }
       }
-      
-      // Freight Charges
-      yPos = addFreightChargesTable(doc, option.freightCharges || [], yPos, isAir);
-      
+
+      // Freight Charges - handle both new freightChargesTables and old freightCharges format
+      if (option.freightChargesTables && Array.isArray(option.freightChargesTables) && option.freightChargesTables.length > 0) {
+        // New format: multiple tables
+        const hasMultipleTables = option.freightChargesTables.length > 1 ||
+                                   (option.freightChargesTables[0]?.tableName && option.freightChargesTables[0]?.tableName !== 'Default');
+
+        if (hasMultipleTables) {
+          // Render each table separately with table name
+          option.freightChargesTables.forEach((table, tableIndex) => {
+            const tableCharges = table.charges || [];
+            if (tableCharges.length > 0) {
+              const tableName = table.tableName || `Table ${tableIndex + 1}`;
+              yPos = addFreightChargesTableWithName(doc, tableCharges, yPos, isAir, tableName, optionIndex + 1);
+            }
+          });
+        } else {
+          // Single table - render without table name
+          const charges = option.freightChargesTables[0]?.charges || [];
+          yPos = addFreightChargesTable(doc, charges, yPos, isAir);
+        }
+      } else if (option.freightCharges) {
+        // Old format: direct array
+        yPos = addFreightChargesTable(doc, option.freightCharges || [], yPos, isAir);
+      }
+
       // Destination Charges
       yPos = addOtherChargesTable(doc, option.destinationCharges || [], 'Destination Charges (POD)', yPos);
       
@@ -729,11 +751,118 @@ export const generateDirectQuotePDF = (quoteData, userData = null, returnDoc = f
 };
 
 /**
+ * Add Air Freight Charges Table with optional table name (Pivoted by Carrier and Unit Type)
+ */
+function addAirFreightChargesTableWithName(doc, charges, yPos, tableName = null, optionNum = null) {
+  const validCharges = charges.filter(c => c.carrier || c.unitType || c.amount);
+
+  if (validCharges.length === 0) {
+    return yPos;
+  }
+
+  if (yPos > 230) {
+    doc.addPage();
+    yPos = 20;
+  }
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9);
+  const title = tableName
+    ? `Freight Charges - ${tableName} (Option ${optionNum})`
+    : `Freight Charges (Option ${optionNum})`;
+  doc.text(title, 15, yPos);
+  yPos += 3;
+
+  // Collect all unique unit types and sort them
+  const allUnitTypes = new Set();
+  validCharges.forEach(charge => {
+    if (charge.unitType) {
+      allUnitTypes.add(charge.unitType);
+    }
+  });
+
+  // Convert to sorted array
+  const unitTypeColumns = Array.from(allUnitTypes).sort((a, b) => {
+    const numA = parseFloat(a.replace(/[^0-9.-]/g, ''));
+    const numB = parseFloat(b.replace(/[^0-9.-]/g, ''));
+    if (!isNaN(numA) && !isNaN(numB)) return numA - numB;
+    return a.localeCompare(b);
+  });
+
+  // If no unit types found, use standard ones
+  if (unitTypeColumns.length === 0) {
+    unitTypeColumns.push('-45', '45', '100', '300', '500', '1000');
+  }
+
+  // Group charges by carrier
+  const carrierGroups = {};
+  validCharges.forEach(charge => {
+    const carrier = charge.carrier || '';
+    if (!carrierGroups[carrier]) {
+      carrierGroups[carrier] = {
+        carrier: carrier,
+        currency: charge.currency || '',
+        minimum: charge.minimum || '',
+        unitTypes: {},
+        surcharge: charge.surcharge || '',
+        transitTime: charge.transitTime || '',
+        frequency: charge.frequency || '',
+        routing: charge.numberOfRouting || '',
+        remarks: formatRemarksWithBreaks(charge.remarks || '')
+      };
+    }
+
+    // Store amount by unit type
+    const unitType = charge.unitType || '';
+    if (unitType) {
+      carrierGroups[carrier].unitTypes[unitType] = charge.amount || '';
+    }
+  });
+
+  // Build table data
+  const tableData = [];
+  Object.values(carrierGroups).forEach(group => {
+    const row = [group.carrier, group.currency];
+
+    // Add amounts for each unit type column
+    unitTypeColumns.forEach(unitType => {
+      row.push(group.unitTypes[unitType] || '');
+    });
+
+    row.push(
+      group.minimum,
+      group.surcharge,
+      group.transitTime,
+      group.frequency,
+      group.routing,
+      group.remarks
+    );
+
+    tableData.push(row);
+  });
+
+  // Build headers
+  const headers = ['AIRLINE', 'CCY', ...unitTypeColumns, 'MIN', 'SURCH', 'T/T', 'FREQ', 'ROUTING', 'REMARKS'];
+
+  autoTable(doc, {
+    startY: yPos,
+    head: [headers],
+    body: tableData,
+    theme: 'grid',
+    headStyles: { fillColor: [200, 200, 200], textColor: 0, fontSize: 6.5, fontStyle: 'bold' },
+    bodyStyles: { fontSize: 6.5, overflow: 'linebreak', cellPadding: 1.5 },
+    margin: { left: 15, right: 15 }
+  });
+
+  return doc.lastAutoTable.finalY + 8;
+}
+
+/**
  * Add Air Freight Charges Table (Pivoted by Carrier and Unit Type)
  */
 function addAirFreightChargesTable(doc, charges, yPos) {
   const validCharges = charges.filter(c => c.carrier || c.unitType || c.amount);
-  
+
   if (validCharges.length === 0) {
     return yPos;
   }
@@ -862,6 +991,82 @@ function addAirFreightChargesTable(doc, charges, yPos) {
 }
 
 /**
+ * Add Freight Charges Table with optional table name
+ */
+function addFreightChargesTableWithName(doc, charges, yPos, isAir, tableName = null, optionNum = null) {
+  // Use specialized Air table for air freight
+  if (isAir) {
+    return addAirFreightChargesTableWithName(doc, charges, yPos, tableName, optionNum);
+  }
+
+  // Filter out empty charges
+  const validCharges = charges.filter(c => c.carrier || c.unitType || c.amount);
+
+  if (validCharges.length === 0) {
+    return yPos;
+  }
+
+  if (yPos > 230) {
+    doc.addPage();
+    yPos = 20;
+  }
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9);
+  const title = tableName
+    ? `Freight Charges - ${tableName} (Option ${optionNum})`
+    : `Freight Charges (Option ${optionNum})`;
+  doc.text(title, 15, yPos);
+  yPos += 3;
+
+  const tableData = validCharges.map(charge => {
+    const units = charge.numberOfUnits || '';
+    const total = calculateChargeTotal(charge);
+    const currency = charge.currency || '';
+    const amount = charge.amount || '';
+    const formattedAmount = currency && amount ? `${currency} ${amount}` : amount;
+    const formattedTotal = currency ? `${currency} ${Math.round(total)}` : Math.round(total).toString();
+
+    const row = [
+      charge.carrier || '',
+      charge.unitType || '',
+      units,
+      formattedAmount,
+      charge.transitTime || '',
+      charge.numberOfRouting || ''
+    ];
+
+    row.push(formattedTotal);
+    row.push(formatRemarksWithBreaks(charge.remarks || ''));
+    return row;
+  });
+
+  const headers = ['Carrier', 'Unit Type', 'Units', 'Amount', 'Transit', 'Routing', 'Total', 'Remarks'];
+
+  autoTable(doc, {
+    startY: yPos,
+    head: [headers],
+    body: tableData,
+    theme: 'grid',
+    headStyles: { fillColor: [200, 200, 200], textColor: 0, fontSize: 7, fontStyle: 'bold' },
+    bodyStyles: { fontSize: 6.5, overflow: 'linebreak', cellPadding: 1.5 },
+    columnStyles: {
+      0: { cellWidth: 16 },  // Carrier
+      1: { cellWidth: 13 },  // Unit Type
+      2: { cellWidth: 8 },   // Units
+      3: { cellWidth: 25 },  // Amount (with currency)
+      4: { cellWidth: 12 },  // Transit
+      5: { cellWidth: 14 },  // Routing
+      6: { cellWidth: 24 },  // Total (with currency)
+      7: { cellWidth: 50, overflow: 'linebreak', fontSize: 6.5 }  // Remarks
+    },
+    margin: { left: 15, right: 15 }
+  });
+
+  return doc.lastAutoTable.finalY + 8;
+}
+
+/**
  * Add Freight Charges Table
  */
 function addFreightChargesTable(doc, charges, yPos, isAir) {
@@ -869,19 +1074,19 @@ function addFreightChargesTable(doc, charges, yPos, isAir) {
   if (isAir) {
     return addAirFreightChargesTable(doc, charges, yPos);
   }
-  
+
   // Filter out empty charges
   const validCharges = charges.filter(c => c.carrier || c.unitType || c.amount);
-  
+
   if (validCharges.length === 0) {
     return yPos;
   }
-  
+
   if (yPos > 230) {
     doc.addPage();
     yPos = 20;
   }
-  
+
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(9);
   doc.text('Freight Charges', 15, yPos);

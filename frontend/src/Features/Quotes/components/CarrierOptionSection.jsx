@@ -124,15 +124,80 @@ export default function CarrierOptionSection({
             </div>
           </div>
 
-          {/* Freight Charges */}
-          <div className="bg-white rounded-lg p-4 mb-4 shadow-sm">
-            <FreightChargesSection
-              formData={createChargeFormData('freightCharges')}
-              setFormData={createChargeSetFormData('freightCharges')}
-              category={category}
-              disabled={disabled}
-              carrierName={option.carrier}
-            />
+          {/* Freight Charges - Support Multiple Tables */}
+          <div className="mb-4">
+            <div className="flex justify-between items-center mb-3">
+              <h3 className="text-lg font-medium text-gray-700">Freight Charges</h3>
+              {!disabled && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    // Call addFreightChargesTable from parent DirectQuoteForm
+                    if (window.addFreightChargesTable) {
+                      window.addFreightChargesTable(index);
+                    }
+                  }}
+                  className="flex items-center gap-1 px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700"
+                >
+                  <Plus size={16} />
+                  Add Table
+                </button>
+              )}
+            </div>
+
+            {/* Check if freightChargesTables exists, otherwise use old format */}
+            {option.freightChargesTables && option.freightChargesTables.length > 0 ? (
+              // New format: multiple tables
+              option.freightChargesTables.map((table, tableIdx) => (
+                <div key={tableIdx} className="bg-white rounded-lg p-4 mb-4 shadow-sm border border-gray-200">
+                  <div className="flex justify-between items-center mb-2">
+                    <h4 className="font-medium text-gray-600">
+                      {table.tableName || `Table ${tableIdx + 1}`}
+                    </h4>
+                    {tableIdx > 0 && !disabled && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (window.removeFreightChargesTable) {
+                            window.removeFreightChargesTable(index, tableIdx);
+                          }
+                        }}
+                        className="text-red-600 hover:text-red-800 text-sm"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    )}
+                  </div>
+                  <FreightChargesSection
+                    formData={{ freightCharges: table.charges }}
+                    setFormData={(updater) => {
+                      const updated = [...formData.carrierOptions];
+                      if (typeof updater === 'function') {
+                        const result = updater({ freightCharges: table.charges });
+                        updated[index].freightChargesTables[tableIdx].charges = result.freightCharges;
+                      } else {
+                        updated[index].freightChargesTables[tableIdx].charges = updater.freightCharges;
+                      }
+                      setFormData(prev => ({ ...prev, carrierOptions: updated }));
+                    }}
+                    category={category}
+                    disabled={disabled}
+                    carrierName={option.carrier}
+                  />
+                </div>
+              ))
+            ) : (
+              // Old format: single freight charges array
+              <div className="bg-white rounded-lg p-4 mb-4 shadow-sm">
+                <FreightChargesSection
+                  formData={createChargeFormData('freightCharges')}
+                  setFormData={createChargeSetFormData('freightCharges')}
+                  category={category}
+                  disabled={disabled}
+                  carrierName={option.carrier}
+                />
+              </div>
+            )}
           </div>
 
           {/* Destination Charges */}
