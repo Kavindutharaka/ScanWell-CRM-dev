@@ -95,6 +95,7 @@ export default function WarehouseQuoteForm({ disabled = false }) {
   });
 
   // Update customerId when userDetails is loaded
+  // NOTE: CustomerId is optional - only set if userDetails has valid emp_id
   useEffect(() => {
     if (userDetails && userDetails.emp_id) {
       setFormData(prev => ({
@@ -220,9 +221,24 @@ export default function WarehouseQuoteForm({ disabled = false }) {
 
     setLoading(true);
 
-    console.log("this is form data: ", formData);
+    // Prepare payload - exclude customerId if not set or invalid
+    const payload = {
+      customerName: formData.customerName,
+      currency: formData.currency,
+      issuedDate: formData.issuedDate,
+      validityDays: formData.validityDays,
+      lineItems: formData.lineItems,
+      notes: formData.notes
+    };
+
+    // Only include customerId if it's a valid value (not empty, not null)
+    if (formData.customerId && formData.customerId !== "") {
+      payload.customerId = formData.customerId;
+    }
+
+    console.log("Payload to send: ", payload);
     try {
-      const data = await createWareQuote(formData);  // 'data' is the parsed object from backend
+      const data = await createWareQuote(payload);  // 'data' is the parsed object from backend
 
       // Success: backend returns 200 with { message: "...", quoteId: ... }
       alert(`Warehouse quote created successfully! Quote ID: ${data.quoteId || 'N/A'}`);
