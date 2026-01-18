@@ -6,7 +6,7 @@ import logo from '../../../assets/images/logo.png';
 /**
  * Add Air Freight Charges Table for Transit/MultiModal (Pivoted by Carrier)
  */
-function addAirFreightChargesTableTransit(doc, chargesData, yPos, segmentNum) {
+function addAirFreightChargesTableTransit(doc, chargesData, yPos, segmentNum, tableName = null) {
   // Handle both old format (direct array) and new format (tables with charges)
   let charges = [];
   if (Array.isArray(chargesData)) {
@@ -36,7 +36,8 @@ function addAirFreightChargesTableTransit(doc, chargesData, yPos, segmentNum) {
   
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(9);
-  doc.text(`Freight Charges (Segment ${segmentNum})`, 15, yPos);
+  const title = tableName ? `Freight Charges - ${tableName} (Segment ${segmentNum})` : `Freight Charges (Segment ${segmentNum})`;
+  doc.text(title, 15, yPos);
   yPos += 3;
   
   // Collect all unique unit types and sort them
@@ -66,7 +67,7 @@ function addAirFreightChargesTableTransit(doc, chargesData, yPos, segmentNum) {
   // Group charges by carrier
   const carrierGroups = {};
   validCharges.forEach(charge => {
-    const carrier = charge.carrier || 'N/A';
+    const carrier = charge.carrier || '';
     if (!carrierGroups[carrier]) {
       carrierGroups[carrier] = {
         carrier: carrier,
@@ -80,7 +81,7 @@ function addAirFreightChargesTableTransit(doc, chargesData, yPos, segmentNum) {
         remarks: formatRemarksWithBreaks(charge.remarks || '')
       };
     }
-    
+
     // Store amount by unit type
     const unitType = charge.unitType || '';
     if (unitType) {
@@ -156,7 +157,7 @@ function addAirFreightChargesTableTransit(doc, chargesData, yPos, segmentNum) {
  * Add Freight Charges Table for Transit/MultiModal
  * Handles freightChargesTables format with different field names
  */
-function addFreightChargesTableTransit(doc, charges, yPos, isAir, segmentNum) {
+function addFreightChargesTableTransit(doc, charges, yPos, isAir, segmentNum, tableName = null) {
   
   // Check if charges have carrier/unitType format or chargeableWeight format
   const hasCarrierFormat = charges.some(c => c.carrier || c.unitType || c.amount);
@@ -166,7 +167,7 @@ function addFreightChargesTableTransit(doc, charges, yPos, isAir, segmentNum) {
   // Use specialized Air table ONLY for air freight with carrier/unitType format
   // If data has chargeableWeight format, use regular table even for air mode
   if (isAir && hasCarrierFormat && !hasWeightFormat) {
-    return addAirFreightChargesTableTransit(doc, charges, yPos, segmentNum);
+    return addAirFreightChargesTableTransit(doc, charges, yPos, segmentNum, tableName);
   }
   
   
@@ -182,12 +183,13 @@ function addFreightChargesTableTransit(doc, charges, yPos, isAir, segmentNum) {
       doc.addPage();
       yPos = 20;
     }
-    
+
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(9);
-    doc.text(`Freight Charges (Segment ${segmentNum})`, 15, yPos);
+    const title = tableName ? `Freight Charges - ${tableName} (Segment ${segmentNum})` : `Freight Charges (Segment ${segmentNum})`;
+    doc.text(title, 15, yPos);
     yPos += 3;
-    
+
     const tableData = validCharges.map(charge => {
       const units = charge.numberOfUnits || '';
       const total = calculateChargeTotal(charge);
@@ -238,19 +240,20 @@ function addFreightChargesTableTransit(doc, charges, yPos, isAir, segmentNum) {
   // Handle chargeableWeight format (original Transit format)
   if (hasWeightFormat) {
     const validCharges = charges.filter(c => c.chargeableWeight || c.weightBreaker || c.charge);
-    
+
     if (validCharges.length === 0) {
       return yPos;
     }
-    
+
     if (yPos > 230) {
       doc.addPage();
       yPos = 20;
     }
-    
+
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(9);
-    doc.text(`Freight Charges (Segment ${segmentNum})`, 15, yPos);
+    const title = tableName ? `Freight Charges - ${tableName} (Segment ${segmentNum})` : `Freight Charges (Segment ${segmentNum})`;
+    doc.text(title, 15, yPos);
     yPos += 3;
     
     const tableData = validCharges.map(charge => {
@@ -772,7 +775,7 @@ function addAirFreightChargesTable(doc, charges, yPos) {
   // Group charges by carrier
   const carrierGroups = {};
   validCharges.forEach(charge => {
-    const carrier = charge.carrier || 'N/A';
+    const carrier = charge.carrier || '';
     if (!carrierGroups[carrier]) {
       carrierGroups[carrier] = {
         carrier: carrier,
@@ -786,7 +789,7 @@ function addAirFreightChargesTable(doc, charges, yPos) {
         remarks: formatRemarksWithBreaks(charge.remarks || '')
       };
     }
-    
+
     // Store amount by unit type
     const unitType = charge.unitType || '';
     if (unitType) {
@@ -1112,24 +1115,37 @@ export const generateTransitQuotePDF = (quoteData, userData = null, returnDoc = 
     const segmentRoute = `${segment.origin || 'N/A'} → ${segment.destination || 'N/A'}`;
     doc.text(`Segment ${index + 1}: ${segmentMode} (${segmentRoute})`, 18, yPos + 2);
     yPos += 10;
-    
-    // Freight Charges - extract from freightChargesTables
-    if (segment.freightChargesTables) {
-    }
-    
-    let freightCharges = [];
-    if (segment.freightChargesTables && Array.isArray(segment.freightChargesTables)) {
-      freightCharges = extractChargesFromTables(segment.freightChargesTables, 'freight');
+
+    // Freight Charges - handle multiple tables if they exist
+    if (segment.freightChargesTables && Array.isArray(segment.freightChargesTables) && segment.freightChargesTables.length > 0) {
+      // Check if we have multiple tables with table names
+      const hasMultipleTables = segment.freightChargesTables.length > 1 ||
+                                 (segment.freightChargesTables[0]?.tableName && segment.freightChargesTables[0]?.tableName !== 'Default');
+
+      if (hasMultipleTables) {
+        // Render each table separately
+        segment.freightChargesTables.forEach((table, tableIndex) => {
+          const tableCharges = table.charges || [];
+          if (tableCharges.length > 0) {
+            const tableName = table.tableName || `Table ${tableIndex + 1}`;
+            yPos = addFreightChargesTableTransit(doc, tableCharges, yPos, segment.mode === 'air', index + 1, tableName);
+          }
+        });
+      } else {
+        // Single table - flatten and render
+        const freightCharges = extractChargesFromTables(segment.freightChargesTables, 'freight');
+        if (freightCharges.length > 0) {
+          yPos = addFreightChargesTableTransit(doc, freightCharges, yPos, segment.mode === 'air', index + 1);
+        }
+      }
     } else if (segment.freightCharges) {
-      freightCharges = segment.freightCharges;
-    } else {
+      // Old format - direct array
+      const freightCharges = segment.freightCharges;
+      if (freightCharges.length > 0) {
+        yPos = addFreightChargesTableTransit(doc, freightCharges, yPos, segment.mode === 'air', index + 1);
+      }
     }
-    
-    if (freightCharges.length > 0) {
-      yPos = addFreightChargesTableTransit(doc, freightCharges, yPos, segment.mode === 'air', index + 1);
-    } else {
-    }
-    
+
     // Origin Handling - extract from originHandlingTables
     let originHandling = [];
     if (segment.originHandlingTables && Array.isArray(segment.originHandlingTables)) {
@@ -1305,25 +1321,37 @@ export const generateMultiModalQuotePDF = (quoteData, userData = null, returnDoc
     const segmentRoute = `${segment.origin || 'N/A'} → ${segment.destination || 'N/A'}`;
     doc.text(`Segment ${index + 1}: ${segmentMode} (${segmentRoute})`, 18, yPos + 2);
     yPos += 10;
-    
-    // Freight Charges - extract from freightChargesTables
-    if (segment.freightChargesTables) {
-    }
-    
-    let freightCharges = [];
-    if (segment.freightChargesTables && Array.isArray(segment.freightChargesTables)) {
-      freightCharges = extractChargesFromTables(segment.freightChargesTables, 'freight');
+
+    // Freight Charges - handle multiple tables if they exist
+    if (segment.freightChargesTables && Array.isArray(segment.freightChargesTables) && segment.freightChargesTables.length > 0) {
+      // Check if we have multiple tables with table names
+      const hasMultipleTables = segment.freightChargesTables.length > 1 ||
+                                 (segment.freightChargesTables[0]?.tableName && segment.freightChargesTables[0]?.tableName !== 'Default');
+
+      if (hasMultipleTables) {
+        // Render each table separately
+        segment.freightChargesTables.forEach((table, tableIndex) => {
+          const tableCharges = table.charges || [];
+          if (tableCharges.length > 0) {
+            const tableName = table.tableName || `Table ${tableIndex + 1}`;
+            yPos = addFreightChargesTableTransit(doc, tableCharges, yPos, segment.mode === 'air', index + 1, tableName);
+          }
+        });
+      } else {
+        // Single table - flatten and render
+        const freightCharges = extractChargesFromTables(segment.freightChargesTables, 'freight');
+        if (freightCharges.length > 0) {
+          yPos = addFreightChargesTableTransit(doc, freightCharges, yPos, segment.mode === 'air', index + 1);
+        }
+      }
     } else if (segment.freightCharges) {
-      freightCharges = segment.freightCharges;
-    } else {
+      // Old format - direct array
+      const freightCharges = segment.freightCharges;
+      if (freightCharges.length > 0) {
+        yPos = addFreightChargesTableTransit(doc, freightCharges, yPos, segment.mode === 'air', index + 1);
+      }
     }
-    
-    if (freightCharges.length > 0) {
-      yPos = addFreightChargesTableTransit(doc, freightCharges, yPos, segment.mode === 'air', index + 1);
-    } else {
-    }
-    
-    
+
     // Origin Handling - extract from originHandlingTables
     let originHandling = [];
     if (segment.originHandlingTables && Array.isArray(segment.originHandlingTables)) {

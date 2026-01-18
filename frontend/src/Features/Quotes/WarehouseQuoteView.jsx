@@ -106,7 +106,7 @@ export default function WarehouseQuoteView() {
     } catch (error) {
       console.error('Error loading warehouse quote:', error);
       alert('Failed to load warehouse quote');
-      navigate('/warehouse-quotes');
+      navigate('/quotes-invoices');
     } finally {
       setLoading(false);
     }
