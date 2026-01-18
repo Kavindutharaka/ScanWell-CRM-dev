@@ -64,7 +64,7 @@ export default function WarehouseQuoteForm({ disabled = false }) {
 
   // Form state
   const [formData, setFormData] = useState({
-    customerId: userDetails.emp_id,
+    customerId: "",
     customerName: "",
     currency: "LKR",
     issuedDate: new Date().toISOString().split('T')[0],
@@ -93,6 +93,16 @@ export default function WarehouseQuoteForm({ disabled = false }) {
       "General Terms and Conditions apply."
     ]
   });
+
+  // Update customerId when userDetails is loaded
+  useEffect(() => {
+    if (userDetails && userDetails.emp_id) {
+      setFormData(prev => ({
+        ...prev,
+        customerId: userDetails.emp_id
+      }));
+    }
+  }, [userDetails]);
 
   // Calculate validity date when issued date or validity days change
   useEffect(() => {
