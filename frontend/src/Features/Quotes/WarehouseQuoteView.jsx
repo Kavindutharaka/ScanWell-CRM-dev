@@ -670,28 +670,11 @@ export default function WarehouseQuoteView() {
                       </tr>
                     ))}
                   </tbody>
-                  <tfoot className="bg-amber-50">
-                    <tr>
-                      <td colSpan="5" className="px-4 py-3 text-right text-sm font-bold text-gray-800">Total Amount:</td>
-                      <td className="px-4 py-3 text-right text-lg font-bold text-amber-600">
-                        {quoteData.currency} {calculateTotal()}
-                      </td>
-                    </tr>
-                  </tfoot>
                 </table>
               </div>
             )}
 
-            {editMode && (
-              <div className="mt-4 p-4 bg-amber-50 rounded-lg border border-amber-100">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-bold text-gray-800">Total Amount:</span>
-                  <span className="text-xl font-bold text-amber-600">
-                    {formData.currency} {calculateTotal()}
-                  </span>
-                </div>
-              </div>
-            )}
+            {/* Removed Total Amount section as per client request */}
           </div>
         </div>
 

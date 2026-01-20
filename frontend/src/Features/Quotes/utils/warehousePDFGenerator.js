@@ -150,22 +150,54 @@ export const generateWarehousePDF = (quoteData, lineItems, notes, userData = nul
   // Get final Y position after table
   yPos = doc.lastAutoTable.finalY + 10;
 
-  // ===== TERMS & CONDITIONS SECTION =====
+  // ===== INSURANCE SECTION =====
+  // Check if we need a new page for insurance section
+  if (yPos > pageHeight - 80) {
+    doc.addPage();
+    yPos = 20;
+  }
+
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Insurance', margin, yPos);
+  yPos += 5;
+
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'normal');
+  const insuranceText = 'The said quotation is subjected to Customer securing a Comprehensive all risks Insurance Cover for all goods stored at the Warehouse and while cargo transportation.';
+  const insuranceLines = doc.splitTextToSize(insuranceText, pageWidth - 2 * margin);
+  insuranceLines.forEach(line => {
+    doc.text(line, margin, yPos);
+    yPos += 4;
+  });
+
+  yPos += 6;
+
+  // ===== NOTES SECTION =====
+  // Check if we need a new page for notes
+  if (yPos > pageHeight - 60) {
+    doc.addPage();
+    yPos = 20;
+  }
+
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Notes', margin, yPos);
+  yPos += 5;
+
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'normal');
+
+  // Add default note about fork-lift rates
+  const defaultNote = '@ Rates are based on 2.5Ton Fork-lift. If any heavy equipment\'s are needed prices will indicated at that time.';
+  const defaultNoteLines = doc.splitTextToSize(defaultNote, pageWidth - 2 * margin);
+  defaultNoteLines.forEach(line => {
+    doc.text(line, margin, yPos);
+    yPos += 4;
+  });
+
+  // Add user-provided notes if any
   if (notes && notes.length > 0) {
-    // Check if we need a new page for notes
-    if (yPos > pageHeight - 80) {
-      doc.addPage();
-      yPos = 20;
-    }
-
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'bold');
-    doc.text('Terms & Conditions:', margin, yPos);
-    yPos += 5;
-    
-    doc.setFontSize(8);
-    doc.setFont('helvetica', 'normal');
-
     notes.forEach((note) => {
       if (note && note.trim()) {
         // Check if we need a new page
@@ -327,38 +359,58 @@ export const previewWarehousePDF = (quoteData, lineItems, notes, userData = null
       4: { cellWidth: 25 },
       5: { cellWidth: 27, halign: 'right', fontStyle: 'bold' }
     },
-    margin: { left: margin, right: margin },
-    foot: [[
-      '', '', '', '', 
-      { content: 'TOTAL:', styles: { halign: 'right', fontStyle: 'bold', fontSize: 9 } },
-      { 
-        content: total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), 
-        styles: { halign: 'right', fontStyle: 'bold', fontSize: 9, fillColor: [240, 240, 240] } 
-      }
-    ]],
-    footStyles: {
-      fillColor: [240, 240, 240],
-      textColor: 0,
-      fontStyle: 'bold'
-    }
+    margin: { left: margin, right: margin }
+    // Removed total footer as per client request
   });
 
   yPos = doc.lastAutoTable.finalY + 10;
 
+  // ===== INSURANCE SECTION =====
+  if (yPos > pageHeight - 80) {
+    doc.addPage();
+    yPos = 20;
+  }
+
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Insurance', margin, yPos);
+  yPos += 5;
+
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'normal');
+  const insuranceText = 'The said quotation is subjected to Customer securing a Comprehensive all risks Insurance Cover for all goods stored at the Warehouse and while cargo transportation.';
+  const insuranceLines = doc.splitTextToSize(insuranceText, pageWidth - 2 * margin);
+  insuranceLines.forEach(line => {
+    doc.text(line, margin, yPos);
+    yPos += 4;
+  });
+
+  yPos += 6;
+
+  // ===== NOTES SECTION =====
+  if (yPos > pageHeight - 60) {
+    doc.addPage();
+    yPos = 20;
+  }
+
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Notes', margin, yPos);
+  yPos += 5;
+
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'normal');
+
+  // Add default note about fork-lift rates
+  const defaultNote = '@ Rates are based on 2.5Ton Fork-lift. If any heavy equipment\'s are needed prices will indicated at that time.';
+  const defaultNoteLines = doc.splitTextToSize(defaultNote, pageWidth - 2 * margin);
+  defaultNoteLines.forEach(line => {
+    doc.text(line, margin, yPos);
+    yPos += 4;
+  });
+
+  // Add user-provided notes if any
   if (notes && notes.length > 0) {
-    if (yPos > pageHeight - 80) {
-      doc.addPage();
-      yPos = 20;
-    }
-
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'bold');
-    doc.text('Terms & Conditions:', margin, yPos);
-    yPos += 5;
-    
-    doc.setFontSize(8);
-    doc.setFont('helvetica', 'normal');
-
     notes.forEach((note) => {
       if (note && note.trim()) {
         if (yPos > pageHeight - 25) {
@@ -508,37 +560,58 @@ export const generateWarehousePDFBlob = (quoteData, lineItems, notes, userData =
       4: { cellWidth: 25 },
       5: { cellWidth: 27, halign: 'right', fontStyle: 'bold' }
     },
-    margin: { left: margin, right: margin },
-    foot: [[
-      '', '', '', '', 
-      { content: 'TOTAL:', styles: { halign: 'right', fontStyle: 'bold', fontSize: 9 } },
-      { 
-        content: total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), 
-        styles: { halign: 'right', fontStyle: 'bold', fontSize: 9, fillColor: [240, 240, 240] } 
-      }
-    ]],
-    footStyles: {
-      fillColor: [240, 240, 240],
-      textColor: 0,
-      fontStyle: 'bold'
-    }
+    margin: { left: margin, right: margin }
+    // Removed total footer as per client request
   });
 
   yPos = doc.lastAutoTable.finalY + 10;
 
+  // ===== INSURANCE SECTION =====
+  if (yPos > pageHeight - 80) {
+    doc.addPage();
+    yPos = 20;
+  }
+
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Insurance', margin, yPos);
+  yPos += 5;
+
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'normal');
+  const insuranceText = 'The said quotation is subjected to Customer securing a Comprehensive all risks Insurance Cover for all goods stored at the Warehouse and while cargo transportation.';
+  const insuranceLines = doc.splitTextToSize(insuranceText, pageWidth - 2 * margin);
+  insuranceLines.forEach(line => {
+    doc.text(line, margin, yPos);
+    yPos += 4;
+  });
+
+  yPos += 6;
+
+  // ===== NOTES SECTION =====
+  if (yPos > pageHeight - 60) {
+    doc.addPage();
+    yPos = 20;
+  }
+
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Notes', margin, yPos);
+  yPos += 5;
+
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'normal');
+
+  // Add default note about fork-lift rates
+  const defaultNote = '@ Rates are based on 2.5Ton Fork-lift. If any heavy equipment\'s are needed prices will indicated at that time.';
+  const defaultNoteLines = doc.splitTextToSize(defaultNote, pageWidth - 2 * margin);
+  defaultNoteLines.forEach(line => {
+    doc.text(line, margin, yPos);
+    yPos += 4;
+  });
+
+  // Add user-provided notes if any
   if (notes && notes.length > 0) {
-    if (yPos > pageHeight - 80) {
-      doc.addPage();
-      yPos = 20;
-    }
-
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'bold');
-    doc.text('Terms & Conditions:', margin, yPos);
-    yPos += 5;
-    doc.setFontSize(8);
-    doc.setFont('helvetica', 'normal');
-
     notes.forEach((note) => {
       if (note && note.trim()) {
         if (yPos > pageHeight - 25) {
