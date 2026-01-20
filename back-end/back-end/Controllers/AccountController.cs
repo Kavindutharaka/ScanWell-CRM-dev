@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
+using System.Text.Json;
 using System.Threading.Tasks;
 using back_end.Models;
 using Microsoft.AspNetCore.Mvc;
@@ -148,14 +149,24 @@ namespace back_end.Controllers
                 return NotFound("Account not found.");
             }
 
-            // Return the contacts JSON string
+            // Parse the JSON string and return as object array
             // If it's empty or null, return empty array
             if (string.IsNullOrWhiteSpace(contactsJson) || contactsJson == "[]")
             {
-                return Ok("[]");
+                return Ok(new List<object>());
             }
 
-            return Ok(contactsJson);
+            try
+            {
+                // Deserialize the JSON string to an object so ASP.NET Core can serialize it properly
+                var contacts = JsonSerializer.Deserialize<List<object>>(contactsJson);
+                return Ok(contacts);
+            }
+            catch (JsonException)
+            {
+                // If JSON is invalid, return empty array
+                return Ok(new List<object>());
+            }
         }
 
 

@@ -22,9 +22,8 @@ export const fetchAccountAddress = async (accountName) => {
 export const fetchAccountContacts = async (accountName) => {
   try {
     const response = await axios.post(`${BASE_URL}/Account/account-contacts`, { accountName: accountName });
-    // Parse the JSON string returned from the backend
-    const contacts = JSON.parse(response.data);
-    return contacts;
+    // Axios automatically parses JSON, so response.data is already an array
+    return response.data || [];
   } catch (error) {
     console.error('Error fetching account contacts:', error);
     return [];
