@@ -510,23 +510,23 @@ const addCustomerSection = (doc, quoteData, yPos) => {
   }
   
   yPos += 10;
-  
+
   // Customer and Address
   doc.setFontSize(9);
   doc.setFont('helvetica', 'bold');
   doc.text('Customer', 15, yPos);
-  
+
   // Add Customer Address label if address exists
   if (quoteData.customerAddress && quoteData.customerAddress.trim() !== '') {
     doc.text('Customer Address', 130, yPos);
   }
-  
+
   doc.setFont('helvetica', 'normal');
   yPos += 4;
-  
+
   const customerNameYPos = yPos;
   doc.text(quoteData.customer || 'N/A', 15, yPos);
-  
+
   // Customer Address - display to the right of customer name
   let addressLineCount = 0;
   if (quoteData.customerAddress && quoteData.customerAddress.trim() !== '') {
@@ -537,11 +537,23 @@ const addCustomerSection = (doc, quoteData, yPos) => {
     });
     addressLineCount = addressLines.length;
   }
-  
+
   // Advance yPos by the maximum of customer name line or address lines
   const maxLines = Math.max(1, addressLineCount);
-  yPos += (maxLines * 4) + 4;
-  
+  yPos += (maxLines * 4);
+
+  // Contact Name - display below customer name if exists
+  if (quoteData.contactName && quoteData.contactName.trim() !== '') {
+    doc.setFont('helvetica', 'bold');
+    doc.text('Contact Person', 15, yPos);
+    doc.setFont('helvetica', 'normal');
+    yPos += 4;
+    doc.text(quoteData.contactName, 15, yPos);
+    yPos += 4;
+  }
+
+  yPos += 4;
+
   // Addresses
   doc.setFont('helvetica', 'bold');
   doc.text('Pickup Address', 15, yPos);
