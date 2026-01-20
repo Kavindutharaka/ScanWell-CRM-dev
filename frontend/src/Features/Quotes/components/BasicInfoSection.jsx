@@ -86,13 +86,22 @@ export default function BasicInfoSection({ formData, setFormData, disabled = fal
           disabled={disabled}
         />
 
-        <AutocompleteInput
-          label="Contact Name"
-          value={formData.contactName || ''}
-          onChange={(value) => updateField('contactName', value)}
-          suggestions={contactNames}
-          disabled={disabled || !formData.customer}
-        />
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Contact Name</label>
+          <select
+            value={formData.contactName || ''}
+            onChange={(e) => updateField('contactName', e.target.value)}
+            disabled={disabled || !formData.customer}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg disabled:bg-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          >
+            <option value="">Select a contact</option>
+            {contactNames.map((name, index) => (
+              <option key={index} value={name}>
+                {name}
+              </option>
+            ))}
+          </select>
+        </div>
 
         <AutocompleteInput
           label="Pickup Location"
