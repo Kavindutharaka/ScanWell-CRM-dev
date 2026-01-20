@@ -12,6 +12,7 @@ namespace back_end.Models
         public DateTime? RateValidity { get; set; } // DATE NULL
 
         public string? Customer { get; set; }
+        public string? ContactName { get; set; }
         public string? PickupLocation { get; set; }
         public string? DeliveryLocation { get; set; }
         public string? PortOfLoading { get; set; }

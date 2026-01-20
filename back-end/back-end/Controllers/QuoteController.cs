@@ -93,13 +93,13 @@ namespace back_end.Controllers
             string query = @"
                 INSERT INTO [dbo].[Quotes] (
                     QuoteNumber, FreightCategory, FreightMode, FreightType, CreatedDate, RateValidity,
-                    Customer, PickupLocation, DeliveryLocation, PortOfLoading, PortOfDischarge,
+                    Customer, ContactName, PickupLocation, DeliveryLocation, PortOfLoading, PortOfDischarge,
                     Carriers, Equipment, carrierOptions, FreightCharges, OtherCharges, DestinationCharges,
                     OriginHandling, DestinationHandling, TransitRoutes, Routes,
                     TotalTransitTime, TermsConditions, Status, CreatedBy
                 ) VALUES (
                     @QuoteNumber, @FreightCategory, @FreightMode, @FreightType, @CreatedDate, @RateValidity,
-                    @Customer, @PickupLocation, @DeliveryLocation, @PortOfLoading, @PortOfDischarge,
+                    @Customer, @ContactName, @PickupLocation, @DeliveryLocation, @PortOfLoading, @PortOfDischarge,
                     @Carriers, @Equipment, @CarrierOptions, @FreightCharges, @OtherCharges, @DestinationCharges,
                     @OriginHandling, @DestinationHandling, @TransitRoutes, @Routes,
                     @TotalTransitTime, @TermsConditions, @Status, @CreatedBy
@@ -119,6 +119,7 @@ namespace back_end.Controllers
                 cmd.Parameters.AddWithValue("@RateValidity", quote.RateValidity ?? (object)DBNull.Value);
 
                 cmd.Parameters.AddWithValue("@Customer", quote.Customer ?? (object)DBNull.Value);
+                cmd.Parameters.AddWithValue("@ContactName", quote.ContactName ?? (object)DBNull.Value);
                 cmd.Parameters.AddWithValue("@PickupLocation", quote.PickupLocation ?? (object)DBNull.Value);
                 cmd.Parameters.AddWithValue("@DeliveryLocation", quote.DeliveryLocation ?? (object)DBNull.Value);
                 cmd.Parameters.AddWithValue("@PortOfLoading", quote.PortOfLoading ?? (object)DBNull.Value);
@@ -164,6 +165,7 @@ namespace back_end.Controllers
                     CreatedDate = @CreatedDate,
                     RateValidity = @RateValidity,
                     Customer = @Customer,
+                    ContactName = @ContactName,
                     PickupLocation = @PickupLocation,
                     DeliveryLocation = @DeliveryLocation,
                     PortOfLoading = @PortOfLoading,
@@ -197,6 +199,7 @@ namespace back_end.Controllers
                 cmd.Parameters.AddWithValue("@CreatedDate", quote.CreatedDate);
                 cmd.Parameters.AddWithValue("@RateValidity", quote.RateValidity ?? (object)DBNull.Value);
                 cmd.Parameters.AddWithValue("@Customer", quote.Customer ?? (object)DBNull.Value);
+                cmd.Parameters.AddWithValue("@ContactName", quote.ContactName ?? (object)DBNull.Value);
                 cmd.Parameters.AddWithValue("@PickupLocation", quote.PickupLocation ?? (object)DBNull.Value);
                 cmd.Parameters.AddWithValue("@DeliveryLocation", quote.DeliveryLocation ?? (object)DBNull.Value);
                 cmd.Parameters.AddWithValue("@PortOfLoading", quote.PortOfLoading ?? (object)DBNull.Value);
