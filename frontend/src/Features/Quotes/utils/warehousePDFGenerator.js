@@ -104,9 +104,6 @@ export const generateWarehousePDF = (quoteData, lineItems, notes, userData = nul
     ];
   });
 
-  // Calculate total
-  const total = lineItems.reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0);
-
   autoTable(doc, {
     startY: yPos,
     head: [['#', 'Category', 'Description', 'Remarks', 'Unit', `Amount (${quoteData.currency})`]],
@@ -131,20 +128,8 @@ export const generateWarehousePDF = (quoteData, lineItems, notes, userData = nul
       4: { cellWidth: 25 },
       5: { cellWidth: 27, halign: 'right', fontStyle: 'bold' }
     },
-    margin: { left: margin, right: margin },
-    foot: [[
-      '', '', '', '', 
-      { content: 'TOTAL:', styles: { halign: 'right', fontStyle: 'bold', fontSize: 9 } },
-      { 
-        content: total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), 
-        styles: { halign: 'right', fontStyle: 'bold', fontSize: 9, fillColor: [240, 240, 240] } 
-      }
-    ]],
-    footStyles: {
-      fillColor: [240, 240, 240],
-      textColor: 0,
-      fontStyle: 'bold'
-    }
+    margin: { left: margin, right: margin }
+    // Removed total footer as per client request
   });
 
   // Get final Y position after table
@@ -328,12 +313,10 @@ export const previewWarehousePDF = (quoteData, lineItems, notes, userData = null
     item.remarks || '',
     item.unitOfMeasurement || '',
     parseFloat(item.amount || 0).toLocaleString('en-US', { 
-      minimumFractionDigits: 2, 
-      maximumFractionDigits: 2 
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
     })
   ]);
-
-  const total = lineItems.reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0);
 
   autoTable(doc, {
     startY: yPos,
@@ -529,12 +512,10 @@ export const generateWarehousePDFBlob = (quoteData, lineItems, notes, userData =
     item.remarks || '',
     item.unitOfMeasurement || '',
     parseFloat(item.amount || 0).toLocaleString('en-US', { 
-      minimumFractionDigits: 2, 
-      maximumFractionDigits: 2 
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
     })
   ]);
-
-  const total = lineItems.reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0);
 
   autoTable(doc, {
     startY: yPos,
