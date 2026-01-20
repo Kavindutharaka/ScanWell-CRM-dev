@@ -269,6 +269,7 @@ export default function MultiModalQuoteForm() {
       createdDate: formData.createdDate,
       rateValidity: formData.rateValidity,
       customer: formData.customer,
+      contactName: formData.contactName,
       customerAddress: customerAddress,
       pickupLocation: formData.pickupLocation,
       deliveryLocation: formData.deliveryLocation,
