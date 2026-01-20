@@ -1,5 +1,5 @@
 // components/CarrierOptionSection.jsx
-import { Trash2, ChevronDown, ChevronUp } from 'lucide-react';
+import { Trash2, ChevronDown, ChevronUp, Plus  } from 'lucide-react';
 import { useState } from 'react';
 import AutocompleteInput from './AutocompleteInput';
 import { getCarriersByCategory, incotermSuggestions, currencySuggestions, cargoTypeSuggestions } from '../../../data/quoteData';
