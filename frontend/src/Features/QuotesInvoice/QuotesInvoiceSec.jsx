@@ -215,6 +215,7 @@ export default function QuotesInvoiceSec({ modalOpen }) {
         createdDate: wq.createdAt,
         rateValidity: wq.validityDate,
         status: wq.status?.toLowerCase() || 'active',
+        fullName: wq.fullName, // Creator's name
         warehouseData: wq, // Store original warehouse data
         isWarehouse: true
       }));
@@ -647,6 +648,9 @@ export default function QuotesInvoiceSec({ modalOpen }) {
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
                       Status
                     </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                      Created By
+                    </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Outcome
                     </th>
@@ -746,6 +750,12 @@ export default function QuotesInvoiceSec({ modalOpen }) {
                           {getStatusBadge(quote.status)}
                         </td>
                         <td className="px-6 py-4">
+                          <div className="flex items-center gap-2">
+                            <User size={14} className="text-gray-400" />
+                            <span className="text-sm text-gray-700">{quote.fullName || '-'}</span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
                           {!quote.isWarehouse && getOutcomeBadge(quote.quoteId)}
                         </td>
                         <td className="px-6 py-4">
@@ -813,6 +823,10 @@ export default function QuotesInvoiceSec({ modalOpen }) {
                     <div className="flex items-center gap-2 text-sm">
                       <User size={14} className="text-gray-400" />
                       <span className="text-gray-700">{quote.customer || '-'}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm">
+                      <User size={14} className="text-blue-400" />
+                      <span className="text-gray-600">Created by: {quote.fullName || '-'}</span>
                     </div>
                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${freightIcon.badge} capitalize`}>
                       {quote.freightCategory} - {quote.freightMode}
