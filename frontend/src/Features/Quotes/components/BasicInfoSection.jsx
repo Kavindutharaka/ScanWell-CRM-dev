@@ -1,11 +1,13 @@
 // components/BasicInfoSection.jsx
 import AutocompleteInput from './AutocompleteInput';
 import { customerSuggestions, locationSuggestions } from '../../../data/quoteData';
-import {fetchAccountNames} from '../../../api/AccountApi'
+import {fetchAccountNames, fetchAccountContacts} from '../../../api/AccountApi'
 import { useEffect, useState } from 'react';
 
 export default function BasicInfoSection({ formData, setFormData, disabled = false }) {
   const [accountNames, setAccountNames] = useState([]);
+  const [contactNames, setContactNames] = useState([]);
+
   const updateField = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
@@ -18,6 +20,26 @@ export default function BasicInfoSection({ formData, setFormData, disabled = fal
     };
     loadAccountNames();
   }, []);
+
+  // Fetch contacts when customer changes
+  useEffect(() => {
+    const loadContactNames = async () => {
+      if (formData.customer && formData.customer.trim() !== '') {
+        console.log('Fetching contacts for customer:', formData.customer);
+        const contacts = await fetchAccountContacts(formData.customer);
+        console.log('Fetched Contacts:', contacts);
+
+        // Extract contact names from the contacts array
+        const names = contacts.map(contact => contact.contactName).filter(name => name && name.trim() !== '');
+        setContactNames(names);
+      } else {
+        // Clear contacts if no customer is selected
+        setContactNames([]);
+        updateField('contactName', '');
+      }
+    };
+    loadContactNames();
+  }, [formData.customer]);
 
   return (
     <div className="space-y-4 mb-6">
@@ -64,7 +86,13 @@ export default function BasicInfoSection({ formData, setFormData, disabled = fal
           disabled={disabled}
         />
 
-
+        <AutocompleteInput
+          label="Contact Name"
+          value={formData.contactName || ''}
+          onChange={(value) => updateField('contactName', value)}
+          suggestions={contactNames}
+          disabled={disabled || !formData.customer}
+        />
 
         <AutocompleteInput
           label="Pickup Location"
