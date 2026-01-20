@@ -158,13 +158,9 @@ namespace back_end.Controllers
 
             try
             {
-                // Parse JSON string using JsonDocument to preserve the structure
-                using (JsonDocument doc = JsonDocument.Parse(contactsJson))
-                {
-                    // Clone the RootElement to return it (since JsonDocument is disposed)
-                    var contacts = doc.RootElement.Clone();
-                    return Ok(contacts);
-                }
+                // Deserialize to JsonElement to preserve all properties and structure
+                var contacts = JsonSerializer.Deserialize<JsonElement>(contactsJson);
+                return Ok(contacts);
             }
             catch (JsonException)
             {
