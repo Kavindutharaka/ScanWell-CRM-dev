@@ -121,9 +121,9 @@ namespace back_end.Controllers
             }
 
             string query = @"
-                SELECT TOP 1 [contactsJson]
-                FROM [phvtechc_crm].[dbo].[account_reg]
-                WHERE accountName = @accountName;";
+        SELECT TOP 1 [contactsJson]
+        FROM [phvtechc_crm].[dbo].[account_reg]
+        WHERE accountName = @accountName;";
 
             string contactsJson = null;
 
@@ -149,23 +149,22 @@ namespace back_end.Controllers
                 return NotFound("Account not found.");
             }
 
-            // Parse the JSON string and return as object array
-            // If it's empty or null, return empty array
-            if (string.IsNullOrWhiteSpace(contactsJson) || contactsJson == "[]")
+            // Normalise empty/whitespace to "[]"
+            if (string.IsNullOrWhiteSpace(contactsJson))
             {
-                return Ok(new List<object>());
+                contactsJson = "[]";
             }
 
+            // Validate that it is parseable JSON; if not, fall back to empty array
             try
             {
-                // Deserialize to JsonElement to preserve all properties and structure
-                var contacts = JsonSerializer.Deserialize<JsonElement>(contactsJson);
-                return Ok(contacts);
+                JsonDocument.Parse(contactsJson);
+                // Return the raw JSON string as the response body
+                return Content(contactsJson, "application/json");
             }
             catch (JsonException)
             {
-                // If JSON is invalid, return empty array
-                return Ok(new List<object>());
+                return Content("[]", "application/json");
             }
         }
 
