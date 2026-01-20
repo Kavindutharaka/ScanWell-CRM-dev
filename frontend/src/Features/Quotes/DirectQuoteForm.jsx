@@ -25,6 +25,9 @@ export default function DirectQuoteForm({ category, mode }) {
 
   const [loading, setLoading] = useState(false);
 
+  // Define disabled state early to avoid "Cannot access before initialization" error
+  const disabled = isViewMode;
+
   useEffect(() => {
       if (user) {
         console.log("Current user in header:", user);
@@ -439,8 +442,6 @@ export default function DirectQuoteForm({ category, mode }) {
     const userData = getUserDataForPDF();
     printDirectQuotePDF(pdfData, userData);
   };
-
-  const disabled = isViewMode;
 
   if (loading) {
     return (
