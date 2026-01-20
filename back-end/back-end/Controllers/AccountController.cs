@@ -79,8 +79,8 @@ namespace back_end.Controllers
             }
 
             string query = @"
-                SELECT TOP 1 [description] 
-                FROM [phvtechc_crm].[dbo].[account_reg] 
+                SELECT TOP 1 [description]
+                FROM [phvtechc_crm].[dbo].[account_reg]
                 WHERE accountName = @accountName;";
 
             string address = null;
@@ -108,6 +108,54 @@ namespace back_end.Controllers
             }
 
             return Ok(address);
+        }
+
+        [HttpPost, Route("account-contacts")]
+        public ActionResult GetAccountContacts([FromBody] dynamic body)
+        {
+            string accountName = body?.accountName;
+            if (string.IsNullOrEmpty(accountName))
+            {
+                return BadRequest("accountName is required.");
+            }
+
+            string query = @"
+                SELECT TOP 1 [contactsJson]
+                FROM [phvtechc_crm].[dbo].[account_reg]
+                WHERE accountName = @accountName;";
+
+            string contactsJson = null;
+
+            using (myCon)
+            {
+                myCon.Open();
+                using (var myCom = new SqlCommand(query, myCon))
+                {
+                    myCom.Parameters.AddWithValue("@accountName", accountName);
+
+                    using (var myR = myCom.ExecuteReader())
+                    {
+                        if (myR.Read())
+                        {
+                            contactsJson = myR["contactsJson"]?.ToString()?.Trim();
+                        }
+                    }
+                }
+            }
+
+            if (contactsJson == null)
+            {
+                return NotFound("Account not found.");
+            }
+
+            // Return the contacts JSON string
+            // If it's empty or null, return empty array
+            if (string.IsNullOrWhiteSpace(contactsJson) || contactsJson == "[]")
+            {
+                return Ok("[]");
+            }
+
+            return Ok(contactsJson);
         }
 
 

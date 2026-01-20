@@ -19,6 +19,18 @@ export const fetchAccountAddress = async (accountName) => {
   return response.data;
 };
 
+export const fetchAccountContacts = async (accountName) => {
+  try {
+    const response = await axios.post(`${BASE_URL}/Account/account-contacts`, { accountName: accountName });
+    // Parse the JSON string returned from the backend
+    const contacts = JSON.parse(response.data);
+    return contacts;
+  } catch (error) {
+    console.error('Error fetching account contacts:', error);
+    return [];
+  }
+};
+
 export const createNewAccount = async (account) => {
   const response = await axios.post(`${BASE_URL}/Account/account`, account);
   return response.data;
@@ -40,7 +52,7 @@ export const fetchAccountNames = async () => {
 };
 
 const AccountApi = {
-  createNewAccount, deleteAccount, fetchAccountById, fetchAccounts, updateAccount, fetchAccountNames
+  createNewAccount, deleteAccount, fetchAccountById, fetchAccounts, updateAccount, fetchAccountNames, fetchAccountContacts, fetchAccountAddress
 };
 
 export default AccountApi;
