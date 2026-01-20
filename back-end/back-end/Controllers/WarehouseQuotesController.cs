@@ -28,7 +28,7 @@ namespace back_end.Controllers
                 await connection.OpenAsync();
 
                 var query = @"
-                    SELECT 
+                    SELECT
                         wq.SysID,
                         wq.QuoteNumber,
                         wq.CustomerId,
@@ -40,8 +40,11 @@ namespace back_end.Controllers
                         wq.Status,
                         wq.CreatedBy,
                         wq.CreatedAt,
-                        wq.UpdatedAt
+                        wq.UpdatedAt,
+                        e.fname + ' ' + e.lname AS fullName,
+                        e.email
                     FROM WarehouseQuotes wq
+                    LEFT JOIN emp_reg e ON wq.CreatedBy = e.SysID
                     WHERE (@Status IS NULL OR wq.Status = @Status)
                     AND (@CustomerId IS NULL OR wq.CustomerId = @CustomerId)
                     ORDER BY wq.CreatedAt DESC";
@@ -68,7 +71,9 @@ namespace back_end.Controllers
                         status = reader["Status"],
                         createdBy = reader["CreatedBy"],
                         createdAt = reader["CreatedAt"],
-                        updatedAt = reader["UpdatedAt"]
+                        updatedAt = reader["UpdatedAt"],
+                        fullName = reader["fullName"] != DBNull.Value ? reader["fullName"].ToString() : null,
+                        email = reader["email"] != DBNull.Value ? reader["email"].ToString() : null
                     });
                 }
 
