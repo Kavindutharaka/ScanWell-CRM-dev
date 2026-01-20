@@ -158,9 +158,13 @@ namespace back_end.Controllers
 
             try
             {
-                // Deserialize the JSON string to an object so ASP.NET Core can serialize it properly
-                var contacts = JsonSerializer.Deserialize<List<object>>(contactsJson);
-                return Ok(contacts);
+                // Parse JSON string using JsonDocument to preserve the structure
+                using (JsonDocument doc = JsonDocument.Parse(contactsJson))
+                {
+                    // Clone the RootElement to return it (since JsonDocument is disposed)
+                    var contacts = doc.RootElement.Clone();
+                    return Ok(contacts);
+                }
             }
             catch (JsonException)
             {
