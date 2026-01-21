@@ -355,23 +355,28 @@ function getSegmentsCurrency(segments) {
  */
 const formatRemarksWithBreaks = (remarks) => {
   if (!remarks || remarks.trim() === '') return '';
-  
-  let formatted = remarks;
-  
-  // Add line breaks before numbered items (01., 02., 03., etc.)
+
+  let formatted = remarks.trim();
+
+  // NEW: Handle common freight remarks separated by /
+  // Example: "ETD: 26-JAN / VESSEL: ... / SPACE - TIGHT"
+  // → becomes multi-line with each section on its own line
+  const parts = formatted.split(/\s*\/\s*/);
+  const cleanedParts = parts
+    .map(part => part.trim())
+    .filter(part => part !== '');
+  formatted = cleanedParts.join('\n/ ');
+
+  // Existing breaks (kept unchanged)
   formatted = formatted.replace(/(\d{2}\.\s)/g, '\n$1');
-  
-  // Remove leading line break if exists
+
   formatted = formatted.replace(/^\n/, '');
-  
-  // Also break at common separators if line is too long
+
   if (formatted.length > 60) {
-    // Break after periods followed by space if not part of numbers
     formatted = formatted.replace(/(\.\s)(?=\D)/g, '$1\n');
-    // Remove excessive line breaks (more than 2 consecutive)
     formatted = formatted.replace(/\n{3,}/g, '\n\n');
   }
-  
+
   return formatted.trim();
 };
 
@@ -560,10 +565,26 @@ const addCustomerSection = (doc, quoteData, yPos) => {
   doc.text('Delivery Address', 130, yPos);
   doc.setFont('helvetica', 'normal');
   yPos += 4;
-  doc.text(quoteData.pickupLocation || 'N/A', 15, yPos);
-  doc.text(quoteData.deliveryLocation || 'N/A', 130, yPos);
-  
-  yPos += 8;
+
+  const pickupText = quoteData.pickupLocation || 'N/A';
+  const deliveryText = quoteData.deliveryLocation || 'N/A';
+
+  const pickupLines = doc.splitTextToSize(pickupText, 110);    // width for left side
+  const deliveryLines = doc.splitTextToSize(deliveryText, 70); // width for right side
+
+  const n_maxLines = Math.max(pickupLines.length, deliveryLines.length, 1);
+
+  for (let i = 0; i < n_maxLines; i++) {
+    const lineY = yPos + (i * 4);
+    if (i < pickupLines.length) {
+      doc.text(pickupLines[i], 15, lineY);
+    }
+    if (i < deliveryLines.length) {
+      doc.text(deliveryLines[i], 130, lineY);
+    }
+  }
+
+  yPos += (maxLines * 4) + 4;  // dynamic spacing (same as original when 1 line)
   
   return yPos;
 };
