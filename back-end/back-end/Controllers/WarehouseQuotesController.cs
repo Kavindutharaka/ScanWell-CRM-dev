@@ -44,7 +44,7 @@ namespace back_end.Controllers
                         e.fname + ' ' + e.lname AS fullName,
                         e.email
                     FROM WarehouseQuotes wq
-                    LEFT JOIN emp_reg e ON wq.CreatedBy = e.SysID
+                    LEFT JOIN emp_reg e ON TRY_CAST(wq.CreatedBy AS INT) = e.SysID
                     WHERE (@Status IS NULL OR wq.Status = @Status)
                     AND (@CustomerId IS NULL OR wq.CustomerId = @CustomerId)
                     ORDER BY wq.CreatedAt DESC";
