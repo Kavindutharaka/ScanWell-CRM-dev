@@ -428,5 +428,226 @@ namespace back_end.Controllers
                 }
             }
         }
+
+        // ============================================================================
+        // DESTINATION RATES ENDPOINTS (Different format: DESTINATION, LINER, 20GP, 40HQ, TT/ROUTING, VALID)
+        // ============================================================================
+
+        // GET: api/rates/destination?category=USEC/USWC
+        [HttpGet, Route("destination")]
+        public ActionResult getDestinationRates([FromQuery] string category)
+        {
+            if (string.IsNullOrEmpty(category))
+            {
+                return BadRequest(new { message = "Category parameter is required." });
+            }
+
+            string query = @"SELECT * FROM [dbo].[destination_rates] WHERE category = @category ORDER BY id DESC;";
+            tb = new DataTable();
+
+            using (var con = new SqlConnection(_dbConnectionString))
+            {
+                con.Open();
+                using (var cmd = new SqlCommand(query, con))
+                {
+                    cmd.Parameters.AddWithValue("@category", category);
+                    using (var reader = cmd.ExecuteReader())
+                    {
+                        tb.Load(reader);
+                    }
+                }
+                con.Close();
+            }
+
+            return new OkObjectResult(tb);
+        }
+
+        // GET: api/rates/destination/{id}
+        [HttpGet, Route("destination/{id:int}")]
+        public ActionResult getDestinationRateById(int id)
+        {
+            string query = @"SELECT * FROM [dbo].[destination_rates] WHERE id = @id;";
+            tb = new DataTable();
+
+            using (var con = new SqlConnection(_dbConnectionString))
+            {
+                con.Open();
+                using (var cmd = new SqlCommand(query, con))
+                {
+                    cmd.Parameters.AddWithValue("@id", id);
+                    using (var reader = cmd.ExecuteReader())
+                    {
+                        tb.Load(reader);
+                    }
+                }
+                con.Close();
+            }
+
+            if (tb.Rows.Count == 0)
+                return NotFound(new { message = $"Destination rate with id {id} not found." });
+
+            return new OkObjectResult(tb);
+        }
+
+        // POST: api/rates/destination/bulk
+        [HttpPost, Route("destination/bulk")]
+        public IActionResult CreateDestinationRatesBulk([FromBody] DestinationRateBulkRequest request)
+        {
+            if (request == null || request.Rates == null || request.Rates.Count == 0)
+            {
+                return BadRequest(new { message = "No rates provided." });
+            }
+
+            var results = new List<object>();
+            int successCount = 0;
+            int failCount = 0;
+
+            string query = @"
+                INSERT INTO [dbo].[destination_rates]
+                (destination, liner, gp20, hq40, tt_routing, valid, category, remark)
+                VALUES
+                (@destination, @liner, @gp20, @hq40, @tt_routing, @valid, @category, @remark);
+                SELECT SCOPE_IDENTITY();";
+
+            using (var con = new SqlConnection(_dbConnectionString))
+            {
+                con.Open();
+
+                foreach (var rate in request.Rates)
+                {
+                    try
+                    {
+                        using (var cmd = new SqlCommand(query, con))
+                        {
+                            cmd.Parameters.AddWithValue("@destination", rate.Destination ?? (object)DBNull.Value);
+                            cmd.Parameters.AddWithValue("@liner", rate.Liner ?? (object)DBNull.Value);
+                            cmd.Parameters.AddWithValue("@gp20", rate.Gp20 ?? (object)DBNull.Value);
+                            cmd.Parameters.AddWithValue("@hq40", rate.Hq40 ?? (object)DBNull.Value);
+                            cmd.Parameters.AddWithValue("@tt_routing", rate.TtRouting ?? (object)DBNull.Value);
+                            cmd.Parameters.AddWithValue("@valid", rate.Valid ?? (object)DBNull.Value);
+                            cmd.Parameters.AddWithValue("@category", rate.Category ?? (object)DBNull.Value);
+                            cmd.Parameters.AddWithValue("@remark", rate.Remark ?? (object)DBNull.Value);
+
+                            var newId = cmd.ExecuteScalar();
+                            results.Add(new { success = true, id = newId });
+                            successCount++;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        results.Add(new { success = false, error = ex.Message, rate = new { rate.Destination, rate.Liner } });
+                        failCount++;
+                    }
+                }
+
+                con.Close();
+            }
+
+            return Ok(new
+            {
+                message = $"Processed {request.Rates.Count} rates. Success: {successCount}, Failed: {failCount}",
+                successCount,
+                failCount,
+                results
+            });
+        }
+
+        // PUT: api/rates/destination/{id}
+        [HttpPut, Route("destination/{id:int}")]
+        public IActionResult UpdateDestinationRate(int id, [FromBody] DestinationRate rate)
+        {
+            if (rate == null)
+            {
+                return BadRequest(new { message = "Invalid rate data." });
+            }
+
+            string query = @"
+                UPDATE [dbo].[destination_rates]
+                SET destination = @destination,
+                    liner = @liner,
+                    gp20 = @gp20,
+                    hq40 = @hq40,
+                    tt_routing = @tt_routing,
+                    valid = @valid,
+                    category = @category,
+                    remark = @remark
+                WHERE id = @id;";
+
+            using (var con = new SqlConnection(_dbConnectionString))
+            {
+                con.Open();
+                using (var cmd = new SqlCommand(query, con))
+                {
+                    cmd.Parameters.AddWithValue("@id", id);
+                    cmd.Parameters.AddWithValue("@destination", rate.Destination ?? (object)DBNull.Value);
+                    cmd.Parameters.AddWithValue("@liner", rate.Liner ?? (object)DBNull.Value);
+                    cmd.Parameters.AddWithValue("@gp20", rate.Gp20 ?? (object)DBNull.Value);
+                    cmd.Parameters.AddWithValue("@hq40", rate.Hq40 ?? (object)DBNull.Value);
+                    cmd.Parameters.AddWithValue("@tt_routing", rate.TtRouting ?? (object)DBNull.Value);
+                    cmd.Parameters.AddWithValue("@valid", rate.Valid ?? (object)DBNull.Value);
+                    cmd.Parameters.AddWithValue("@category", rate.Category ?? (object)DBNull.Value);
+                    cmd.Parameters.AddWithValue("@remark", rate.Remark ?? (object)DBNull.Value);
+
+                    int rowsAffected = cmd.ExecuteNonQuery();
+
+                    if (rowsAffected == 0)
+                    {
+                        con.Close();
+                        return NotFound(new { message = $"Destination rate with id {id} not found." });
+                    }
+                }
+                con.Close();
+            }
+
+            return Ok(new { message = "Destination rate updated successfully", id });
+        }
+
+        // DELETE: api/rates/destination/{id}
+        [HttpDelete, Route("destination/{id:int}")]
+        public IActionResult DeleteDestinationRate(int id)
+        {
+            string query = @"DELETE FROM [dbo].[destination_rates] WHERE id = @id;";
+
+            using (var con = new SqlConnection(_dbConnectionString))
+            {
+                con.Open();
+                using (var cmd = new SqlCommand(query, con))
+                {
+                    cmd.Parameters.AddWithValue("@id", id);
+
+                    int rowsAffected = cmd.ExecuteNonQuery();
+
+                    if (rowsAffected == 0)
+                    {
+                        con.Close();
+                        return NotFound(new { message = $"Destination rate with id {id} not found." });
+                    }
+                }
+                con.Close();
+            }
+
+            return Ok(new { message = "Destination rate deleted successfully", id });
+        }
+
+        // DELETE: api/rates/destination/category/{category}
+        [HttpDelete, Route("destination/category/{category}")]
+        public IActionResult DeleteDestinationRatesByCategory(string category)
+        {
+            string query = @"DELETE FROM [dbo].[destination_rates] WHERE category = @category;";
+
+            using (var con = new SqlConnection(_dbConnectionString))
+            {
+                con.Open();
+                using (var cmd = new SqlCommand(query, con))
+                {
+                    cmd.Parameters.AddWithValue("@category", category);
+
+                    int rowsAffected = cmd.ExecuteNonQuery();
+                    con.Close();
+
+                    return Ok(new { message = $"Deleted {rowsAffected} rates for category {category}", count = rowsAffected });
+                }
+            }
+        }
     }
 }
