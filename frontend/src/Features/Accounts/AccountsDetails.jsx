@@ -18,6 +18,7 @@ import {
   Mail,
   Phone,
   Tag,
+  Hash,
 } from "lucide-react";
 
 export default function AccountsDetails({ onOpen, onEdit, setSelectedAccount, accounts, error, loading, loadAccounts }) {
@@ -94,7 +95,7 @@ export default function AccountsDetails({ onOpen, onEdit, setSelectedAccount, ac
     
     return (
       <div className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-700">
-        <Briefcase className="w-3 h-3" />
+        <Hash className="w-3 h-3" />
         <span className="truncate max-w-32">{industry}</span>
       </div>
     );
@@ -105,16 +106,17 @@ export default function AccountsDetails({ onOpen, onEdit, setSelectedAccount, ac
     if (!domain) return <span className="text-sm text-slate-400">-</span>;
     
     return (
-      <a
-        href={domain.startsWith('http') ? domain : `https://${domain}`}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="inline-flex items-center gap-1 text-purple-600 hover:text-purple-800 transition-colors group"
-      >
-        <Globe className="w-3 h-3" />
-        <span className="text-sm truncate max-w-32">{domain.replace(/^https?:\/\//, '')}</span>
-        <ExternalLink className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
-      </a>
+      // <a
+      //   href={domain.startsWith('http') ? domain : `https://${domain}`}
+      //   target="_blank"
+      //   rel="noopener noreferrer"
+      //   className="inline-flex items-center gap-1 text-purple-600 hover:text-purple-800 transition-colors group"
+      // >
+      <>
+        <User className="w-3 h-3" />
+        <span className="text-sm truncate max-w-32">{domain}</span>
+      {/*</a>*/}
+      </>
     );
   };
 
@@ -282,8 +284,8 @@ export default function AccountsDetails({ onOpen, onEdit, setSelectedAccount, ac
                     />
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Account</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Domain</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Industry</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Sales Person</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">FMS Code</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Primary Contact</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Email</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Location</th>
@@ -313,10 +315,10 @@ export default function AccountsDetails({ onOpen, onEdit, setSelectedAccount, ac
                           </div>
                         </td>
                         <td className="px-4 py-4">
-                          <DomainLink domain={account.domain} />
+                          <DomainLink domain={account.salesPerson} />
                         </td>
                         <td className="px-4 py-4">
-                          <IndustryBadge industry={account.industry} />
+                          <IndustryBadge industry={account.fmsCode} />
                         </td>
                         <td className="px-4 py-4">
                           <div className="flex items-center gap-1 text-sm text-slate-600">

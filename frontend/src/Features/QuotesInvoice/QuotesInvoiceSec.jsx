@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Search, Filter, Eye, Edit2, Trash2, Plane, Ship, Package, Container, Truck, Route as RouteIcon, Layers, MapPin, Calendar, User, DollarSign, ArrowRight, Award, CheckCircle, XCircle, AlertCircle, Warehouse } from 'lucide-react';
-import { fetchQuotes, deleteQuote, fetchWareQuote } from '../../api/QuoteApi';
+import { fetchQuotes, deleteQuote, fetchWareQuote, getSp } from '../../api/QuoteApi';
 import { fetchOutComeById, saveQuoteOutCome } from '../../api/QuotesOutComeApi';
 import axios from 'axios';
 
@@ -43,6 +43,33 @@ export default function QuotesInvoiceSec({ modalOpen }) {
       setQuoteOutcomes(prev => ({ ...prev, [quoteId]: null }));
     }
   };
+
+  // Inside the same file or a separate file
+function SalesPerson({ customerName }) {
+  const [salesPerson, setSalesPerson] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!customerName) {
+      setLoading(false);
+      return;
+    }
+
+    getSp(customerName)
+      .then((res) => {
+        setSalesPerson(res?.[0]?.salesPerson || '-');
+      })
+      .catch((err) => {
+        console.error('Failed to load SP for', customerName, err);
+        setSalesPerson('-');
+      })
+      .finally(() => setLoading(false));
+  }, [customerName]);
+
+  if (loading) return <span className="text-gray-400">Loading...</span>;
+
+  return <span className="text-gray-700">{salesPerson}</span>;
+}
 
   // FIXED: getOutcomeBadge function
   const getOutcomeBadge = (quoteId) => {
@@ -637,6 +664,9 @@ export default function QuotesInvoiceSec({ modalOpen }) {
                       Customer
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                      Sales Person
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
                       Route
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
@@ -645,9 +675,9 @@ export default function QuotesInvoiceSec({ modalOpen }) {
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
                       Amount
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                    {/* <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
                       Status
-                    </th>
+                    </th> */}
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
                       Created By
                     </th>
@@ -699,6 +729,12 @@ export default function QuotesInvoiceSec({ modalOpen }) {
                           </div>
                         </td>
                         <td className="px-6 py-4">
+                          <div className="flex items-center gap-2">
+                            <User size={14} className="text-gray-400" />
+                            <SalesPerson customerName={quote.customer} />
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
                           {quote.isWarehouse ? (
                             <span className="text-xs text-gray-500 italic">Warehouse Services</span>
                           ) : quote.freightType === 'multimodal' ? (
@@ -746,9 +782,9 @@ export default function QuotesInvoiceSec({ modalOpen }) {
                             {calculateTotalAmount(quote)}
                           </div>
                         </td>
-                        <td className="px-6 py-4">
+                        {/* <td className="px-6 py-4">
                           {getStatusBadge(quote.status)}
-                        </td>
+                        </td> */}
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-2">
                             <User size={14} className="text-gray-400" />
@@ -824,6 +860,10 @@ export default function QuotesInvoiceSec({ modalOpen }) {
                       <User size={14} className="text-gray-400" />
                       <span className="text-gray-700">{quote.customer || '-'}</span>
                     </div>
+                      <div className="flex items-center gap-2">
+                        <User size={14} className="text-gray-400" />
+                        <SalesPerson customerName={quote.customer} />
+                      </div>
                     <div className="flex items-center gap-2 text-sm">
                       <User size={14} className="text-blue-400" />
                       <span className="text-gray-600">Created by: {quote.fullName || '-'}</span>

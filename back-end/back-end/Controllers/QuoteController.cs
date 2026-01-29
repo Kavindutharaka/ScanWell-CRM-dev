@@ -251,5 +251,31 @@ namespace back_end.Controllers
                 return StatusCode(500, $"Error deleting quote: {ex.Message}");
             }
         }
+
+        [HttpGet, Route("quote/sale-person")]
+        public ActionResult GetSpByName(string name)
+        {
+            string query = @"select Top(1) salesPerson from [dbo].[account_reg] where accountName COLLATE Latin1_General_CS_AS = @name";
+            var tb = new DataTable();
+
+            try
+            {
+                using var con = GetConnection();
+                con.Open();
+                using var cmd = new SqlCommand(query, con);
+                cmd.Parameters.AddWithValue("@name", name);
+                using var reader = cmd.ExecuteReader();
+                tb.Load(reader);
+
+                if (tb.Rows.Count == 0)
+                    return NotFound("Name not found.");
+
+                return Ok(tb);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Error: {ex.Message}");
+            }
+        }
     }
 }

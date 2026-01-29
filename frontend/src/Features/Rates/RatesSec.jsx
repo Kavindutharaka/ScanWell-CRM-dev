@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useContext } from "react";
 import { BASE_URL } from '../../config/apiConfig';
 import {
   Search,
@@ -24,9 +24,13 @@ import {
 } from "lucide-react";
 import * as XLSX from 'xlsx';
 import * as RateAPI from '../../api/rateAPI';
+import { AuthContext } from "../../context/AuthContext";
 
 
 export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
+  // Get permission from AuthContext - delete buttons only visible to admin
+  const { permission } = useContext(AuthContext);
+  const isAdmin = permission?.IsAdmin;
   const [activeTab, setActiveTab] = useState('all');
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -1260,15 +1264,17 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
                             </div>
                           </div>
 
-                          {/* Actions */}
+                          {/* Actions - Delete button only for admin */}
                           <div className="col-span-1 flex items-center justify-end gap-2">
-                            <button
-                              onClick={() => handleDeleteDestinationRate(rate.id)}
-                              className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                              title="Delete Rate"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
+                            {isAdmin && (
+                              <button
+                                onClick={() => handleDeleteDestinationRate(rate.id)}
+                                className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                title="Delete Rate"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            )}
                           </div>
                         </div>
 
@@ -1279,12 +1285,14 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
                               <MapPin className="w-4 h-4" />
                               <span className="uppercase">{activeLiner?.split(' ')[0]}</span>
                             </div>
-                            <button
-                              onClick={() => handleDeleteDestinationRate(rate.id)}
-                              className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
+                            {isAdmin && (
+                              <button
+                                onClick={() => handleDeleteDestinationRate(rate.id)}
+                                className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            )}
                           </div>
 
                           <div className="bg-slate-50 rounded-lg p-3">
@@ -1395,15 +1403,17 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
                             </div>
                           </div>
 
-                          {/* Actions */}
+                          {/* Actions - Delete button only for admin */}
                           <div className="col-span-1 flex items-center justify-end gap-2">
-                            <button
-                              onClick={() => handleDelete(rate.id)}
-                              className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                              title="Delete Rate"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
+                            {isAdmin && (
+                              <button
+                                onClick={() => handleDelete(rate.id)}
+                                className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                title="Delete Rate"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            )}
                           </div>
                         </div>
 
@@ -1415,13 +1425,15 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
                               <Ship className="w-4 h-4" />
                               <span className="uppercase">{activeLiner}</span>
                             </div>
-                            <button
-                              onClick={() => handleDelete(rate.id)}
-                              className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                              title="Delete Rate"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
+                            {isAdmin && (
+                              <button
+                                onClick={() => handleDelete(rate.id)}
+                                className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                title="Delete Rate"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            )}
                           </div>
 
                           {/* Route */}
@@ -1516,7 +1528,9 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
 
                           <div className="col-span-1 flex items-center justify-end gap-2">
                             <button onClick={() => onEditRate(rate)} className="p-2 hover:bg-indigo-50 rounded-lg"><Edit className="w-4 h-4 text-slate-600 hover:text-indigo-600" /></button>
-                            <button onClick={() => handleDelete(rate.sysID || rate.id)} className="p-2 hover:bg-red-50 rounded-lg"><Trash2 className="w-4 h-4 text-slate-600 hover:text-red-600" /></button>
+                            {isAdmin && (
+                              <button onClick={() => handleDelete(rate.sysID || rate.id)} className="p-2 hover:bg-red-50 rounded-lg"><Trash2 className="w-4 h-4 text-slate-600 hover:text-red-600" /></button>
+                            )}
                             <button onClick={() => toggleRow(rate.sysID || rate.id)} className="p-2 hover:bg-slate-100 rounded-lg">
                               {isExpanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
                             </button>
@@ -1535,9 +1549,11 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
                               <button onClick={() => onEditRate(rate)} className="p-2 hover:bg-indigo-50 rounded-lg">
                                 <Edit className="w-4 h-4 text-slate-600 hover:text-indigo-600" />
                               </button>
-                              <button onClick={() => handleDelete(rate.sysID || rate.id)} className="p-2 hover:bg-red-50 rounded-lg">
-                                <Trash2 className="w-4 h-4 text-slate-600 hover:text-red-600" />
-                              </button>
+                              {isAdmin && (
+                                <button onClick={() => handleDelete(rate.sysID || rate.id)} className="p-2 hover:bg-red-50 rounded-lg">
+                                  <Trash2 className="w-4 h-4 text-slate-600 hover:text-red-600" />
+                                </button>
+                              )}
                               <button onClick={() => toggleRow(rate.sysID || rate.id)} className="p-2 hover:bg-slate-100 rounded-lg">
                                 {isExpanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
                               </button>
