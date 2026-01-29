@@ -72,6 +72,11 @@ export const updateWareQuoteStatus = async (id, status) => {
   return response.data;
 };
 
+export const getSp = async (name) => {
+  const response = await axios.get(`${BASE_URL}/quote/quote/sale-person?name=${name}`);
+  return response.data;
+};
+
 // Optional: Export as object (same pattern as your AccountApi)
 const QuoteApi = {
   fetchQuotes,
@@ -84,7 +89,8 @@ const QuoteApi = {
   createWareQuote,
   updateWareQuote,
   deleteWareQuote,
-  updateWareQuoteStatus
+  updateWareQuoteStatus,
+  getSp
 };
 
 export default QuoteApi;

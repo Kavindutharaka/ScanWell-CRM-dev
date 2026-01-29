@@ -148,10 +148,13 @@ export default function AccountForm({ onClose, account = null, onSuccess, loadAc
     if (!formData.fmsCode.trim()) {
       newErrors.fmsCode = 'FMS code is required';
     }
-    
-    if (formData.domain && !formData.domain.match(/^https?:\/\/.+/)) {
-      newErrors.domain = 'Please enter a valid URL (starting with http:// or https://)';
+    if (!formData.salesPerson.trim()) {
+      newErrors.salesPerson = 'Sales Person is required';
     }
+    
+    // if (formData.domain && !formData.domain.match(/^https?:\/\/.+/)) {
+    //   newErrors.domain = 'Please enter a valid URL (starting with http:// or https://)';
+    // }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -356,7 +359,7 @@ export default function AccountForm({ onClose, account = null, onSuccess, loadAc
               </div>
 
               {/* Domain */}
-              <div>
+             {/* <div>
                 <label className="flex items-center gap-2 text-sm font-semibold text-slate-700 mb-3">
                   <Globe className="w-4 h-4 text-green-600" />
                   Domain / Website
@@ -372,7 +375,7 @@ export default function AccountForm({ onClose, account = null, onSuccess, loadAc
                 {errors.domain && (
                   <p className="mt-1 text-sm text-red-600">{errors.domain}</p>
                 )}
-              </div>
+              </div>*/}
 
               {/* FMS Code */}
               <div>
@@ -394,7 +397,7 @@ export default function AccountForm({ onClose, account = null, onSuccess, loadAc
               </div>
 
               {/* Industry */}
-              <div>
+              {/* <div>
                 <label className="flex items-center gap-2 text-sm font-semibold text-slate-700 mb-3">
                   <Tag className="w-4 h-4 text-yellow-600" />
                   Industry
@@ -412,7 +415,7 @@ export default function AccountForm({ onClose, account = null, onSuccess, loadAc
                     </option>
                   ))}
                 </select>
-              </div>
+              </div> */}
 
               {/* Phone */}
               <div>
@@ -496,6 +499,9 @@ export default function AccountForm({ onClose, account = null, onSuccess, loadAc
                       </button>
                     ))}
                   </div>
+                )}
+                {errors.salesPerson && (
+                  <p className="mt-1 text-sm text-red-600">{errors.salesPerson}</p>
                 )}
               </div>
             </div>

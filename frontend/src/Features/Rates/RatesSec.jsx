@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useContext } from "react";
 import { BASE_URL } from '../../config/apiConfig';
 import {
   Search,
@@ -24,9 +24,13 @@ import {
 } from "lucide-react";
 import * as XLSX from 'xlsx';
 import * as RateAPI from '../../api/rateAPI';
+import { AuthContext } from "../../context/AuthContext";
 
 
 export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
+  // Get permission from AuthContext - delete buttons only visible to admin
+  const { permission } = useContext(AuthContext);
+  const isAdmin = permission?.IsAdmin;
   const [activeTab, setActiveTab] = useState('all');
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -42,7 +46,7 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
   const [excelFile, setExcelFile] = useState(null);
   const [uploadProgress, setUploadProgress] = useState(false);
 
-  // Shipping lines configuration
+  // Shipping lines configuration - Sea Spot Rates
   const shippingLines = [
     { code: 'MSC', name: 'MSC', color: 'bg-red-600' },
     { code: 'ONE', name: 'ONE', color: 'bg-purple-600' },
@@ -51,6 +55,25 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
     { code: 'OOCL', name: 'OOCL', color: 'bg-cyan-600' },
     { code: 'RCL', name: 'RCL', color: 'bg-pink-600' },
     { code: 'CMA', name: 'CMA', color: 'bg-amber-600' },
+  ];
+
+  // Shipping lines configuration - Linear Header's
+  const linearHeaderLines = [
+    { code: 'EMC', name: 'EMC', color: 'bg-green-600' },
+    { code: 'WAN HAI', name: 'WAN HAI', color: 'bg-sky-600' },
+    { code: 'HMM', name: 'HMM', color: 'bg-rose-600' },
+    { code: 'COSCO', name: 'COSCO', color: 'bg-blue-700' },
+    { code: 'ZIM', name: 'ZIM', color: 'bg-yellow-600' },
+    { code: 'SML', name: 'SML', color: 'bg-violet-600' },
+    { code: 'AIYER LANKA', name: 'AIYER LANKA', color: 'bg-lime-600' },
+  ];
+
+  // Destination Header's configuration
+  const destinationHeaderLines = [
+    { code: 'USEC/USWC HEADERS', name: 'USEC/USWC HEADERS', color: 'bg-red-700' },
+    { code: 'CANADA HEADERS', name: 'CANADA HEADERS', color: 'bg-red-600' },
+    { code: 'JEBAL ALI HEADERS', name: 'JEBAL ALI HEADERS', color: 'bg-amber-700' },
+    { code: 'EU/UK HEADERS', name: 'EU/UK HEADERS', color: 'bg-blue-800' },
   ];
 
   const loadRates = async () => {
@@ -266,17 +289,109 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
     loadRates();
   }, [refreshTrigger]);
 
-  // Handle liner tab click
+  // State for showing Sea Spot Rates sub-section
+  const [showSeaSpotRates, setShowSeaSpotRates] = useState(false);
+  // State for showing Linear Header's sub-section
+  const [showLinearHeaders, setShowLinearHeaders] = useState(false);
+  // State for showing Destination Header's sub-section
+  const [showDestinationHeaders, setShowDestinationHeaders] = useState(false);
+  // Track which category the active liner belongs to ('seaspot', 'linearheaders', or 'destinationheaders')
+  const [activeLinerCategory, setActiveLinerCategory] = useState(null);
+  // Destination rates data (separate from liner rates due to different format)
+  const [destinationRates, setDestinationRates] = useState([]);
+  const [destinationLoading, setDestinationLoading] = useState(false);
+
+  // Load destination rates (different API endpoint and format)
+  const loadDestinationRates = async (category) => {
+    setDestinationLoading(true);
+    try {
+      const response = await fetch(`${BASE_URL}/rates/destination?category=${category}`);
+      const data = await response.json();
+
+      // Transform backend data to frontend format
+      const transformedData = data.map(rate => ({
+        id: rate.Id || rate.id,
+        destination: rate.Destination || rate.destination,
+        liner: rate.Liner || rate.liner,
+        gp20: rate.Gp20 || rate.gp20,
+        hq40: rate.Hq40 || rate.hq40,
+        ttRouting: rate.TtRouting || rate.ttRouting || rate.tt_routing,
+        valid: rate.Valid || rate.valid,
+        category: rate.Category || rate.category,
+        remark: rate.Remark || rate.remark,
+        // For display compatibility
+        freightType: 'SEA-EXPORT-FCL',
+        currency: 'USD'
+      }));
+
+      setDestinationRates(transformedData);
+    } catch (err) {
+      console.error('Error fetching destination rates:', err);
+      setDestinationRates([]);
+    } finally {
+      setDestinationLoading(false);
+    }
+  };
+
+  // Handle liner tab click for Sea Spot Rates
   const handleLinerClick = (linerCode) => {
     setActiveLiner(linerCode);
+    setActiveLinerCategory('seaspot');
     setActiveTab('liner'); // Special tab state for liners
+    setShowLinearHeaders(false);
+    setShowDestinationHeaders(false);
     loadLinerRates(linerCode);
+  };
+
+  // Handle liner tab click for Linear Header's
+  const handleLinearHeaderLinerClick = (linerCode) => {
+    setActiveLiner(linerCode);
+    setActiveLinerCategory('linearheaders');
+    setActiveTab('liner'); // Special tab state for liners
+    setShowSeaSpotRates(false);
+    setShowDestinationHeaders(false);
+    loadLinerRates(linerCode);
+  };
+
+  // Handle liner tab click for Destination Header's
+  const handleDestinationHeaderLinerClick = (linerCode) => {
+    setActiveLiner(linerCode);
+    setActiveLinerCategory('destinationheaders');
+    setActiveTab('liner'); // Special tab state for liners
+    setShowSeaSpotRates(false);
+    setShowLinearHeaders(false);
+    loadDestinationRates(linerCode);
   };
 
   // Handle regular tab click
   const handleRegularTabClick = (tab) => {
     setActiveTab(tab);
     setActiveLiner(null); // Clear liner selection
+    setActiveLinerCategory(null);
+    setShowSeaSpotRates(false);
+    setShowLinearHeaders(false);
+    setShowDestinationHeaders(false);
+  };
+
+  // Handle Sea Spot Rates button click
+  const handleSeaSpotRatesClick = () => {
+    setShowSeaSpotRates(!showSeaSpotRates);
+    setShowLinearHeaders(false);
+    setShowDestinationHeaders(false);
+  };
+
+  // Handle Linear Header's button click
+  const handleLinearHeadersClick = () => {
+    setShowLinearHeaders(!showLinearHeaders);
+    setShowSeaSpotRates(false);
+    setShowDestinationHeaders(false);
+  };
+
+  // Handle Destination Header's button click
+  const handleDestinationHeadersClick = () => {
+    setShowDestinationHeaders(!showDestinationHeaders);
+    setShowSeaSpotRates(false);
+    setShowLinearHeaders(false);
   };
 
   const toggleRow = (rateId) => {
@@ -320,7 +435,9 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
   };
 
   const handleRefresh = () => {
-    if (activeLiner) {
+    if (activeLinerCategory === 'destinationheaders') {
+      loadDestinationRates(activeLiner);
+    } else if (activeLiner) {
       loadLinerRates(activeLiner);
     } else {
       loadRates();
@@ -328,13 +445,13 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
   };
 
   const handleDelete = async (rateId) => {
-    if (!window.window.confirm('Are you sure you want to delete this rate?')) return;
+    if (!window.confirm('Are you sure you want to delete this rate?')) return;
     try {
       // Use linear endpoint for liner rates, regular endpoint for others
-      const endpoint = activeLiner 
+      const endpoint = activeLiner
         ? `${BASE_URL}/rates/linear/${rateId}`
         : `${BASE_URL}/rates/${rateId}`;
-      
+
       const response = await fetch(endpoint, {
         method: 'DELETE'
       });
@@ -345,6 +462,24 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
         } else {
           loadRates();
         }
+      } else {
+        throw new Error('Delete failed');
+      }
+    } catch (err) {
+      window.alert('Failed to delete rate.');
+    }
+  };
+
+  // Delete handler for Destination Header's rates
+  const handleDeleteDestinationRate = async (rateId) => {
+    if (!window.confirm('Are you sure you want to delete this rate?')) return;
+    try {
+      const response = await fetch(`${BASE_URL}/rates/destination/${rateId}`, {
+        method: 'DELETE'
+      });
+
+      if (response.ok) {
+        loadDestinationRates(activeLiner);
       } else {
         throw new Error('Delete failed');
       }
@@ -423,129 +558,206 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
       // Validate Excel format - check for required columns
       const firstRow = excelData[0];
       const columnHeaders = Object.keys(firstRow || {});
-      
-      // Check if file has required columns
-      const hasPolColumn = columnHeaders.some(col => 
-        col.toUpperCase() === 'POL' || 
-        col.toUpperCase() === 'ORIGIN'
-      );
-      const hasPodColumn = columnHeaders.some(col => 
-        col.toUpperCase() === 'POD' || 
-        col.toUpperCase() === 'DESTINATION'
-      );
-      const hasRateColumns = columnHeaders.some(col => 
-        col.includes('20GP') || 
-        col.includes('20 GP') ||
-        col.includes('40HQ') || 
-        col.includes('40 HQ') ||
-        col.toUpperCase().includes('GP20') ||
-        col.toUpperCase().includes('HQ40')
-      );
 
-      // Generate detailed error message if columns are missing
-      if (!hasPolColumn || !hasPodColumn || !hasRateColumns) {
-        let errorMsg = '❌ Excel file format error!\n\n';
-        errorMsg += 'Missing required columns:\n';
-        
-        if (!hasPolColumn) {
-          errorMsg += '• POL (Port of Loading) or Origin column\n';
+      // Check if this is a Destination Header's format (DESTINATION, LINER columns)
+      const isDestinationFormat = activeLinerCategory === 'destinationheaders';
+
+      if (isDestinationFormat) {
+        // Destination Header's format: DESTINATION, LINER, 20GP, 40HQ, TT/ROUTING, VALID
+        const hasDestinationColumn = columnHeaders.some(col =>
+          col.toUpperCase() === 'DESTINATION'
+        );
+        const hasLinerColumn = columnHeaders.some(col =>
+          col.toUpperCase() === 'LINER'
+        );
+        const hasRateColumns = columnHeaders.some(col =>
+          col.includes('20GP') ||
+          col.includes('40HQ')
+        );
+
+        if (!hasDestinationColumn || !hasLinerColumn || !hasRateColumns) {
+          let errorMsg = '❌ Excel file format error!\n\n';
+          errorMsg += 'Missing required columns for Destination Header\'s:\n';
+
+          if (!hasDestinationColumn) {
+            errorMsg += '• DESTINATION column\n';
+          }
+          if (!hasLinerColumn) {
+            errorMsg += '• LINER column\n';
+          }
+          if (!hasRateColumns) {
+            errorMsg += '• Rate columns (20GP, 40HQ)\n';
+          }
+
+          errorMsg += '\n📋 Your Excel file has these columns:\n';
+          errorMsg += columnHeaders.join(', ') || 'No columns detected';
+          errorMsg += '\n\n✅ Required format for Destination Header\'s:\n';
+          errorMsg += '• DESTINATION\n';
+          errorMsg += '• LINER\n';
+          errorMsg += '• 20GP\n';
+          errorMsg += '• 40HQ\n';
+          errorMsg += '• TT/ROUTING (optional)\n';
+          errorMsg += '• VALID (optional)\n';
+
+          window.alert(errorMsg);
+          setUploadProgress(false);
+          return;
         }
-        if (!hasPodColumn) {
-          errorMsg += '• POD (Port of Discharge) or Destination column\n';
+      } else {
+        // Standard linear format: POL, POD, 20GP USD, 40HQ-USD, TT/Routing, Valid
+        const hasPolColumn = columnHeaders.some(col =>
+          col.toUpperCase() === 'POL' ||
+          col.toUpperCase() === 'ORIGIN'
+        );
+        const hasPodColumn = columnHeaders.some(col =>
+          col.toUpperCase() === 'POD' ||
+          col.toUpperCase() === 'DESTINATION'
+        );
+        const hasRateColumns = columnHeaders.some(col =>
+          col.includes('20GP') ||
+          col.includes('20 GP') ||
+          col.includes('40HQ') ||
+          col.includes('40 HQ') ||
+          col.toUpperCase().includes('GP20') ||
+          col.toUpperCase().includes('HQ40')
+        );
+
+        if (!hasPolColumn || !hasPodColumn || !hasRateColumns) {
+          let errorMsg = '❌ Excel file format error!\n\n';
+          errorMsg += 'Missing required columns:\n';
+
+          if (!hasPolColumn) {
+            errorMsg += '• POL (Port of Loading) or Origin column\n';
+          }
+          if (!hasPodColumn) {
+            errorMsg += '• POD (Port of Discharge) or Destination column\n';
+          }
+          if (!hasRateColumns) {
+            errorMsg += '• Rate columns (20GP USD, 40HQ-USD, etc.)\n';
+          }
+
+          errorMsg += '\n📋 Your Excel file has these columns:\n';
+          errorMsg += columnHeaders.join(', ') || 'No columns detected';
+          errorMsg += '\n\n✅ Required format:\n';
+          errorMsg += '• POL (or Origin)\n';
+          errorMsg += '• POD (or Destination)\n';
+          errorMsg += '• 20GP USD (or 20GP-USD, 20GP_USD)\n';
+          errorMsg += '• 40HQ-USD (or 40HQ USD, 40HQ_USD)\n';
+          errorMsg += '• TT/Routing (optional)\n';
+          errorMsg += '• VALID (optional)\n';
+          errorMsg += '\n💡 Tip: Download the template for the correct format.';
+
+          window.alert(errorMsg);
+          setUploadProgress(false);
+          return;
         }
-        if (!hasRateColumns) {
-          errorMsg += '• Rate columns (20GP USD, 40HQ-USD, etc.)\n';
-        }
-        
-        errorMsg += '\n📋 Your Excel file has these columns:\n';
-        errorMsg += columnHeaders.join(', ') || 'No columns detected';
-        errorMsg += '\n\n✅ Required format:\n';
-        errorMsg += '• POL (or Origin)\n';
-        errorMsg += '• POD (or Destination)\n';
-        errorMsg += '• 20GP USD (or 20GP-USD, 20GP_USD)\n';
-        errorMsg += '• 40HQ-USD (or 40HQ USD, 40HQ_USD)\n';
-        errorMsg += '• TT/Routing (optional)\n';
-        errorMsg += '• VALID (optional)\n';
-        errorMsg += '\n💡 Tip: Download the template for the correct format.';
-        
-        window.alert(errorMsg);
-        setUploadProgress(false);
-        return;
       }
 
-      // Transform Excel data to match new linear_rates database structure
-      // Excel format headers: POL, POD, 20GP USD, 40HQ-USD, TT/Routing, Valid
-      // This format is common for MSC, ONE, YML, UNIFEEDER, OOCL, RCL, CMA shipping lines
-      const transformedData = excelData.map((row, index) => {
-        // Extract POL (Port of Loading)
-        const pol = row.POL || row.pol || row.Origin || row.origin || null;
-        
-        // Extract POD (Port of Discharge)
-        const pod = row.POD || row.pod || row.Destination || row.destination || null;
-        
-        // Extract 20GP USD
-        const gp20Usd = row['20GP USD'] || row['20GP-USD'] || row['20GP_USD'] || row['20GP'] || row.gp20_usd || row.Gp20Usd || null;
-        
-        // Extract 40HQ-USD
-        const hq40Usd = row['40HQ-USD'] || row['40HQ USD'] || row['40HQ_USD'] || row['40HQ'] || row.hq40_usd || row.Hq40Usd || null;
-        
-        // Extract TT/Routing
-        const ttRouting = row['TT/Routing'] || row['TT-Routing'] || row['TT/ROUITNG'] || row.TTRouting || row.tt_routing || row.TtRouting || null;
-        
-        // Extract Valid date - handle Excel date format
-        let valid = row['VALID '] || row.Valid || row.valid || row.validateDate || row.ValidateDate || null;
-        
-        // If valid is an Excel serial number, convert it
-        if (typeof valid === 'number') {
-          // Excel serial date to JavaScript Date
+      // Helper function to parse Excel date
+      const parseExcelDate = (value) => {
+        if (!value) return null;
+        if (typeof value === 'number') {
           const excelEpoch = new Date(1899, 11, 30);
-          const jsDate = new Date(excelEpoch.getTime() + valid * 86400000);
-          valid = jsDate.toISOString().split('T')[0]; // Format: YYYY-MM-DD
-        } else if (valid instanceof Date) {
-          valid = valid.toISOString().split('T')[0];
-        } else if (typeof valid === 'string' && valid.includes('/')) {
-          // Handle MM/DD/YYYY or DD/MM/YYYY format
-          const parts = valid.split('/');
+          const jsDate = new Date(excelEpoch.getTime() + value * 86400000);
+          return jsDate.toISOString().split('T')[0];
+        } else if (value instanceof Date) {
+          return value.toISOString().split('T')[0];
+        } else if (typeof value === 'string' && value.includes('/')) {
+          const parts = value.split('/');
           if (parts.length === 3) {
-            // Assume MM/DD/YYYY format
-            valid = `${parts[2]}-${parts[0].padStart(2, '0')}-${parts[1].padStart(2, '0')}`;
+            return `${parts[2]}-${parts[0].padStart(2, '0')}-${parts[1].padStart(2, '0')}`;
           }
         }
+        return value;
+      };
 
-        // Log row if any required field is missing
-        if (!pol || !pod) {
-          console.warn(`Row ${index + 1} missing required fields:`, { pol, pod, gp20Usd, hq40Usd });
-        }
+      let transformedData;
+      let validRows;
+      let apiEndpoint;
 
-        // Return simplified payload matching LinearRate model
-        return {
-          Pol: pol,
-          Pod: pod,
-          Gp20Usd: gp20Usd ? parseFloat(gp20Usd) : null,
-          Hq40Usd: hq40Usd ? parseFloat(hq40Usd) : null,
-          TtRouting: ttRouting ? String(ttRouting) : null,
-          Valid: valid,
-          Category: activeLiner
-        };
-      });
+      if (isDestinationFormat) {
+        // Transform for Destination Header's format
+        transformedData = excelData.map((row, index) => {
+          const destination = row.DESTINATION || row.Destination || row.destination || null;
+          const liner = row.LINER || row.Liner || row.liner || null;
+          const gp20 = row['20GP'] || row['20GP USD'] || row['20GP-USD'] || row.gp20 || null;
+          const hq40 = row['40HQ'] || row['40HQ-USD'] || row['40HQ USD'] || row.hq40 || null;
+          const ttRouting = row['TT/ROUTING'] || row['TT/Routing'] || row['TT-Routing'] || row.ttRouting || null;
+          const valid = parseExcelDate(row.VALID || row.Valid || row.valid);
 
-      // Filter out rows with missing critical data - require POL, POD, and at least one rate value
-      const validRows = transformedData.filter(row => 
-        row.Pol && row.Pod && (row.Gp20Usd || row.Hq40Usd)
-      );
-      
+          if (!destination || !liner) {
+            console.warn(`Row ${index + 1} missing required fields:`, { destination, liner });
+          }
+
+          return {
+            Destination: destination,
+            Liner: liner,
+            Gp20: gp20 ? parseFloat(gp20) : null,
+            Hq40: hq40 ? parseFloat(hq40) : null,
+            TtRouting: ttRouting ? String(ttRouting) : null,
+            Valid: valid,
+            Category: activeLiner
+          };
+        });
+
+        validRows = transformedData.filter(row =>
+          row.Destination && row.Liner && (row.Gp20 || row.Hq40)
+        );
+        apiEndpoint = `${BASE_URL}/rates/destination/bulk`;
+      } else {
+        // Transform for standard linear format
+        transformedData = excelData.map((row, index) => {
+          const pol = row.POL || row.pol || row.Origin || row.origin || null;
+          const pod = row.POD || row.pod || row.Destination || row.destination || null;
+          const gp20Usd = row['20GP USD'] || row['20GP-USD'] || row['20GP_USD'] || row['20GP'] || row.gp20_usd || row.Gp20Usd || null;
+          const hq40Usd = row['40HQ-USD'] || row['40HQ USD'] || row['40HQ_USD'] || row['40HQ'] || row.hq40_usd || row.Hq40Usd || null;
+          const ttRouting = row['TT/Routing'] || row['TT-Routing'] || row['TT/ROUITNG'] || row.TTRouting || row.tt_routing || row.TtRouting || null;
+          const valid = parseExcelDate(row['VALID '] || row.Valid || row.valid || row.validateDate || row.ValidateDate);
+
+          if (!pol || !pod) {
+            console.warn(`Row ${index + 1} missing required fields:`, { pol, pod, gp20Usd, hq40Usd });
+          }
+
+          return {
+            Pol: pol,
+            Pod: pod,
+            Gp20Usd: gp20Usd ? parseFloat(gp20Usd) : null,
+            Hq40Usd: hq40Usd ? parseFloat(hq40Usd) : null,
+            TtRouting: ttRouting ? String(ttRouting) : null,
+            Valid: valid,
+            Category: activeLiner
+          };
+        });
+
+        validRows = transformedData.filter(row =>
+          row.Pol && row.Pod && (row.Gp20Usd || row.Hq40Usd)
+        );
+        apiEndpoint = `${BASE_URL}/rates/linear/bulk`;
+      }
+
       if (validRows.length === 0) {
         let errorMsg = '❌ No valid data found in Excel file!\n\n';
         errorMsg += '📋 Common issues:\n';
-        errorMsg += '• POL/POD columns are empty\n';
-        errorMsg += '• Rate columns (20GP USD, 40HQ-USD) are empty\n';
+        if (isDestinationFormat) {
+          errorMsg += '• DESTINATION/LINER columns are empty\n';
+          errorMsg += '• Rate columns (20GP, 40HQ) are empty\n';
+        } else {
+          errorMsg += '• POL/POD columns are empty\n';
+          errorMsg += '• Rate columns (20GP USD, 40HQ-USD) are empty\n';
+        }
         errorMsg += '• Data starts from wrong row (should have headers in row 1)\n';
         errorMsg += '\n✅ Each row must have:\n';
-        errorMsg += '• POL (Port of Loading)\n';
-        errorMsg += '• POD (Port of Discharge)\n';
-        errorMsg += '• At least one rate value (20GP USD or 40HQ-USD)\n';
+        if (isDestinationFormat) {
+          errorMsg += '• DESTINATION\n';
+          errorMsg += '• LINER\n';
+          errorMsg += '• At least one rate value (20GP or 40HQ)\n';
+        } else {
+          errorMsg += '• POL (Port of Loading)\n';
+          errorMsg += '• POD (Port of Discharge)\n';
+          errorMsg += '• At least one rate value (20GP USD or 40HQ-USD)\n';
+        }
         errorMsg += '\n💡 Tip: Download the template and check your data format.';
-        
+
         window.alert(errorMsg);
         setUploadProgress(false);
         return;
@@ -554,29 +766,39 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
       if (validRows.length < transformedData.length) {
         const skipped = transformedData.length - validRows.length;
         const percentage = Math.round((skipped / transformedData.length) * 100);
-        
-        console.warn(`⚠️ Skipping ${skipped} rows (${percentage}%) with missing POL, POD, or rate values`);
-        
+
+        console.warn(`⚠️ Skipping ${skipped} rows (${percentage}%) with missing required fields or rate values`);
+
         // Show details of first few skipped rows for debugging
-        const skippedRows = transformedData.filter(row => 
-          !row.Pol || !row.Pod || (!row.Gp20Usd && !row.Hq40Usd)
-        ).slice(0, 3);
+        const skippedRows = isDestinationFormat
+          ? transformedData.filter(row => !row.Destination || !row.Liner || (!row.Gp20 && !row.Hq40)).slice(0, 3)
+          : transformedData.filter(row => !row.Pol || !row.Pod || (!row.Gp20Usd && !row.Hq40Usd)).slice(0, 3);
         
         console.warn('Sample of skipped rows:', skippedRows);
-        
+
         // Inform user about skipped rows
         if (skipped > 0) {
           const skipMsg = `⚠️ Warning: ${skipped} out of ${transformedData.length} rows will be skipped because they are missing:\n\n`;
           let reasons = [];
-          
-          const missingPol = transformedData.filter(row => !row.Pol).length;
-          const missingPod = transformedData.filter(row => !row.Pod).length;
-          const missingRates = transformedData.filter(row => !row.Gp20Usd && !row.Hq40Usd).length;
-          
-          if (missingPol > 0) reasons.push(`• ${missingPol} rows: Missing POL/Origin`);
-          if (missingPod > 0) reasons.push(`• ${missingPod} rows: Missing POD/Destination`);
-          if (missingRates > 0) reasons.push(`• ${missingRates} rows: Missing rate values`);
-          
+
+          if (isDestinationFormat) {
+            const missingDest = transformedData.filter(row => !row.Destination).length;
+            const missingLiner = transformedData.filter(row => !row.Liner).length;
+            const missingRates = transformedData.filter(row => !row.Gp20 && !row.Hq40).length;
+
+            if (missingDest > 0) reasons.push(`• ${missingDest} rows: Missing DESTINATION`);
+            if (missingLiner > 0) reasons.push(`• ${missingLiner} rows: Missing LINER`);
+            if (missingRates > 0) reasons.push(`• ${missingRates} rows: Missing rate values`);
+          } else {
+            const missingPol = transformedData.filter(row => !row.Pol).length;
+            const missingPod = transformedData.filter(row => !row.Pod).length;
+            const missingRates = transformedData.filter(row => !row.Gp20Usd && !row.Hq40Usd).length;
+
+            if (missingPol > 0) reasons.push(`• ${missingPol} rows: Missing POL/Origin`);
+            if (missingPod > 0) reasons.push(`• ${missingPod} rows: Missing POD/Destination`);
+            if (missingRates > 0) reasons.push(`• ${missingRates} rows: Missing rate values`);
+          }
+
           if (!window.confirm(skipMsg + reasons.join('\n') + `\n\n✅ Continue uploading ${validRows.length} valid rows?`)) {
             setUploadProgress(false);
             return;
@@ -585,10 +807,10 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
       }
 
       // Send to backend
-      console.log(`Uploading ${validRows.length} valid rates for ${activeLiner}`);
+      console.log(`Uploading ${validRows.length} valid rates for ${activeLiner} to ${apiEndpoint}`);
       console.log('Sample transformed data:', validRows[0]);
-      
-      const response = await fetch(`${BASE_URL}/rates/linear/bulk`, {
+
+      const response = await fetch(apiEndpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ Rates: validRows }),
@@ -599,7 +821,7 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
 
       if (response.ok) {
         let successMsg = '';
-        
+
         if (responseData.failCount > 0) {
           successMsg = `✅ Upload Complete\n\n`;
           successMsg += `• Successfully uploaded: ${responseData.successCount} rates\n`;
@@ -608,11 +830,16 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
         } else {
           successMsg = `✅ Success!\n\nUploaded ${responseData.successCount} rates for ${activeLiner}`;
         }
-        
+
         window.alert(successMsg);
         setShowLinerModal(false);
         setExcelFile(null);
-        loadLinerRates(activeLiner);
+        // Reload appropriate data based on category
+        if (isDestinationFormat) {
+          loadDestinationRates(activeLiner);
+        } else {
+          loadLinerRates(activeLiner);
+        }
       } else {
         // Detailed error message based on response
         let errorMsg = '❌ Upload Failed\n\n';
@@ -734,12 +961,22 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
 
   const filteredRates = getFilteredRates();
 
-  // Determine which data to display
-  const displayData = activeLiner ? linerRates : filteredRates;
-  const isLoadingData = activeLiner ? linerLoading : loading;
+  // Determine which data to display based on active category
+  const displayData = activeLinerCategory === 'destinationheaders'
+    ? destinationRates
+    : activeLiner
+      ? linerRates
+      : filteredRates;
+  const isLoadingData = activeLinerCategory === 'destinationheaders'
+    ? destinationLoading
+    : activeLiner
+      ? linerLoading
+      : loading;
 
-  // Get active liner details
-  const activeLinerDetails = shippingLines.find(liner => liner.code === activeLiner);
+  // Get active liner details - check all three categories
+  const activeLinerDetails = shippingLines.find(liner => liner.code === activeLiner)
+    || linearHeaderLines.find(liner => liner.code === activeLiner)
+    || destinationHeaderLines.find(liner => liner.code === activeLiner);
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 bg-slate-50 min-h-screen">
@@ -775,57 +1012,139 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
             )}
           </div>
 
-          {/* Tabs & Search */}
-          <div className="flex flex-wrap gap-2 mb-4">
+          {/* Tabs & Search - Header Line */}
+          <div className="flex flex-wrap items-center gap-2 mb-4">
             {/* Regular Tabs */}
-            <button 
-              onClick={() => handleRegularTabClick('all')} 
-              className={`px-4 py-2 rounded-lg font-medium transition-all ${activeTab === 'all' ? 'bg-indigo-600 text-white shadow-md' : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'}`}
-            >
-              All Rates ({rates.length})
-            </button>
-            <button 
-              onClick={() => handleRegularTabClick('air')} 
-              className={`px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 ${activeTab === 'air' ? 'bg-yellow-500 text-white shadow-md' : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'}`}
+            <button
+              onClick={() => handleRegularTabClick('air')}
+              className={`px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 ${activeTab === 'air' && !activeLiner ? 'bg-yellow-500 text-white shadow-md' : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'}`}
             >
               <Plane className="w-4 h-4" /> Air Freight
             </button>
-            <button 
-              onClick={() => handleRegularTabClick('sea')} 
-              className={`px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 ${activeTab === 'sea' ? 'bg-blue-500 text-white shadow-md' : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'}`}
+            <button
+              onClick={() => handleRegularTabClick('sea')}
+              className={`px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 ${activeTab === 'sea' && !activeLiner ? 'bg-blue-500 text-white shadow-md' : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'}`}
             >
               <Ship className="w-4 h-4" /> Sea Freight
             </button>
 
-            {/* Divider */}
-            <div className="w-px bg-slate-300 mx-2"></div>
+            {/* Horizontal Divider */}
+            <div className="w-px h-8 bg-slate-300 mx-2"></div>
 
-            {/* Shipping Line Tabs */}
-            {shippingLines.map((liner) => (
-              <button 
-                key={liner.code}
-                onClick={() => handleLinerClick(liner.code)} 
-                className={`px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 ${
-                  activeLiner === liner.code 
-                    ? `${liner.color} text-white shadow-md` 
-                    : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'
-                }`}
-              >
-                <Ship className="w-4 h-4" /> {liner.name}
-              </button>
-            ))}
+            {/* Sea Spot Rates Button */}
+            <button
+              onClick={handleSeaSpotRatesClick}
+              className={`px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 ${
+                showSeaSpotRates || activeLinerCategory === 'seaspot'
+                  ? 'bg-indigo-600 text-white shadow-md'
+                  : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'
+              }`}
+            >
+              <Ship className="w-4 h-4" /> Sea Spot Rates
+              <ChevronDown className={`w-4 h-4 transition-transform ${showSeaSpotRates || activeLinerCategory === 'seaspot' ? 'rotate-180' : ''}`} />
+            </button>
+
+            {/* Linear Header's Button */}
+            <button
+              onClick={handleLinearHeadersClick}
+              className={`px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 ${
+                showLinearHeaders || activeLinerCategory === 'linearheaders'
+                  ? 'bg-emerald-600 text-white shadow-md'
+                  : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'
+              }`}
+            >
+              <Ship className="w-4 h-4" /> Linear Header's
+              <ChevronDown className={`w-4 h-4 transition-transform ${showLinearHeaders || activeLinerCategory === 'linearheaders' ? 'rotate-180' : ''}`} />
+            </button>
+
+            {/* Destination Header's Button */}
+            <button
+              onClick={handleDestinationHeadersClick}
+              className={`px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 ${
+                showDestinationHeaders || activeLinerCategory === 'destinationheaders'
+                  ? 'bg-red-700 text-white shadow-md'
+                  : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'
+              }`}
+            >
+              <MapPin className="w-4 h-4" /> Destination Header's
+              <ChevronDown className={`w-4 h-4 transition-transform ${showDestinationHeaders || activeLinerCategory === 'destinationheaders' ? 'rotate-180' : ''}`} />
+            </button>
+
+            {/* Spacer to push search bar to right */}
+            <div className="flex-1"></div>
+
+            {/* Search Bar - Right side of header */}
+            <div className="relative w-full sm:w-auto sm:min-w-[300px] lg:min-w-[400px]">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5" />
+              <input
+                type="text"
+                placeholder="Search by origin, destination, carrier, or route..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+              />
+            </div>
           </div>
 
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5" />
-            <input
-              type="text"
-              placeholder="Search by origin, destination, carrier, or route..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
-            />
-          </div>
+          {/* Sea Spot Rates Sub-section - Shipping Line Buttons */}
+          {(showSeaSpotRates || activeLinerCategory === 'seaspot') && (
+            <div className="flex flex-wrap gap-2 mb-4 p-3 bg-slate-100 rounded-lg border border-slate-200">
+              <span className="text-xs text-slate-500 font-medium w-full mb-2">Sea Spot Rates</span>
+              {shippingLines.map((liner) => (
+                <button
+                  key={liner.code}
+                  onClick={() => handleLinerClick(liner.code)}
+                  className={`px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 ${
+                    activeLiner === liner.code && activeLinerCategory === 'seaspot'
+                      ? `${liner.color} text-white shadow-md`
+                      : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'
+                  }`}
+                >
+                  <Ship className="w-4 h-4" /> {liner.name}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Linear Header's Sub-section - Shipping Line Buttons */}
+          {(showLinearHeaders || activeLinerCategory === 'linearheaders') && (
+            <div className="flex flex-wrap gap-2 mb-4 p-3 bg-emerald-50 rounded-lg border border-emerald-200">
+              <span className="text-xs text-emerald-600 font-medium w-full mb-2">Linear Header's</span>
+              {linearHeaderLines.map((liner) => (
+                <button
+                  key={liner.code}
+                  onClick={() => handleLinearHeaderLinerClick(liner.code)}
+                  className={`px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 ${
+                    activeLiner === liner.code && activeLinerCategory === 'linearheaders'
+                      ? `${liner.color} text-white shadow-md`
+                      : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'
+                  }`}
+                >
+                  <Ship className="w-4 h-4" /> {liner.name}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Destination Header's Sub-section - Region Buttons */}
+          {(showDestinationHeaders || activeLinerCategory === 'destinationheaders') && (
+            <div className="flex flex-wrap gap-2 mb-4 p-3 bg-red-50 rounded-lg border border-red-200">
+              <span className="text-xs text-red-600 font-medium w-full mb-2">Destination Header's</span>
+              {destinationHeaderLines.map((liner) => (
+                <button
+                  key={liner.code}
+                  onClick={() => handleDestinationHeaderLinerClick(liner.code)}
+                  className={`px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 ${
+                    activeLiner === liner.code && activeLinerCategory === 'destinationheaders'
+                      ? `${liner.color} text-white shadow-md`
+                      : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'
+                  }`}
+                >
+                  <MapPin className="w-4 h-4" /> {liner.name}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* States */}
@@ -856,13 +1175,15 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
               <div className={`${activeLinerDetails?.color || 'bg-blue-600'} text-white rounded-xl p-4 mb-4 shadow-md`}>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <Ship className="w-6 h-6" />
+                    {activeLinerCategory === 'destinationheaders' ? <MapPin className="w-6 h-6" /> : <Ship className="w-6 h-6" />}
                     <div>
                       <h3 className="text-lg font-bold">{activeLiner} Rates</h3>
-                      <p className="text-sm opacity-90">Showing {linerRates.length} rates for {activeLiner}</p>
+                      <p className="text-sm opacity-90">
+                        Showing {activeLinerCategory === 'destinationheaders' ? destinationRates.length : linerRates.length} rates for {activeLiner}
+                      </p>
                     </div>
                   </div>
-                  <button 
+                  <button
                     onClick={() => setShowLinerModal(true)}
                     className="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg transition-all flex items-center gap-2"
                   >
@@ -879,15 +1200,144 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
               const isFCL = rate.freightType?.toLowerCase().includes('fcl');
               const isLCL = rate.freightType?.toLowerCase().includes('lcl');
               const isLinerRate = activeLiner && rate.category; // This is a linear rate
+              const isDestinationRate = activeLinerCategory === 'destinationheaders'; // Destination Header's rate
 
               return (
                 <div key={rate.sysID || rate.id} className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden hover:shadow-md transition-shadow">
                   {/* Main Row */}
                   <div className="p-4">
-                    {/* Linear Rates Display (Simplified) */}
-                    {isLinerRate ? (
+                    {/* Destination Header's Rates Display (Different format: DESTINATION, LINER) */}
+                    {isDestinationRate ? (
                       <>
-                        {/* Desktop Grid View */}
+                        {/* Desktop Grid View for Destination Rates */}
+                        <div className="hidden md:grid grid-cols-12 gap-4 items-center">
+                          {/* Category Badge */}
+                          <div className="col-span-2">
+                            <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium text-white ${activeLinerDetails?.color || 'bg-red-700'}`}>
+                              <MapPin className="w-4 h-4" />
+                              <span className="uppercase text-xs">{activeLiner?.split(' ')[0]}</span>
+                            </div>
+                          </div>
+
+                          {/* Destination */}
+                          <div className="col-span-2">
+                            <div className="text-xs text-slate-500">Destination</div>
+                            <div className="font-bold text-slate-800">{rate.destination || '-'}</div>
+                          </div>
+
+                          {/* Liner */}
+                          <div className="col-span-2">
+                            <div className="text-xs text-slate-500">Liner</div>
+                            <div className="font-semibold text-slate-700">{rate.liner || '-'}</div>
+                          </div>
+
+                          {/* 20GP Rate */}
+                          <div className="col-span-1">
+                            <div className="text-sm font-semibold text-slate-600">20' GP</div>
+                            <div className="text-lg font-bold text-indigo-600">
+                              {rate.gp20 ? formatCurrency(rate.gp20) : '-'}
+                            </div>
+                          </div>
+
+                          {/* 40HQ Rate */}
+                          <div className="col-span-1">
+                            <div className="text-sm font-semibold text-slate-600">40' HQ</div>
+                            <div className="text-lg font-bold text-emerald-600">
+                              {rate.hq40 ? formatCurrency(rate.hq40) : '-'}
+                            </div>
+                          </div>
+
+                          {/* TT/Routing */}
+                          <div className="col-span-2">
+                            <div className="text-xs text-slate-500">TT/Routing</div>
+                            <div className="text-sm font-medium text-slate-700 flex items-center gap-1">
+                              <Clock className="w-3 h-3" />
+                              {rate.ttRouting || '-'}
+                            </div>
+                          </div>
+
+                          {/* Valid Date */}
+                          <div className="col-span-1">
+                            <div className="flex items-center gap-2 text-sm">
+                              <Calendar className="w-4 h-4 text-slate-400" />
+                              {formatDate(rate.valid)}
+                            </div>
+                          </div>
+
+                          {/* Actions - Delete button only for admin */}
+                          <div className="col-span-1 flex items-center justify-end gap-2">
+                            {isAdmin && (
+                              <button
+                                onClick={() => handleDeleteDestinationRate(rate.id)}
+                                className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                title="Delete Rate"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Mobile Card View for Destination Rates */}
+                        <div className="md:hidden space-y-3">
+                          <div className="flex items-center justify-between">
+                            <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium text-white ${activeLinerDetails?.color || 'bg-red-700'}`}>
+                              <MapPin className="w-4 h-4" />
+                              <span className="uppercase">{activeLiner?.split(' ')[0]}</span>
+                            </div>
+                            {isAdmin && (
+                              <button
+                                onClick={() => handleDeleteDestinationRate(rate.id)}
+                                className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            )}
+                          </div>
+
+                          <div className="bg-slate-50 rounded-lg p-3">
+                            <div className="grid grid-cols-2 gap-2">
+                              <div>
+                                <div className="text-xs text-slate-500">Destination</div>
+                                <div className="font-bold">{rate.destination || '-'}</div>
+                              </div>
+                              <div>
+                                <div className="text-xs text-slate-500">Liner</div>
+                                <div className="font-semibold">{rate.liner || '-'}</div>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-3">
+                              <div className="text-xs font-semibold text-indigo-600 mb-1">20' GP</div>
+                              <div className="text-lg font-bold text-indigo-700">
+                                {rate.gp20 ? formatCurrency(rate.gp20) : '-'}
+                              </div>
+                            </div>
+                            <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3">
+                              <div className="text-xs font-semibold text-emerald-600 mb-1">40' HQ</div>
+                              <div className="text-lg font-bold text-emerald-700">
+                                {rate.hq40 ? formatCurrency(rate.hq40) : '-'}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center justify-between text-xs">
+                            <div className="flex items-center gap-1 text-slate-500">
+                              <Clock className="w-3 h-3" />
+                              {rate.ttRouting || '-'}
+                            </div>
+                            <div className="flex items-center gap-1 text-slate-500">
+                              <Calendar className="w-3 h-3" />
+                              {formatDate(rate.valid)}
+                            </div>
+                          </div>
+                        </div>
+                      </>
+                    ) : isLinerRate ? (
+                      <>
+                        {/* Desktop Grid View for Linear Rates */}
                         <div className="hidden md:grid grid-cols-12 gap-4 items-center">
                           {/* Shipping Line Badge */}
                           <div className="col-span-2">
@@ -953,15 +1403,17 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
                             </div>
                           </div>
 
-                          {/* Actions */}
+                          {/* Actions - Delete button only for admin */}
                           <div className="col-span-1 flex items-center justify-end gap-2">
-                            <button
-                              onClick={() => handleDelete(rate.id)}
-                              className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                              title="Delete Rate"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
+                            {isAdmin && (
+                              <button
+                                onClick={() => handleDelete(rate.id)}
+                                className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                title="Delete Rate"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            )}
                           </div>
                         </div>
 
@@ -973,13 +1425,15 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
                               <Ship className="w-4 h-4" />
                               <span className="uppercase">{activeLiner}</span>
                             </div>
-                            <button
-                              onClick={() => handleDelete(rate.id)}
-                              className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                              title="Delete Rate"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
+                            {isAdmin && (
+                              <button
+                                onClick={() => handleDelete(rate.id)}
+                                className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                title="Delete Rate"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            )}
                           </div>
 
                           {/* Route */}
@@ -1074,7 +1528,9 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
 
                           <div className="col-span-1 flex items-center justify-end gap-2">
                             <button onClick={() => onEditRate(rate)} className="p-2 hover:bg-indigo-50 rounded-lg"><Edit className="w-4 h-4 text-slate-600 hover:text-indigo-600" /></button>
-                            <button onClick={() => handleDelete(rate.sysID || rate.id)} className="p-2 hover:bg-red-50 rounded-lg"><Trash2 className="w-4 h-4 text-slate-600 hover:text-red-600" /></button>
+                            {isAdmin && (
+                              <button onClick={() => handleDelete(rate.sysID || rate.id)} className="p-2 hover:bg-red-50 rounded-lg"><Trash2 className="w-4 h-4 text-slate-600 hover:text-red-600" /></button>
+                            )}
                             <button onClick={() => toggleRow(rate.sysID || rate.id)} className="p-2 hover:bg-slate-100 rounded-lg">
                               {isExpanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
                             </button>
@@ -1093,9 +1549,11 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
                               <button onClick={() => onEditRate(rate)} className="p-2 hover:bg-indigo-50 rounded-lg">
                                 <Edit className="w-4 h-4 text-slate-600 hover:text-indigo-600" />
                               </button>
-                              <button onClick={() => handleDelete(rate.sysID || rate.id)} className="p-2 hover:bg-red-50 rounded-lg">
-                                <Trash2 className="w-4 h-4 text-slate-600 hover:text-red-600" />
-                              </button>
+                              {isAdmin && (
+                                <button onClick={() => handleDelete(rate.sysID || rate.id)} className="p-2 hover:bg-red-50 rounded-lg">
+                                  <Trash2 className="w-4 h-4 text-slate-600 hover:text-red-600" />
+                                </button>
+                              )}
                               <button onClick={() => toggleRow(rate.sysID || rate.id)} className="p-2 hover:bg-slate-100 rounded-lg">
                                 {isExpanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
                               </button>

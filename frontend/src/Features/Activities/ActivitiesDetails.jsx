@@ -431,7 +431,7 @@ export default function ActivitiesDetails({ onOpen, onEdit, loading: initialLoad
                         <td className="px-4 py-4">
                           <div className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium text-white ${activity.typeColor}`}>
                             <TypeIcon className="w-3 h-3" />
-                            <span>{activity.type}</span>
+                            <span>{activity.type == "site_visit" ? "site visit(without appointment)" : activity.type}</span>
                           </div>
                         </td>
                         <td className="px-4 py-4">
