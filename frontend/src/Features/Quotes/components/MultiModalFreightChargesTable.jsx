@@ -143,17 +143,6 @@ export default function MultiModalFreightChargesTable({
         </div>
       </div>
 
-      <div className="bg-purple-50 border-2 border-purple-200 rounded-lg p-3">
-        <div className="flex justify-between items-center">
-          <span className="font-semibold text-gray-700">Total Freight Charge:</span>
-          <span className="text-2xl font-bold text-purple-900">
-            {((parseFloat(chargeData.chargeableWeight) || 0) * (parseFloat(chargeData.charge) || 0)).toFixed(2)} {chargeData.currency || ''}
-          </span>
-        </div>
-        <div className="text-xs text-gray-600 mt-1">
-          ({chargeData.chargeableWeight || '0'} × {chargeData.charge || '0'} {chargeData.pricingUnit || ''})
-        </div>
-      </div>
     </div>
   );
 }

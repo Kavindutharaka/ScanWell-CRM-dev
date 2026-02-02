@@ -281,13 +281,6 @@ export default function TransitFreightChargesSection({
               </tr>
             ))}
           </tbody>
-          <tfoot className="bg-gray-50 font-semibold">
-            <tr>
-              <td colSpan={isAir ? "11" : "8"} className="border border-gray-300 px-4 py-2 text-right">Grand Total:</td>
-              <td className="border border-gray-300 px-4 py-2">{calculateGrandTotal().toFixed(2)}</td>
-              <td className="border border-gray-300"></td>
-            </tr>
-          </tfoot>
         </table>
       </div>
     </div>

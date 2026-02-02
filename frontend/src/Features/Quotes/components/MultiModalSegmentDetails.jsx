@@ -318,13 +318,6 @@ export default function MultiModalSegmentDetails({
                 </tr>
               ))}
             </tbody>
-            <tfoot className="bg-gray-100 font-semibold">
-              <tr>
-                <td colSpan="5" className="border border-gray-300 px-4 py-2 text-right">Grand Total:</td>
-                <td className="border border-gray-300 px-4 py-2">{calculateHandlingTotal('origin').toFixed(2)}</td>
-                <td className="border border-gray-300"></td>
-              </tr>
-            </tfoot>
           </table>
         </div>
       </div>
@@ -429,13 +422,6 @@ export default function MultiModalSegmentDetails({
                 </tr>
               ))}
             </tbody>
-            <tfoot className="bg-gray-100 font-semibold">
-              <tr>
-                <td colSpan="5" className="border border-gray-300 px-4 py-2 text-right">Grand Total:</td>
-                <td className="border border-gray-300 px-4 py-2">{calculateHandlingTotal('destination').toFixed(2)}</td>
-                <td className="border border-gray-300"></td>
-              </tr>
-            </tfoot>
           </table>
         </div>
       </div>

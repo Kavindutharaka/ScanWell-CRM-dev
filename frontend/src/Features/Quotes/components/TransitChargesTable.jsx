@@ -263,31 +263,10 @@ export default function TransitChargesTable({
               </tr>
             )}
 
-            {/* Total Row */}
-            <tr className="bg-blue-50">
-              <td className="border border-gray-300 px-4 py-2 bg-gray-100 font-bold">Total</td>
-              {locationColumns.map((location) => (
-                <td key={location} className="border border-gray-300 p-2">
-                  <input
-                    type="text"
-                    value={(calculateLocationTotal(location) || 0).toFixed(2)}
-                    readOnly
-                    className="w-full px-2 py-1 border border-gray-300 rounded bg-blue-100 font-semibold text-center"
-                  />
-                </td>
-              ))}
-            </tr>
           </tbody>
         </table>
       </div>
 
-      {/* Grand Total Summary */}
-      <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-3">
-        <div className="flex justify-between items-center">
-          <span className="font-semibold text-gray-700">Total for {title}:</span>
-          <span className="text-2xl font-bold text-blue-900">{calculateGrandTotal().toFixed(2)}</span>
-        </div>
-      </div>
     </div>
   );
 }
