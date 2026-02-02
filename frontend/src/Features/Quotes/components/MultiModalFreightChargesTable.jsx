@@ -69,7 +69,7 @@ export default function MultiModalFreightChargesTable({
         Mode: <span className="font-semibold capitalize">{currentMode}</span>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Chargeable Weight (Kg)
@@ -139,6 +139,20 @@ export default function MultiModalFreightChargesTable({
             showLabel={false}
             disabled={disabled}
             placeholder="Select currency"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Remark
+          </label>
+          <input
+            type="text"
+            value={chargeData.remark || ''}
+            onChange={(e) => updateField('remark', e.target.value)}
+            disabled={disabled}
+            placeholder="Add remark..."
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg disabled:bg-gray-100 focus:ring-2 focus:ring-purple-500"
           />
         </div>
       </div>

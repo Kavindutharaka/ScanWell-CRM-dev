@@ -66,7 +66,8 @@ export default function MultiModalSegmentDetails({
       numberOfUnits: '',
       amount: '',
       currency: '',
-      total: 0
+      total: 0,
+      remark: ''
     });
     setFormData(prev => ({ ...prev, routeOptions: updated }));
   };
@@ -244,6 +245,7 @@ export default function MultiModalSegmentDetails({
                 <th className="border border-gray-300 px-4 py-2 text-left">Amount</th>
                 <th className="border border-gray-300 px-4 py-2 text-left">Currency</th>
                 <th className="border border-gray-300 px-4 py-2 text-left">Total</th>
+                <th className="border border-gray-300 px-4 py-2 text-left">Remark</th>
                 <th className="border border-gray-300 px-4 py-2 text-center w-20">Action</th>
               </tr>
             </thead>
@@ -304,6 +306,16 @@ export default function MultiModalSegmentDetails({
                       className="w-full px-2 py-1 border border-gray-300 rounded bg-gray-50"
                     />
                   </td>
+                  <td className="border border-gray-300 p-2">
+                    <input
+                      type="text"
+                      value={charge.remark || ''}
+                      onChange={(e) => updateHandlingCharge('origin', chargeIdx, 'remark', e.target.value)}
+                      disabled={disabled}
+                      className="w-full px-2 py-1 border border-gray-300 rounded disabled:bg-gray-100"
+                      placeholder="Add remark..."
+                    />
+                  </td>
                   <td className="border border-gray-300 p-2 text-center">
                     {route.originHandling.length > 1 && !disabled && (
                       <button
@@ -348,6 +360,7 @@ export default function MultiModalSegmentDetails({
                 <th className="border border-gray-300 px-4 py-2 text-left">Amount</th>
                 <th className="border border-gray-300 px-4 py-2 text-left">Currency</th>
                 <th className="border border-gray-300 px-4 py-2 text-left">Total</th>
+                <th className="border border-gray-300 px-4 py-2 text-left">Remark</th>
                 <th className="border border-gray-300 px-4 py-2 text-center w-20">Action</th>
               </tr>
             </thead>
@@ -406,6 +419,16 @@ export default function MultiModalSegmentDetails({
                       value={charge.total.toFixed(2)}
                       readOnly
                       className="w-full px-2 py-1 border border-gray-300 rounded bg-gray-50"
+                    />
+                  </td>
+                  <td className="border border-gray-300 p-2">
+                    <input
+                      type="text"
+                      value={charge.remark || ''}
+                      onChange={(e) => updateHandlingCharge('destination', chargeIdx, 'remark', e.target.value)}
+                      disabled={disabled}
+                      className="w-full px-2 py-1 border border-gray-300 rounded disabled:bg-gray-100"
+                      placeholder="Add remark..."
                     />
                   </td>
                   <td className="border border-gray-300 p-2 text-center">

@@ -263,6 +263,23 @@ export default function TransitChargesTable({
               </tr>
             )}
 
+            {/* Remark Row */}
+            <tr>
+              <td className="border border-gray-300 px-4 py-2 bg-gray-50 font-medium">Remark</td>
+              {locationColumns.map((location) => (
+                <td key={location} className="border border-gray-300 p-2">
+                  <input
+                    type="text"
+                    value={chargeData.remarkPerLocation?.[location] || ''}
+                    onChange={(e) => updateFieldPerLocation('remarkPerLocation', location, e.target.value)}
+                    disabled={disabled}
+                    placeholder="Add remark..."
+                    className="w-full px-2 py-1 border border-gray-300 rounded disabled:bg-gray-100"
+                  />
+                </td>
+              ))}
+            </tr>
+
           </tbody>
         </table>
       </div>
