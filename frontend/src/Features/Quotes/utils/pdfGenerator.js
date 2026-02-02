@@ -265,20 +265,20 @@ function addFreightChargesTableTransit(doc, charges, yPos, isAir, segmentNum, ta
       const chargeAmount = charge.charge || '';
       const formattedCharge = chargeAmount ? `${currency} ${chargeAmount}` : '';
       const formattedTotal = `${currency} ${Math.round(total)}`;
-      
+
       return [
         charge.chargeableWeight || '',
         charge.weightBreaker || '',
         charge.pricingUnit || '',
         formattedCharge,
         formattedTotal,
-        formatRemarksWithBreaks(charge.remarks || '')
+        formatRemarksWithBreaks(charge.remark || charge.remarks || '')
       ];
     });
-    
+
     autoTable(doc, {
       startY: yPos,
-      head: [['Chargeable Weight', 'Weight Breaker', 'Pricing Unit', 'Charge', 'Total', 'Remarks']],
+      head: [['Chargeable Weight', 'Weight Breaker', 'Pricing Unit', 'Charge', 'Total', 'Remark']],
       body: tableData,
       theme: 'grid',
       headStyles: { fillColor: [200, 200, 200], textColor: 0, fontSize: 7, fontStyle: 'bold' },
@@ -289,7 +289,7 @@ function addFreightChargesTableTransit(doc, charges, yPos, isAir, segmentNum, ta
         2: { cellWidth: 22 },
         3: { cellWidth: 28 },  // Charge (with currency)
         4: { cellWidth: 28 },  // Total (with currency)
-        5: { cellWidth: 48, overflow: 'linebreak' }  // Remarks
+        5: { cellWidth: 48, overflow: 'linebreak' }  // Remark
       },
       margin: { left: 15, right: 15 }
     });
@@ -409,14 +409,15 @@ const extractChargesFromTables = (tables, chargeType = 'handling') => {
     
     // Handle handling/destination charges (location-based format)
     const locations = Object.keys(table.chargeNamePerLocation || {});
-    
+
     locations.forEach(location => {
       const chargeName = table.chargeNamePerLocation?.[location];
       const unitType = table.unitTypePerLocation?.[location];
       const units = table.unitsPerLocation?.[location];
       const amount = table.amountPerLocation?.[location];
       const currency = table.currencyPerLocation?.[location];
-      
+      const remark = table.remarkPerLocation?.[location];
+
       // Only add if there's actual data
       if (chargeName || amount) {
         allCharges.push({
@@ -426,7 +427,7 @@ const extractChargesFromTables = (tables, chargeType = 'handling') => {
           amount: amount || '',
           currency: currency || '',
           total: 0,
-          remark: ''
+          remark: remark || ''
         });
       }
     });
