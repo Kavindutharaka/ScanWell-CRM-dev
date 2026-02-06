@@ -1,12 +1,14 @@
 // components/TermsConditionsSection.jsx
 import { useState } from 'react';
-import { Plus, Trash2, Edit2, Check, X } from 'lucide-react';
+import { Plus, Trash2, Edit2, Check, X, ClipboardPaste } from 'lucide-react';
 import { termsConditionsSuggestions } from '../../../data/quoteData';
 
 export default function TermsConditionsSection({ formData, setFormData, disabled = false }) {
   const [newTerm, setNewTerm] = useState('');
   const [editingIndex, setEditingIndex] = useState(null);
   const [editValue, setEditValue] = useState('');
+  const [showBulkPaste, setShowBulkPaste] = useState(false);
+  const [bulkText, setBulkText] = useState('');
 
   const addTerm = (term) => {
     if (disabled || !term.trim()) return;
@@ -15,6 +17,21 @@ export default function TermsConditionsSection({ formData, setFormData, disabled
       termsConditions: [...prev.termsConditions, term.trim()]
     }));
     setNewTerm('');
+  };
+
+  const addBulkTerms = () => {
+    if (disabled || !bulkText.trim()) return;
+    const lines = bulkText
+      .split('\n')
+      .map(line => line.replace(/^\d+[\.\)\-\:]\s*/, '').trim())
+      .filter(line => line.length > 0);
+    if (lines.length === 0) return;
+    setFormData(prev => ({
+      ...prev,
+      termsConditions: [...prev.termsConditions, ...lines]
+    }));
+    setBulkText('');
+    setShowBulkPaste(false);
   };
 
   const removeTerm = (index) => {
@@ -87,7 +104,56 @@ export default function TermsConditionsSection({ formData, setFormData, disabled
               <Plus size={18} />
               Add
             </button>
+            <button
+              type="button"
+              onClick={() => setShowBulkPaste(!showBulkPaste)}
+              className={`flex items-center gap-1 px-4 py-2 rounded-lg transition-colors ${
+                showBulkPaste
+                  ? 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                  : 'bg-blue-600 text-white hover:bg-blue-700'
+              }`}
+            >
+              <ClipboardPaste size={18} />
+              Paste Bulk
+            </button>
           </div>
+
+          {showBulkPaste && (
+            <div className="border border-blue-200 bg-blue-50 rounded-lg p-3 space-y-2">
+              <label className="block text-sm font-medium text-blue-700">
+                Paste multiple terms (one per line):
+              </label>
+              <textarea
+                value={bulkText}
+                onChange={(e) => setBulkText(e.target.value)}
+                placeholder={"Paste your terms here...\nEach line will be added as a separate term.\nNumbered prefixes like '1.' or '1)' are auto-removed."}
+                rows={5}
+                className="w-full px-3 py-2 border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-y"
+              />
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-blue-600">
+                  {bulkText.trim() ? `${bulkText.split('\n').filter(l => l.trim()).length} term(s) detected` : 'Paste or type terms separated by new lines'}
+                </span>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => { setBulkText(''); setShowBulkPaste(false); }}
+                    className="px-3 py-1.5 text-sm border border-gray-300 text-gray-600 rounded-lg hover:bg-gray-100"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={addBulkTerms}
+                    className="flex items-center gap-1 px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                  >
+                    <Plus size={16} />
+                    Add All
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

@@ -83,6 +83,12 @@ export default function MultiModalQuoteForm() {
                 currency: ''
               }
             ],
+            seaFreightRatioChargesTables: [
+              {
+                tableName: 'Default',
+                charges: []
+              }
+            ],
             // Handling charges per segment
             originHandling: [
               { chargeName: '', unitType: '', numberOfUnits: '', amount: '', currency: '', total: 0 }
@@ -171,6 +177,12 @@ export default function MultiModalQuoteForm() {
                   pricingUnit: '',
                   charge: '',
                   currency: ''
+                }
+              ],
+              seaFreightRatioChargesTables: [
+                {
+                  tableName: 'Default',
+                  charges: []
                 }
               ],
               originHandling: [

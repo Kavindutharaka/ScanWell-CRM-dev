@@ -31,6 +31,12 @@ export default function MultiModalRouteConfiguration({ routeOption, routeIdx, fo
           currency: ''
         }
       ],
+      seaFreightRatioChargesTables: [
+        {
+          tableName: 'Default',
+          charges: []
+        }
+      ],
       originHandling: [
         { chargeName: '', unitType: '', numberOfUnits: '', amount: '', currency: '', total: 0 }
       ],

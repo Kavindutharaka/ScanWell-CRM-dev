@@ -4,6 +4,7 @@ import { useState } from 'react';
 import AutocompleteInput from './AutocompleteInput';
 import { getCarriersByCategory, incotermSuggestions, currencySuggestions, cargoTypeSuggestions } from '../../../data/quoteData';
 import FreightChargesSection from './FreightChargesSection';
+import SeaFreightRatioTable from './SeaFreightRatioTable';
 import DestinationChargesSection from './DestinationChargesSection';
 import HandlingChargesSection from './HandlingChargesSection';
 
@@ -199,6 +200,25 @@ export default function CarrierOptionSection({
               </div>
             )}
           </div>
+
+          {/* Air Freight Ratio Charges - only for air category */}
+          {category === 'air' && (
+            <div className="bg-white rounded-lg p-4 mb-4 shadow-sm">
+              <SeaFreightRatioTable
+                formData={{ seaFreightRatioCharges: option.seaFreightRatioCharges || [] }}
+                setFormData={(updater) => {
+                  if (typeof updater === 'function') {
+                    const currentData = { seaFreightRatioCharges: option.seaFreightRatioCharges || [] };
+                    const updated = updater(currentData);
+                    updateCarrierOption('seaFreightRatioCharges', updated.seaFreightRatioCharges);
+                  } else {
+                    updateCarrierOption('seaFreightRatioCharges', updater.seaFreightRatioCharges);
+                  }
+                }}
+                disabled={disabled}
+              />
+            </div>
+          )}
 
           {/* Destination Charges */}
           <div className="bg-white rounded-lg p-4 mb-4 shadow-sm">

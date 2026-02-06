@@ -1,8 +1,8 @@
 // QuotesInvoiceSec.jsx - MINIMAL CHANGES - Only outcome fixes + Warehouse Quotes
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Search, Filter, Eye, Edit2, Trash2, Plane, Ship, Package, Container, Truck, Route as RouteIcon, Layers, MapPin, Calendar, User, DollarSign, ArrowRight, Award, CheckCircle, XCircle, AlertCircle, Warehouse } from 'lucide-react';
-import { fetchQuotes, deleteQuote, fetchWareQuote, getSp } from '../../api/QuoteApi';
+import { Plus, Search, Filter, Eye, Edit2, Trash2, Plane, Ship, Package, Container, Truck, Route as RouteIcon, Layers, MapPin, Calendar, User, DollarSign, ArrowRight, Award, CheckCircle, XCircle, AlertCircle, Warehouse, Send, ChevronLeft, ChevronRight } from 'lucide-react';
+import { fetchQuotesPaged, fetchQuoteCounts, deleteQuote, fetchWareQuote, getSp, updateQuoteStatus } from '../../api/QuoteApi';
 import { fetchOutComeById, saveQuoteOutCome } from '../../api/QuotesOutComeApi';
 import axios from 'axios';
 
@@ -15,6 +15,17 @@ export default function QuotesInvoiceSec({ modalOpen }) {
   const [filterType, setFilterType] = useState('all');
   const [filterCategory, setFilterCategory] = useState('all');
   const [deleteModal, setDeleteModal] = useState({ show: false, quoteId: null, quoteNumber: '' });
+  const [submitModal, setSubmitModal] = useState({ show: false, quoteId: null, quoteNumber: '' });
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize] = useState(10);
+  const [totalCount, setTotalCount] = useState(0);
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const searchTimerRef = useRef(null);
+
+  // Stats counts (loaded once, refreshed on data changes)
+  const [statsCounts, setStatsCounts] = useState({ total: 0, air: 0, sea: 0, multimodal: 0, warehouse: 0 });
 
   const [winModalShow, setWinModalShow] = useState(false);
   const [lostModalShow, setLostModalShow] = useState(false);
@@ -201,19 +212,41 @@ function SalesPerson({ customerName }) {
     }
   };
 
+  // Debounce search input
+  useEffect(() => {
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    searchTimerRef.current = setTimeout(() => {
+      setDebouncedSearch(searchTerm);
+      setCurrentPage(1);
+    }, 400);
+    return () => { if (searchTimerRef.current) clearTimeout(searchTimerRef.current); };
+  }, [searchTerm]);
+
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filterType, filterCategory]);
+
+  // Load quotes when page, filters, or debounced search changes
   useEffect(() => {
     loadQuotes();
+  }, [currentPage, pageSize, debouncedSearch, filterCategory, filterType]);
+
+  // Load warehouse quotes and stats counts once on mount
+  useEffect(() => {
     loadWarehouseQuotes();
+    loadStatsCounts();
   }, []);
 
   const loadQuotes = async () => {
     try {
       setLoading(true);
-      const data = await fetchQuotes();
-      setQuotes(data);
-      
-      // Load outcomes for all quotes
-      data.forEach(quote => {
+      const result = await fetchQuotesPaged(currentPage, pageSize, debouncedSearch, filterCategory, filterType);
+      setQuotes(result.data || []);
+      setTotalCount(result.totalCount || 0);
+
+      // Load outcomes for current page quotes
+      (result.data || []).forEach(quote => {
         loadQuoteOutcome(quote.quoteId);
       });
     } catch (error) {
@@ -253,7 +286,32 @@ function SalesPerson({ customerName }) {
     }
   };
 
-  // Combine all quotes
+  const loadStatsCounts = async () => {
+    try {
+      const counts = await fetchQuoteCounts();
+      setStatsCounts(prev => ({
+        ...prev,
+        total: (counts.total || 0) + warehouseQuotes.length,
+        air: counts.air || 0,
+        sea: counts.sea || 0,
+        multimodal: counts.multimodal || 0,
+        warehouse: warehouseQuotes.length
+      }));
+    } catch (error) {
+      console.error('Error loading stats counts:', error);
+    }
+  };
+
+  // Update stats warehouse count when warehouse quotes load
+  useEffect(() => {
+    setStatsCounts(prev => ({
+      ...prev,
+      total: (prev.total - prev.warehouse) + warehouseQuotes.length,
+      warehouse: warehouseQuotes.length
+    }));
+  }, [warehouseQuotes]);
+
+  // Combine all quotes - quotes are already paginated/filtered from server
   const allQuotes = [...quotes, ...warehouseQuotes];
 
   const handleView = (quote) => {
@@ -317,13 +375,34 @@ function SalesPerson({ customerName }) {
         // Delete freight quote
         await deleteQuote(deleteModal.quoteId);
         loadQuotes();
+        loadStatsCounts();
       }
-      
+
       setDeleteModal({ show: false, quoteId: null, quoteNumber: '', isWarehouse: false });
       alert('Quote deleted successfully!');
     } catch (error) {
       console.error('Error deleting quote:', error);
       alert('Failed to delete quote');
+    }
+  };
+
+  const confirmSubmit = (quote) => {
+    setSubmitModal({
+      show: true,
+      quoteId: quote.quoteId,
+      quoteNumber: quote.quoteNumber
+    });
+  };
+
+  const handleSubmitStatus = async () => {
+    try {
+      await updateQuoteStatus(submitModal.quoteId, 'submitted');
+      setSubmitModal({ show: false, quoteId: null, quoteNumber: '' });
+      loadQuotes();
+      alert('Quote submitted successfully!');
+    } catch (error) {
+      console.error('Error submitting quote:', error);
+      alert('Failed to submit quote');
     }
   };
 
@@ -348,6 +427,7 @@ function SalesPerson({ customerName }) {
   const getStatusBadge = (status) => {
     const statusConfig = {
       draft: { bg: 'bg-gray-100', text: 'text-gray-800', label: 'Draft' },
+      submitted: { bg: 'bg-blue-100', text: 'text-blue-800', label: 'Submitted' },
       pending: { bg: 'bg-yellow-100', text: 'text-yellow-800', label: 'Pending' },
       approved: { bg: 'bg-green-100', text: 'text-green-800', label: 'Approved' },
       rejected: { bg: 'bg-red-100', text: 'text-red-800', label: 'Rejected' },
@@ -489,13 +569,23 @@ function SalesPerson({ customerName }) {
     }
   };
 
-  const filteredQuotes = allQuotes.filter(quote => {
-    const matchesSearch = quote.quoteNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      quote.customer?.toLowerCase().includes(searchTerm.toLowerCase());
+  // Freight quotes are already filtered/paginated from server
+  // Only client-filter warehouse quotes to match current filters
+  const filteredWarehouse = warehouseQuotes.filter(quote => {
+    const matchesSearch = !debouncedSearch ||
+      quote.quoteNumber?.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+      quote.customer?.toLowerCase().includes(debouncedSearch.toLowerCase());
     const matchesTypeFilter = filterType === 'all' || quote.freightType === filterType;
     const matchesCategoryFilter = filterCategory === 'all' || quote.freightCategory === filterCategory;
     return matchesSearch && matchesTypeFilter && matchesCategoryFilter;
   });
+
+  // Show freight quotes (server-paginated) on page 1 along with matching warehouse quotes
+  // On subsequent pages, only show freight quotes (warehouse is small enough to show on page 1)
+  const filteredQuotes = currentPage === 1 ? [...quotes, ...filteredWarehouse] : [...quotes];
+
+  // Total pages based on freight quote count from server (warehouse added to page 1)
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
 
   return (
     <div className="p-6 space-y-6">
@@ -561,7 +651,7 @@ function SalesPerson({ customerName }) {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600">Total Quotes</p>
-              <p className="text-2xl font-bold text-gray-800">{allQuotes.length}</p>
+              <p className="text-2xl font-bold text-gray-800">{statsCounts.total}</p>
             </div>
             <div className="w-12 h-12 bg-teal-50 rounded-lg flex items-center justify-center">
               <Package className="text-teal-600" size={24} />
@@ -573,7 +663,7 @@ function SalesPerson({ customerName }) {
             <div>
               <p className="text-sm text-gray-600">Air Freight</p>
               <p className="text-2xl font-bold text-gray-800">
-                {allQuotes.filter(q => q.freightCategory === 'air').length}
+                {statsCounts.air}
               </p>
             </div>
             <div className="w-12 h-12 bg-blue-50 rounded-lg flex items-center justify-center">
@@ -586,7 +676,7 @@ function SalesPerson({ customerName }) {
             <div>
               <p className="text-sm text-gray-600">Sea Freight</p>
               <p className="text-2xl font-bold text-gray-800">
-                {allQuotes.filter(q => q.freightCategory === 'sea').length}
+                {statsCounts.sea}
               </p>
             </div>
             <div className="w-12 h-12 bg-teal-50 rounded-lg flex items-center justify-center">
@@ -599,7 +689,7 @@ function SalesPerson({ customerName }) {
             <div>
               <p className="text-sm text-gray-600">MultiModal</p>
               <p className="text-2xl font-bold text-gray-800">
-                {allQuotes.filter(q => q.freightCategory === 'multimodal').length}
+                {statsCounts.multimodal}
               </p>
             </div>
             <div className="w-12 h-12 bg-purple-50 rounded-lg flex items-center justify-center">
@@ -612,7 +702,7 @@ function SalesPerson({ customerName }) {
             <div>
               <p className="text-sm text-gray-600">Warehouse</p>
               <p className="text-2xl font-bold text-gray-800">
-                {allQuotes.filter(q => q.freightCategory === 'warehouse').length}
+                {statsCounts.warehouse}
               </p>
             </div>
             <div className="w-12 h-12 bg-amber-50 rounded-lg flex items-center justify-center">
@@ -651,40 +741,53 @@ function SalesPerson({ customerName }) {
           {/* Desktop Table View */}
           <div className="hidden lg:block bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="w-full">
+              <table className="w-full table-fixed">
+                <colgroup>
+                  <col className="w-[14%]" />
+                  <col className="w-[7%]" />
+                  <col className="w-[10%]" />
+                  <col className="w-[9%]" />
+                  <col className="w-[10%]" />
+                  <col className="w-[8%]" />
+                  <col className="w-[7%]" />
+                  <col className="w-[7%]" />
+                  <col className="w-[9%]" />
+                  <col className="w-[9%]" />
+                  <col className="w-[10%]" />
+                </colgroup>
                 <thead className="bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
                       Quote Details
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
-                      Freight Info
+                    <th className="px-2 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                      Freight
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                    <th className="px-2 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
                       Customer
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                    <th className="px-2 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
                       Sales Person
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                    <th className="px-2 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
                       Route
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                    <th className="px-2 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
                       Dates
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                    <th className="px-2 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
                       Amount
                     </th>
-                    {/* <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                    <th className="px-2 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
                       Status
-                    </th> */}
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                    </th>
+                    <th className="px-2 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
                       Created By
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Outcome
                     </th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-600 uppercase tracking-wider">
+                    <th className="px-2 py-3 text-right text-xs font-medium text-gray-600 uppercase tracking-wider">
                       Actions
                     </th>
                   </tr>
@@ -698,66 +801,66 @@ function SalesPerson({ customerName }) {
 
                     return (
                       <tr key={quote.quoteId} className="hover:bg-gray-50 transition-colors">
-                        <td className="px-6 py-4">
-                          <div className="flex items-center gap-3">
-                            <div className={`w-10 h-10 rounded-lg ${freightIcon.bg} ${freightIcon.color} flex items-center justify-center flex-shrink-0`}>
-                              <FreightIconComponent size={20} />
+                        <td className="px-3 py-3">
+                          <div className="flex items-center gap-2">
+                            <div className={`w-8 h-8 rounded-lg ${freightIcon.bg} ${freightIcon.color} flex items-center justify-center flex-shrink-0`}>
+                              <FreightIconComponent size={16} />
                             </div>
-                            <div>
-                              <div className="font-semibold text-gray-900">{quote.quoteNumber}</div>
-                              <div className="flex items-center gap-2 mt-1">
-                                <TypeIconComponent size={14} className={typeIcon.color} />
-                                <span className={`text-xs px-2 py-0.5 rounded-full ${typeIcon.badge} capitalize`}>
+                            <div className="min-w-0">
+                              <div className="font-semibold text-gray-900 text-sm truncate">{quote.quoteNumber}</div>
+                              <div className="flex items-center gap-1 mt-0.5">
+                                <TypeIconComponent size={12} className={typeIcon.color} />
+                                <span className={`text-xs px-1.5 py-0.5 rounded-full ${typeIcon.badge} capitalize`}>
                                   {quote.freightType}
                                 </span>
                               </div>
                             </div>
                           </div>
                         </td>
-                        <td className="px-6 py-4">
+                        <td className="px-2 py-3">
                           <div>
-                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${freightIcon.badge} capitalize`}>
+                            <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium ${freightIcon.badge} capitalize`}>
                               {quote.freightCategory}
                             </span>
                             <div className="text-xs text-gray-500 mt-1 capitalize">{quote.freightMode}</div>
                           </div>
                         </td>
-                        <td className="px-6 py-4">
-                          <div className="flex items-center gap-2">
-                            <User size={14} className="text-gray-400" />
-                            <span className="text-sm text-gray-700">{quote.customer || '-'}</span>
+                        <td className="px-2 py-3">
+                          <div className="flex items-center gap-1">
+                            <User size={12} className="text-gray-400 flex-shrink-0" />
+                            <span className="text-xs text-gray-700 truncate">{quote.customer || '-'}</span>
                           </div>
                         </td>
-                        <td className="px-6 py-4">
-                          <div className="flex items-center gap-2">
-                            <User size={14} className="text-gray-400" />
-                            <SalesPerson customerName={quote.customer} />
+                        <td className="px-2 py-3">
+                          <div className="flex items-center gap-1">
+                            <User size={12} className="text-gray-400 flex-shrink-0" />
+                            <span className="text-xs"><SalesPerson customerName={quote.customer} /></span>
                           </div>
                         </td>
-                        <td className="px-6 py-4">
+                        <td className="px-2 py-3">
                           {quote.isWarehouse ? (
-                            <span className="text-xs text-gray-500 italic">Warehouse Services</span>
+                            <span className="text-xs text-gray-500 italic">Warehouse</span>
                           ) : quote.freightType === 'multimodal' ? (
-                            <div className="max-w-xs">
+                            <div className="max-w-full overflow-hidden">
                               {getMultiModalRouteDisplay(quote)}
                             </div>
                           ) : (
-                            <div className="space-y-1">
-                              <div className="flex items-center gap-2 text-sm text-gray-700">
-                                <MapPin size={14} className="text-green-500" />
-                                <span className="truncate max-w-[150px]">{quote.portOfLoading || '-'}</span>
+                            <div className="space-y-0.5">
+                              <div className="flex items-center gap-1 text-xs text-gray-700">
+                                <MapPin size={12} className="text-green-500 flex-shrink-0" />
+                                <span className="truncate">{quote.portOfLoading || '-'}</span>
                               </div>
-                              <div className="flex items-center gap-2 text-sm text-gray-700">
-                                <MapPin size={14} className="text-red-500" />
-                                <span className="truncate max-w-[150px]">{quote.portOfDischarge || '-'}</span>
+                              <div className="flex items-center gap-1 text-xs text-gray-700">
+                                <MapPin size={12} className="text-red-500 flex-shrink-0" />
+                                <span className="truncate">{quote.portOfDischarge || '-'}</span>
                               </div>
                             </div>
                           )}
                         </td>
-                        <td className="px-6 py-4">
-                          <div className="space-y-1">
-                            <div className="flex items-center gap-2 text-sm">
-                              <Calendar size={14} className="text-gray-400" />
+                        <td className="px-2 py-3">
+                          <div className="space-y-0.5">
+                            <div className="flex items-center gap-1 text-xs">
+                              <Calendar size={12} className="text-gray-400 flex-shrink-0" />
                               <span className="text-gray-700">
                                 {new Date(quote.createdDate).toLocaleDateString('en-US', {
                                   month: 'short',
@@ -768,7 +871,7 @@ function SalesPerson({ customerName }) {
                             </div>
                             {quote.rateValidity && (
                               <div className="text-xs text-gray-500">
-                                Valid till: {new Date(quote.rateValidity).toLocaleDateString('en-US', {
+                                Till: {new Date(quote.rateValidity).toLocaleDateString('en-US', {
                                   month: 'short',
                                   day: 'numeric'
                                 })}
@@ -776,46 +879,55 @@ function SalesPerson({ customerName }) {
                             )}
                           </div>
                         </td>
-                        <td className="px-6 py-4">
-                          <div className="flex items-center gap-1 font-semibold text-gray-900">
-                            <DollarSign size={16} className="text-green-600" />
+                        <td className="px-2 py-3">
+                          <div className="flex items-center gap-0.5 font-semibold text-gray-900 text-xs">
+                            <DollarSign size={14} className="text-green-600" />
                             {calculateTotalAmount(quote)}
                           </div>
                         </td>
-                        {/* <td className="px-6 py-4">
+                        <td className="px-2 py-3">
                           {getStatusBadge(quote.status)}
-                        </td> */}
-                        <td className="px-6 py-4">
-                          <div className="flex items-center gap-2">
-                            <User size={14} className="text-gray-400" />
-                            <span className="text-sm text-gray-700">{quote.fullName || '-'}</span>
+                        </td>
+                        <td className="px-2 py-3">
+                          <div className="flex items-center gap-1">
+                            <User size={12} className="text-gray-400 flex-shrink-0" />
+                            <span className="text-xs text-gray-700 truncate">{quote.fullName || '-'}</span>
                           </div>
                         </td>
-                        <td className="px-6 py-4">
+                        <td className="px-2 py-3">
                           {!quote.isWarehouse && getOutcomeBadge(quote.quoteId)}
                         </td>
-                        <td className="px-6 py-4">
-                          <div className="flex items-center justify-end gap-2">
+                        <td className="px-2 py-3">
+                          <div className="flex items-center justify-end gap-1">
+                            {!quote.isWarehouse && (!quote.status || quote.status === 'draft') && (
+                              <button
+                                onClick={() => confirmSubmit(quote)}
+                                className="p-1.5 text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"
+                                title="Submit Quote"
+                              >
+                                <Send size={15} />
+                              </button>
+                            )}
                             <button
                               onClick={() => handleView(quote)}
-                              className="p-2 text-teal-600 hover:bg-teal-50 rounded-lg transition-colors"
+                              className="p-1.5 text-teal-600 hover:bg-teal-50 rounded-lg transition-colors"
                               title="View"
                             >
-                              <Eye size={18} />
+                              <Eye size={15} />
                             </button>
                             <button
                               onClick={() => handleEdit(quote)}
-                              className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                              className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                               title="Edit"
                             >
-                              <Edit2 size={18} />
+                              <Edit2 size={15} />
                             </button>
                             <button
                               onClick={() => confirmDelete(quote)}
-                              className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                              className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                               title="Delete"
                             >
-                              <Trash2 size={18} />
+                              <Trash2 size={15} />
                             </button>
                           </div>
                         </td>
@@ -930,6 +1042,74 @@ function SalesPerson({ customerName }) {
               );
             })}
           </div>
+
+          {/* Pagination Controls */}
+          {totalPages > 1 && (
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 px-4 py-3 mt-4">
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
+                <div className="text-sm text-gray-600">
+                  Showing {((currentPage - 1) * pageSize) + 1} - {Math.min(currentPage * pageSize, totalCount)} of {totalCount} freight quotes
+                  {filteredWarehouse.length > 0 && currentPage === 1 && ` (+${filteredWarehouse.length} warehouse)`}
+                </div>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => setCurrentPage(1)}
+                    disabled={currentPage === 1}
+                    className="px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  >
+                    First
+                  </button>
+                  <button
+                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                    disabled={currentPage === 1}
+                    className="p-1.5 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <ChevronLeft size={18} />
+                  </button>
+
+                  {/* Page numbers */}
+                  {(() => {
+                    const pages = [];
+                    let start = Math.max(1, currentPage - 2);
+                    let end = Math.min(totalPages, start + 4);
+                    if (end - start < 4) start = Math.max(1, end - 4);
+
+                    for (let i = start; i <= end; i++) {
+                      pages.push(
+                        <button
+                          key={i}
+                          onClick={() => setCurrentPage(i)}
+                          className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
+                            i === currentPage
+                              ? 'bg-teal-600 text-white font-medium'
+                              : 'border border-gray-300 hover:bg-gray-50 text-gray-700'
+                          }`}
+                        >
+                          {i}
+                        </button>
+                      );
+                    }
+                    return pages;
+                  })()}
+
+                  <button
+                    onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                    disabled={currentPage === totalPages}
+                    className="p-1.5 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <ChevronRight size={18} />
+                  </button>
+                  <button
+                    onClick={() => setCurrentPage(totalPages)}
+                    disabled={currentPage === totalPages}
+                    className="px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  >
+                    Last
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </>
       )}
 
@@ -970,6 +1150,43 @@ function SalesPerson({ customerName }) {
         </div>
       )}
       
+      {/* Submit Confirmation Modal */}
+      {submitModal.show && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center">
+                <Send className="text-orange-600" size={24} />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">Submit Quote</h3>
+                <p className="text-sm text-gray-500">Change status from Draft to Submitted</p>
+              </div>
+            </div>
+
+            <p className="text-gray-700 mb-6">
+              Are you sure you want to submit quote <span className="font-semibold">{submitModal.quoteNumber}</span>?
+              The status will be changed to <span className="font-semibold text-blue-600">Submitted</span>.
+            </p>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setSubmitModal({ show: false, quoteId: null, quoteNumber: '' })}
+                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSubmitStatus}
+                className="flex-1 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700"
+              >
+                Submit Quote
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Win Modal */}
       {winModalShow && currentQuote && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">

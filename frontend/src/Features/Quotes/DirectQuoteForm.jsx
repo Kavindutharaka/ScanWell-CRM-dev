@@ -85,6 +85,7 @@ export default function DirectQuoteForm({ category, mode }) {
       total: 0,
       remarks: ''
     }],
+    seaFreightRatioCharges: [],
     destinationCharges: [{
       chargeName: '',
       unitType: '',

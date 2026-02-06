@@ -353,6 +353,118 @@ function getSegmentsCurrency(segments) {
  * Format remarks text with line breaks for better display
  * Splits at numbered points (01., 02., etc.) and long sections
  */
+/**
+ * Add Air Freight Ratio Charges Table to PDF
+ * Renders horizontal table with ratio columns: AIRLINE, CCY, 1:167, 1:200, 1:300, 1:400, 1:500, SURCHARGE, T/T, FREQUENCY, ROUTING, REMARKS
+ */
+function addAirFreightRatioChargesTable(doc, charges, yPos, title = 'Air Freight Ratio Charges') {
+  const validCharges = charges.filter(c => c.carrier || c.ratio || c.amount);
+
+  if (validCharges.length === 0) {
+    return yPos;
+  }
+
+  if (yPos > 230) {
+    doc.addPage();
+    yPos = 20;
+  }
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9);
+  doc.text(title, 15, yPos);
+  yPos += 3;
+
+  // Collect all unique ratios and sort them
+  const standardRatios = ['1:167', '1:200', '1:300', '1:400', '1:500'];
+  const allRatios = new Set();
+  validCharges.forEach(charge => {
+    if (charge.ratio) {
+      allRatios.add(charge.ratio);
+    }
+  });
+
+  const ratioColumns = allRatios.size > 0 ? Array.from(allRatios).sort((a, b) => {
+    const numA = parseFloat(a.split(':')[1] || '0');
+    const numB = parseFloat(b.split(':')[1] || '0');
+    return numA - numB;
+  }) : standardRatios;
+
+  // Group charges by carrier
+  const carrierGroups = {};
+  validCharges.forEach(charge => {
+    const carrier = charge.carrier || '';
+    if (!carrierGroups[carrier]) {
+      carrierGroups[carrier] = {
+        carrier: carrier,
+        currency: charge.currency || '',
+        ratios: {},
+        surcharge: charge.surcharge || '',
+        transitTime: charge.transitTime || '',
+        frequency: charge.frequency || '',
+        routing: charge.numberOfRouting || '',
+        remarks: formatRemarksWithBreaks(charge.remarks || '')
+      };
+    }
+
+    const ratio = charge.ratio || '';
+    if (ratio) {
+      carrierGroups[carrier].ratios[ratio] = charge.amount || '';
+    }
+  });
+
+  // Build table data
+  const tableData = Object.values(carrierGroups).map(group => {
+    const row = [group.carrier, group.currency];
+
+    ratioColumns.forEach(ratio => {
+      row.push(group.ratios[ratio] || '');
+    });
+
+    row.push(group.surcharge);
+    row.push(group.transitTime);
+    row.push(group.frequency);
+    row.push(group.routing);
+    row.push(group.remarks);
+
+    return row;
+  });
+
+  // Build headers
+  const headers = ['AIRLINE', 'CCY', ...ratioColumns, 'SURCHARGE', 'T/T', 'FREQUENCY', 'ROUTING', 'REMARKS'];
+
+  // Calculate column widths
+  const numRatios = ratioColumns.length;
+  const ratioWidth = numRatios > 5 ? 10 : 12;
+
+  const columnStyles = {
+    0: { cellWidth: 15 },  // AIRLINE
+    1: { cellWidth: 10 }   // CCY
+  };
+
+  for (let i = 0; i < numRatios; i++) {
+    columnStyles[2 + i] = { cellWidth: ratioWidth };
+  }
+
+  columnStyles[2 + numRatios] = { cellWidth: 16 };      // SURCHARGE
+  columnStyles[3 + numRatios] = { cellWidth: 10 };      // T/T
+  columnStyles[4 + numRatios] = { cellWidth: 13 };      // FREQUENCY
+  columnStyles[5 + numRatios] = { cellWidth: 15 };      // ROUTING
+  columnStyles[6 + numRatios] = { cellWidth: 28, overflow: 'linebreak' };  // REMARKS
+
+  autoTable(doc, {
+    startY: yPos,
+    head: [headers],
+    body: tableData,
+    theme: 'grid',
+    headStyles: { fillColor: [200, 200, 200], textColor: 0, fontSize: 6.5, fontStyle: 'bold' },
+    bodyStyles: { fontSize: 6.5, overflow: 'linebreak', cellPadding: 1.5 },
+    columnStyles: columnStyles,
+    margin: { left: 15, right: 15 }
+  });
+
+  return doc.lastAutoTable.finalY + 8;
+}
+
 const formatRemarksWithBreaks = (remarks) => {
   if (!remarks || remarks.trim() === '') return '';
 
@@ -724,6 +836,11 @@ export const generateDirectQuotePDF = (quoteData, userData = null, returnDoc = f
       } else if (option.freightCharges) {
         // Old format: direct array
         yPos = addFreightChargesTable(doc, option.freightCharges || [], yPos, isAir);
+      }
+
+      // Air Freight Ratio Charges - only for air category
+      if (isAir && option.seaFreightRatioCharges && option.seaFreightRatioCharges.length > 0) {
+        yPos = addAirFreightRatioChargesTable(doc, option.seaFreightRatioCharges, yPos);
       }
 
       // Destination Charges
@@ -1316,9 +1433,9 @@ export const generateTransitQuotePDF = (quoteData, userData = null, returnDoc = 
       yPos += 4;
     });
   }
-  
+
   yPos += 6;
-  
+
   // Equipment (top level or first segment)
   const topEquipment = equipment.equipment ? equipment : (allSegments[0]?.equipment || {});
   doc.setFont('helvetica', 'bold');
@@ -1327,7 +1444,7 @@ export const generateTransitQuotePDF = (quoteData, userData = null, returnDoc = 
   doc.text('Gross Weight', 95, yPos);
   doc.text('Volume (m³)', 135, yPos);
   doc.text('Chargeable Weight', 165, yPos);
-  
+
   yPos += 4;
   doc.setFont('helvetica', 'normal');
   doc.text(topEquipment.equipment || equipment.equipment || 'N/A', 15, yPos);
@@ -1335,21 +1452,21 @@ export const generateTransitQuotePDF = (quoteData, userData = null, returnDoc = 
   doc.text(topEquipment.grossWeight || equipment.grossWeight || '0', 95, yPos);
   doc.text(topEquipment.volume || equipment.volume || '0', 135, yPos);
   doc.text(topEquipment.chargeableWeight || equipment.chargeableWeight || '0', 165, yPos);
-  
+
   yPos += 10;
-  
+
   // Process each segment
   allSegments.forEach((segment, index) => {
     if (yPos > 240) {
       doc.addPage();
       yPos = 20;
     }
-    
+
     doc.setFillColor(200, 220, 240);
     doc.rect(15, yPos - 3, 180, 7, 'F');
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(10);
-    
+
     const segmentMode = segment.mode?.toUpperCase() || 'N/A';
     const segmentRoute = `${segment.origin || 'N/A'} → ${segment.destination || 'N/A'}`;
     doc.text(`Segment ${index + 1}: ${segmentMode} (${segmentRoute})`, 18, yPos + 2);
@@ -1383,6 +1500,17 @@ export const generateTransitQuotePDF = (quoteData, userData = null, returnDoc = 
       if (freightCharges.length > 0) {
         yPos = addFreightChargesTableTransit(doc, freightCharges, yPos, segment.mode === 'air', index + 1);
       }
+    }
+
+    // Air Freight Ratio Charges - only for air segments (Transit)
+    if (segment.mode === 'air' && segment.seaFreightRatioChargesTables && Array.isArray(segment.seaFreightRatioChargesTables)) {
+      segment.seaFreightRatioChargesTables.forEach((table) => {
+        const ratioCharges = table.charges || [];
+        if (ratioCharges.length > 0) {
+          const tableName = table.tableName || 'Default';
+          yPos = addAirFreightRatioChargesTable(doc, ratioCharges, yPos, `Air Freight Ratio Charges - ${tableName} (Segment ${index + 1})`);
+        }
+      });
     }
 
     // Origin Handling - extract from originHandlingTables
@@ -1515,16 +1643,16 @@ export const generateMultiModalQuotePDF = (quoteData, userData = null, returnDoc
       const route = `${r.origin || 'N/A'} → ${r.destination || 'N/A'}`;
       return `Seg ${idx + 1}: ${mode} (${route})`;
     }).join('  |  ');
-    
+
     const routeLines = doc.splitTextToSize(routeText, 170);
     routeLines.forEach(line => {
       doc.text(line, 15, yPos);
       yPos += 4;
     });
   }
-  
+
   yPos += 6;
-  
+
   // Equipment (top level or first segment)
   const topEquipment = equipment.equipment ? equipment : (allSegments[0]?.equipment || {});
   doc.setFont('helvetica', 'bold');
@@ -1533,7 +1661,7 @@ export const generateMultiModalQuotePDF = (quoteData, userData = null, returnDoc
   doc.text('Gross Weight', 95, yPos);
   doc.text('Volume (m³)', 135, yPos);
   doc.text('Chargeable Weight', 165, yPos);
-  
+
   yPos += 4;
   doc.setFont('helvetica', 'normal');
   doc.text(topEquipment.equipment || equipment.equipment || 'N/A', 15, yPos);
@@ -1541,21 +1669,21 @@ export const generateMultiModalQuotePDF = (quoteData, userData = null, returnDoc
   doc.text(topEquipment.grossWeight || equipment.grossWeight || '0', 95, yPos);
   doc.text(topEquipment.volume || equipment.volume || '0', 135, yPos);
   doc.text(topEquipment.chargeableWeight || equipment.chargeableWeight || '0', 165, yPos);
-  
+
   yPos += 10;
-  
+
   // Process each segment
   allSegments.forEach((segment, index) => {
     if (yPos > 240) {
       doc.addPage();
       yPos = 20;
     }
-    
+
     doc.setFillColor(200, 220, 240);
     doc.rect(15, yPos - 3, 180, 7, 'F');
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(10);
-    
+
     const segmentMode = segment.mode?.toUpperCase() || 'N/A';
     const segmentRoute = `${segment.origin || 'N/A'} → ${segment.destination || 'N/A'}`;
     doc.text(`Segment ${index + 1}: ${segmentMode} (${segmentRoute})`, 18, yPos + 2);
@@ -1589,6 +1717,17 @@ export const generateMultiModalQuotePDF = (quoteData, userData = null, returnDoc
       if (freightCharges.length > 0) {
         yPos = addFreightChargesTableTransit(doc, freightCharges, yPos, segment.mode === 'air', index + 1);
       }
+    }
+
+    // Air Freight Ratio Charges - only for air segments (MultiModal)
+    if (segment.mode === 'air' && segment.seaFreightRatioChargesTables && Array.isArray(segment.seaFreightRatioChargesTables)) {
+      segment.seaFreightRatioChargesTables.forEach((table) => {
+        const ratioCharges = table.charges || [];
+        if (ratioCharges.length > 0) {
+          const tableName = table.tableName || 'Default';
+          yPos = addAirFreightRatioChargesTable(doc, ratioCharges, yPos, `Air Freight Ratio Charges - ${tableName} (Segment ${index + 1})`);
+        }
+      });
     }
 
     // Origin Handling - extract from originHandlingTables
