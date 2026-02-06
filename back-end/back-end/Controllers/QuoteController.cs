@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Data;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
@@ -43,6 +44,112 @@ namespace back_end.Controllers
                 using var reader = cmd.ExecuteReader();
                 tb.Load(reader);
                 return Ok(tb);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Error: {ex.Message}");
+            }
+        }
+
+        // GET: api/quote/quote/paged?page=1&pageSize=10&search=&category=all&type=all
+        [HttpGet, Route("quote/paged")]
+        public ActionResult GetPagedQuotes(int page = 1, int pageSize = 10, string search = "", string category = "all", string type = "all")
+        {
+            try
+            {
+                using var con = GetConnection();
+                con.Open();
+
+                // Build WHERE clause
+                var conditions = new List<string>();
+                var parameters = new List<SqlParameter>();
+
+                if (!string.IsNullOrWhiteSpace(search))
+                {
+                    conditions.Add("(q.QuoteNumber LIKE @Search OR q.Customer LIKE @Search)");
+                    parameters.Add(new SqlParameter("@Search", $"%{search}%"));
+                }
+
+                if (!string.IsNullOrEmpty(category) && category != "all")
+                {
+                    conditions.Add("q.FreightCategory = @Category");
+                    parameters.Add(new SqlParameter("@Category", category));
+                }
+
+                if (!string.IsNullOrEmpty(type) && type != "all")
+                {
+                    conditions.Add("q.FreightType = @Type");
+                    parameters.Add(new SqlParameter("@Type", type));
+                }
+
+                string whereClause = conditions.Count > 0 ? "WHERE " + string.Join(" AND ", conditions) : "";
+
+                // Count query
+                string countQuery = $"SELECT COUNT(*) FROM [dbo].[Quotes] q {whereClause}";
+                using var countCmd = new SqlCommand(countQuery, con);
+                foreach (var p in parameters) countCmd.Parameters.Add(new SqlParameter(p.ParameterName, p.Value));
+                int totalCount = (int)countCmd.ExecuteScalar();
+
+                // Data query with pagination
+                string dataQuery = $@"
+                    SELECT
+                        q.*,
+                        e.fname + ' ' + e.lname AS fullName,
+                        e.email
+                    FROM [dbo].[Quotes] q
+                    LEFT JOIN [dbo].[emp_reg] e ON q.CreatedBy = e.SysID
+                    {whereClause}
+                    ORDER BY q.QuoteId DESC
+                    OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY;";
+
+                using var dataCmd = new SqlCommand(dataQuery, con);
+                foreach (var p in parameters) dataCmd.Parameters.Add(new SqlParameter(p.ParameterName, p.Value));
+                dataCmd.Parameters.AddWithValue("@Offset", (page - 1) * pageSize);
+                dataCmd.Parameters.AddWithValue("@PageSize", pageSize);
+
+                var tb = new DataTable();
+                using var reader = dataCmd.ExecuteReader();
+                tb.Load(reader);
+
+                return Ok(new { data = tb, totalCount = totalCount, page = page, pageSize = pageSize });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Error: {ex.Message}");
+            }
+        }
+
+        // GET: api/quote/quote/counts
+        [HttpGet, Route("quote/counts")]
+        public ActionResult GetQuoteCounts()
+        {
+            string query = @"
+                SELECT
+                    COUNT(*) AS total,
+                    SUM(CASE WHEN FreightCategory = 'air' THEN 1 ELSE 0 END) AS air,
+                    SUM(CASE WHEN FreightCategory = 'sea' THEN 1 ELSE 0 END) AS sea,
+                    SUM(CASE WHEN FreightCategory = 'multimodal' THEN 1 ELSE 0 END) AS multimodal
+                FROM [dbo].[Quotes];";
+
+            try
+            {
+                using var con = GetConnection();
+                con.Open();
+                using var cmd = new SqlCommand(query, con);
+                using var reader = cmd.ExecuteReader();
+
+                if (reader.Read())
+                {
+                    return Ok(new
+                    {
+                        total = reader.GetInt32(0),
+                        air = reader.GetInt32(1),
+                        sea = reader.GetInt32(2),
+                        multimodal = reader.GetInt32(3)
+                    });
+                }
+
+                return Ok(new { total = 0, air = 0, sea = 0, multimodal = 0 });
             }
             catch (Exception ex)
             {

@@ -1,8 +1,8 @@
 // QuotesInvoiceSec.jsx - MINIMAL CHANGES - Only outcome fixes + Warehouse Quotes
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Search, Filter, Eye, Edit2, Trash2, Plane, Ship, Package, Container, Truck, Route as RouteIcon, Layers, MapPin, Calendar, User, DollarSign, ArrowRight, Award, CheckCircle, XCircle, AlertCircle, Warehouse, Send } from 'lucide-react';
-import { fetchQuotes, deleteQuote, fetchWareQuote, getSp, updateQuoteStatus } from '../../api/QuoteApi';
+import { Plus, Search, Filter, Eye, Edit2, Trash2, Plane, Ship, Package, Container, Truck, Route as RouteIcon, Layers, MapPin, Calendar, User, DollarSign, ArrowRight, Award, CheckCircle, XCircle, AlertCircle, Warehouse, Send, ChevronLeft, ChevronRight } from 'lucide-react';
+import { fetchQuotesPaged, fetchQuoteCounts, deleteQuote, fetchWareQuote, getSp, updateQuoteStatus } from '../../api/QuoteApi';
 import { fetchOutComeById, saveQuoteOutCome } from '../../api/QuotesOutComeApi';
 import axios from 'axios';
 
@@ -16,6 +16,16 @@ export default function QuotesInvoiceSec({ modalOpen }) {
   const [filterCategory, setFilterCategory] = useState('all');
   const [deleteModal, setDeleteModal] = useState({ show: false, quoteId: null, quoteNumber: '' });
   const [submitModal, setSubmitModal] = useState({ show: false, quoteId: null, quoteNumber: '' });
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize] = useState(10);
+  const [totalCount, setTotalCount] = useState(0);
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const searchTimerRef = useRef(null);
+
+  // Stats counts (loaded once, refreshed on data changes)
+  const [statsCounts, setStatsCounts] = useState({ total: 0, air: 0, sea: 0, multimodal: 0, warehouse: 0 });
 
   const [winModalShow, setWinModalShow] = useState(false);
   const [lostModalShow, setLostModalShow] = useState(false);
@@ -202,19 +212,41 @@ function SalesPerson({ customerName }) {
     }
   };
 
+  // Debounce search input
+  useEffect(() => {
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    searchTimerRef.current = setTimeout(() => {
+      setDebouncedSearch(searchTerm);
+      setCurrentPage(1);
+    }, 400);
+    return () => { if (searchTimerRef.current) clearTimeout(searchTimerRef.current); };
+  }, [searchTerm]);
+
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filterType, filterCategory]);
+
+  // Load quotes when page, filters, or debounced search changes
   useEffect(() => {
     loadQuotes();
+  }, [currentPage, pageSize, debouncedSearch, filterCategory, filterType]);
+
+  // Load warehouse quotes and stats counts once on mount
+  useEffect(() => {
     loadWarehouseQuotes();
+    loadStatsCounts();
   }, []);
 
   const loadQuotes = async () => {
     try {
       setLoading(true);
-      const data = await fetchQuotes();
-      setQuotes(data);
-      
-      // Load outcomes for all quotes
-      data.forEach(quote => {
+      const result = await fetchQuotesPaged(currentPage, pageSize, debouncedSearch, filterCategory, filterType);
+      setQuotes(result.data || []);
+      setTotalCount(result.totalCount || 0);
+
+      // Load outcomes for current page quotes
+      (result.data || []).forEach(quote => {
         loadQuoteOutcome(quote.quoteId);
       });
     } catch (error) {
@@ -254,7 +286,32 @@ function SalesPerson({ customerName }) {
     }
   };
 
-  // Combine all quotes
+  const loadStatsCounts = async () => {
+    try {
+      const counts = await fetchQuoteCounts();
+      setStatsCounts(prev => ({
+        ...prev,
+        total: (counts.total || 0) + warehouseQuotes.length,
+        air: counts.air || 0,
+        sea: counts.sea || 0,
+        multimodal: counts.multimodal || 0,
+        warehouse: warehouseQuotes.length
+      }));
+    } catch (error) {
+      console.error('Error loading stats counts:', error);
+    }
+  };
+
+  // Update stats warehouse count when warehouse quotes load
+  useEffect(() => {
+    setStatsCounts(prev => ({
+      ...prev,
+      total: (prev.total - prev.warehouse) + warehouseQuotes.length,
+      warehouse: warehouseQuotes.length
+    }));
+  }, [warehouseQuotes]);
+
+  // Combine all quotes - quotes are already paginated/filtered from server
   const allQuotes = [...quotes, ...warehouseQuotes];
 
   const handleView = (quote) => {
@@ -318,8 +375,9 @@ function SalesPerson({ customerName }) {
         // Delete freight quote
         await deleteQuote(deleteModal.quoteId);
         loadQuotes();
+        loadStatsCounts();
       }
-      
+
       setDeleteModal({ show: false, quoteId: null, quoteNumber: '', isWarehouse: false });
       alert('Quote deleted successfully!');
     } catch (error) {
@@ -511,13 +569,23 @@ function SalesPerson({ customerName }) {
     }
   };
 
-  const filteredQuotes = allQuotes.filter(quote => {
-    const matchesSearch = quote.quoteNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      quote.customer?.toLowerCase().includes(searchTerm.toLowerCase());
+  // Freight quotes are already filtered/paginated from server
+  // Only client-filter warehouse quotes to match current filters
+  const filteredWarehouse = warehouseQuotes.filter(quote => {
+    const matchesSearch = !debouncedSearch ||
+      quote.quoteNumber?.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+      quote.customer?.toLowerCase().includes(debouncedSearch.toLowerCase());
     const matchesTypeFilter = filterType === 'all' || quote.freightType === filterType;
     const matchesCategoryFilter = filterCategory === 'all' || quote.freightCategory === filterCategory;
     return matchesSearch && matchesTypeFilter && matchesCategoryFilter;
   });
+
+  // Show freight quotes (server-paginated) on page 1 along with matching warehouse quotes
+  // On subsequent pages, only show freight quotes (warehouse is small enough to show on page 1)
+  const filteredQuotes = currentPage === 1 ? [...quotes, ...filteredWarehouse] : [...quotes];
+
+  // Total pages based on freight quote count from server (warehouse added to page 1)
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
 
   return (
     <div className="p-6 space-y-6">
@@ -583,7 +651,7 @@ function SalesPerson({ customerName }) {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600">Total Quotes</p>
-              <p className="text-2xl font-bold text-gray-800">{allQuotes.length}</p>
+              <p className="text-2xl font-bold text-gray-800">{statsCounts.total}</p>
             </div>
             <div className="w-12 h-12 bg-teal-50 rounded-lg flex items-center justify-center">
               <Package className="text-teal-600" size={24} />
@@ -595,7 +663,7 @@ function SalesPerson({ customerName }) {
             <div>
               <p className="text-sm text-gray-600">Air Freight</p>
               <p className="text-2xl font-bold text-gray-800">
-                {allQuotes.filter(q => q.freightCategory === 'air').length}
+                {statsCounts.air}
               </p>
             </div>
             <div className="w-12 h-12 bg-blue-50 rounded-lg flex items-center justify-center">
@@ -608,7 +676,7 @@ function SalesPerson({ customerName }) {
             <div>
               <p className="text-sm text-gray-600">Sea Freight</p>
               <p className="text-2xl font-bold text-gray-800">
-                {allQuotes.filter(q => q.freightCategory === 'sea').length}
+                {statsCounts.sea}
               </p>
             </div>
             <div className="w-12 h-12 bg-teal-50 rounded-lg flex items-center justify-center">
@@ -621,7 +689,7 @@ function SalesPerson({ customerName }) {
             <div>
               <p className="text-sm text-gray-600">MultiModal</p>
               <p className="text-2xl font-bold text-gray-800">
-                {allQuotes.filter(q => q.freightCategory === 'multimodal').length}
+                {statsCounts.multimodal}
               </p>
             </div>
             <div className="w-12 h-12 bg-purple-50 rounded-lg flex items-center justify-center">
@@ -634,7 +702,7 @@ function SalesPerson({ customerName }) {
             <div>
               <p className="text-sm text-gray-600">Warehouse</p>
               <p className="text-2xl font-bold text-gray-800">
-                {allQuotes.filter(q => q.freightCategory === 'warehouse').length}
+                {statsCounts.warehouse}
               </p>
             </div>
             <div className="w-12 h-12 bg-amber-50 rounded-lg flex items-center justify-center">
@@ -974,6 +1042,74 @@ function SalesPerson({ customerName }) {
               );
             })}
           </div>
+
+          {/* Pagination Controls */}
+          {totalPages > 1 && (
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 px-4 py-3 mt-4">
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
+                <div className="text-sm text-gray-600">
+                  Showing {((currentPage - 1) * pageSize) + 1} - {Math.min(currentPage * pageSize, totalCount)} of {totalCount} freight quotes
+                  {filteredWarehouse.length > 0 && currentPage === 1 && ` (+${filteredWarehouse.length} warehouse)`}
+                </div>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => setCurrentPage(1)}
+                    disabled={currentPage === 1}
+                    className="px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  >
+                    First
+                  </button>
+                  <button
+                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                    disabled={currentPage === 1}
+                    className="p-1.5 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <ChevronLeft size={18} />
+                  </button>
+
+                  {/* Page numbers */}
+                  {(() => {
+                    const pages = [];
+                    let start = Math.max(1, currentPage - 2);
+                    let end = Math.min(totalPages, start + 4);
+                    if (end - start < 4) start = Math.max(1, end - 4);
+
+                    for (let i = start; i <= end; i++) {
+                      pages.push(
+                        <button
+                          key={i}
+                          onClick={() => setCurrentPage(i)}
+                          className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
+                            i === currentPage
+                              ? 'bg-teal-600 text-white font-medium'
+                              : 'border border-gray-300 hover:bg-gray-50 text-gray-700'
+                          }`}
+                        >
+                          {i}
+                        </button>
+                      );
+                    }
+                    return pages;
+                  })()}
+
+                  <button
+                    onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                    disabled={currentPage === totalPages}
+                    className="p-1.5 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <ChevronRight size={18} />
+                  </button>
+                  <button
+                    onClick={() => setCurrentPage(totalPages)}
+                    disabled={currentPage === totalPages}
+                    className="px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  >
+                    Last
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </>
       )}
 

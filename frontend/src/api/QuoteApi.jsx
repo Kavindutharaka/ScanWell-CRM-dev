@@ -9,6 +9,17 @@ export const fetchQuotes = async () => {
   return response.data;
 };
 
+export const fetchQuoteCounts = async () => {
+  const response = await axios.get(`${BASE_URL}/quote/quote/counts`);
+  return response.data;
+};
+
+export const fetchQuotesPaged = async (page = 1, pageSize = 10, search = '', category = 'all', type = 'all') => {
+  const params = new URLSearchParams({ page, pageSize, search, category, type });
+  const response = await axios.get(`${BASE_URL}/quote/quote/paged?${params.toString()}`);
+  return response.data;
+};
+
 export const fetchQuoteById = async (id) => {
   const response = await axios.get(`${BASE_URL}/quote/quote/${id}`);
   return response.data;
@@ -85,6 +96,8 @@ export const getSp = async (name) => {
 // Optional: Export as object (same pattern as your AccountApi)
 const QuoteApi = {
   fetchQuotes,
+  fetchQuoteCounts,
+  fetchQuotesPaged,
   fetchQuoteById,
   createNewQuote,
   updateQuote,
