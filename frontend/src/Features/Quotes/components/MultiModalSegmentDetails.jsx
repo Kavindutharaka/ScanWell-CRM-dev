@@ -2,8 +2,9 @@
 import { Plus, Trash2 } from 'lucide-react';
 import AutocompleteInput from './AutocompleteInput';
 import MultiModalFreightChargesTable from './MultiModalFreightChargesTable';
-import { 
-  getCarriersByCategory, 
+import SeaMultiModalFreightRatioTable from './SeaMultiModalFreightRatioTable';
+import {
+  getCarriersByCategory,
   getEquipmentByCategory,
   chargeNameSuggestions,
   unitTypeSuggestions,
@@ -52,6 +53,34 @@ export default function MultiModalSegmentDetails({
     const updated = [...formData.routeOptions];
     updated[routeIdx].routes[routeSegmentIdx].freightChargesTables = 
       updated[routeIdx].routes[routeSegmentIdx].freightChargesTables.filter((_, i) => i !== tableIdx);
+    setFormData(prev => ({ ...prev, routeOptions: updated }));
+  };
+
+  // Add sea freight ratio charge table
+  const addSeaFreightRatioChargeTable = () => {
+    if (disabled) return;
+    const updated = [...formData.routeOptions];
+    const tables = updated[routeIdx].routes[routeSegmentIdx].seaFreightRatioChargesTables || [];
+    const nextOptionNum = tables.length;
+
+    if (!updated[routeIdx].routes[routeSegmentIdx].seaFreightRatioChargesTables) {
+      updated[routeIdx].routes[routeSegmentIdx].seaFreightRatioChargesTables = [];
+    }
+
+    updated[routeIdx].routes[routeSegmentIdx].seaFreightRatioChargesTables.push({
+      tableName: `Option ${nextOptionNum}`,
+      charges: []
+    });
+
+    setFormData(prev => ({ ...prev, routeOptions: updated }));
+  };
+
+  // Remove sea freight ratio charge table
+  const removeSeaFreightRatioChargeTable = (tableIdx) => {
+    if (disabled || tableIdx === 0) return;
+    const updated = [...formData.routeOptions];
+    updated[routeIdx].routes[routeSegmentIdx].seaFreightRatioChargesTables =
+      updated[routeIdx].routes[routeSegmentIdx].seaFreightRatioChargesTables.filter((_, i) => i !== tableIdx);
     setFormData(prev => ({ ...prev, routeOptions: updated }));
   };
 
@@ -218,6 +247,41 @@ export default function MultiModalSegmentDetails({
           </div>
         ))}
       </div>
+
+      {/* Air Freight Ratio Charges Tables - only for air mode segments */}
+      {mode === 'air' && (
+      <div>
+        <div className="flex justify-between items-center mb-3">
+          <h6 className="text-md font-semibold text-gray-700">Air Freight Ratio Charges</h6>
+          {!disabled && (
+            <button
+              type="button"
+              onClick={addSeaFreightRatioChargeTable}
+              className="flex items-center gap-1 px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700"
+            >
+              <Plus size={16} />
+              Add Table
+            </button>
+          )}
+        </div>
+
+        {(route.seaFreightRatioChargesTables || [{ tableName: 'Default', charges: [] }]).map((table, tableIdx) => (
+          <div key={tableIdx} className="mb-4">
+            <SeaMultiModalFreightRatioTable
+              title={`Air Freight Ratio Charges (${table.tableName})`}
+              chargeData={table}
+              routeIdx={routeIdx}
+              routeSegmentIdx={routeSegmentIdx}
+              tableIdx={tableIdx}
+              formData={formData}
+              setFormData={setFormData}
+              disabled={disabled}
+              onRemove={tableIdx > 0 ? () => removeSeaFreightRatioChargeTable(tableIdx) : null}
+            />
+          </div>
+        ))}
+      </div>
+      )}
 
       {/* Origin Handling Charges */}
       <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">

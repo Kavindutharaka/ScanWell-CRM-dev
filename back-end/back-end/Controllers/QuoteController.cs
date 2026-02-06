@@ -228,6 +228,31 @@ namespace back_end.Controllers
             }
         }
 
+        // PUT: api/quote/quote/{id}/status
+        [HttpPut, Route("quote/{id}/status")]
+        public IActionResult UpdateQuoteStatus(int id, [FromBody] StatusUpdateModel statusModel)
+        {
+            string query = @"UPDATE [dbo].[Quotes] SET Status = @Status, UpdatedAt = GETDATE() WHERE QuoteId = @QuoteId";
+
+            try
+            {
+                using var con = GetConnection();
+                con.Open();
+                using var cmd = new SqlCommand(query, con);
+                cmd.Parameters.AddWithValue("@QuoteId", id);
+                cmd.Parameters.AddWithValue("@Status", statusModel.Status ?? "draft");
+
+                int rows = cmd.ExecuteNonQuery();
+                return rows > 0
+                    ? Ok("Quote status updated successfully.")
+                    : NotFound("Quote not found.");
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Error updating quote status: {ex.Message}");
+            }
+        }
+
         // DELETE: api/quote/5
         [HttpDelete, Route("quote/{id}")]
         public IActionResult DeleteQuote(int id)
@@ -277,5 +302,10 @@ namespace back_end.Controllers
                 return StatusCode(500, $"Error: {ex.Message}");
             }
         }
+    }
+
+    public class StatusUpdateModel
+    {
+        public string Status { get; set; }
     }
 }

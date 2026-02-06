@@ -41,6 +41,11 @@ export const deleteQuote = async (id) => {
   return response.data;
 };
 
+export const updateQuoteStatus = async (id, status) => {
+  const response = await axios.put(`${BASE_URL}/quote/quote/${id}/status`, { status });
+  return response.data;
+};
+
 // Warehouse Quote API Functions
 export const fetchWareQuote = async () => {
   const response = await axios.get(`${BASE_URL}/WarehouseQuotes`);
@@ -84,6 +89,7 @@ const QuoteApi = {
   createNewQuote,
   updateQuote,
   deleteQuote,
+  updateQuoteStatus,
   fetchWareQuote,
   fetchWareQuoteById,
   createWareQuote,

@@ -10,6 +10,7 @@ import TermsConditionsSection from './components/TermsConditionsSection';
 import { generateQuoteNumber } from '../../utils/quoteUtils';
 import { fetchQuoteById, updateQuote, createNewQuote } from '../../api/QuoteApi';
 import TransitFreightChargesSection from './components/TransitFreightChargesSection';
+import SeaTransitFreightRatioTable from './components/SeaTransitFreightRatioTable';
 import { generateTransitQuotePDF, printTransitQuotePDF } from './utils/pdfGenerator';
 import { fetchAccountAddress } from '../../api/AccountApi';
 
@@ -81,6 +82,12 @@ export default function TransitQuoteForm({ category, mode }) {
               remarks: ''
             }
           ]
+        }
+      ],
+      seaFreightRatioChargesTables: [
+        {
+          tableName: 'Default',
+          charges: []
         }
       ],
       // Keep vertical structure for these
@@ -198,6 +205,12 @@ export default function TransitQuoteForm({ category, mode }) {
             ]
           }
         ],
+        seaFreightRatioChargesTables: [
+          {
+            tableName: 'Default',
+            charges: []
+          }
+        ],
         destinationChargesTables: [
           {
             tableName: 'Default',
@@ -270,6 +283,11 @@ export default function TransitQuoteForm({ category, mode }) {
           remarks: ''
         }
       ]
+    };
+  } else if (tableType === 'seaFreightRatioChargesTables') {
+    newTable = {
+      tableName: `Option ${nextOptionNum}`,
+      charges: []
     };
   } else {
     // Vertical table structure (for other charges)
@@ -552,6 +570,40 @@ export default function TransitQuoteForm({ category, mode }) {
     </div>
   ))}
 </div>
+
+              {/* Air Freight Ratio Charges Tables - only for air category */}
+              {category === 'air' && (
+              <div className="mb-6">
+                <div className="flex justify-between items-center mb-3">
+                  <h3 className="text-lg font-medium text-gray-700">Air Freight Ratio Charges</h3>
+                  {!isViewMode && (
+                    <button
+                      type="button"
+                      onClick={() => addChargeTable(routeIdx, 'seaFreightRatioChargesTables')}
+                      className="flex items-center gap-1 px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700"
+                    >
+                      <Plus size={16} />
+                      Add Table
+                    </button>
+                  )}
+                </div>
+
+                {(routeOption.seaFreightRatioChargesTables || [{ tableName: 'Default', charges: [] }]).map((table, tableIdx) => (
+                  <div key={tableIdx} className="mb-4">
+                    <SeaTransitFreightRatioTable
+                      formData={formData}
+                      setFormData={setFormData}
+                      routeIdx={routeIdx}
+                      tableIdx={tableIdx}
+                      chargeData={table}
+                      tableName={table.tableName}
+                      disabled={isViewMode}
+                      onRemove={tableIdx > 0 ? () => removeChargeTable(routeIdx, 'seaFreightRatioChargesTables', tableIdx) : null}
+                    />
+                  </div>
+                ))}
+              </div>
+              )}
 
               {/* Destination Charges Tables */}
               <div className="mb-6">
