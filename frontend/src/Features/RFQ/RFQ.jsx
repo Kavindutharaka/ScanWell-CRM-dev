@@ -3,20 +3,26 @@ import Header from "../../components/Header";
 import SideNav from "../../components/SideNav";
 import RFQSec from "./RFQSec";
 import RFQForm from "./RFQForm";
+import SalesEntryModal from "./SalesEntryModal";
 
-export default function InfoAndUpdates() {
+export default function RFQ() {
   const [openModal, setOpenModal] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
+  const [salesEntryItem, setSalesEntryItem] = useState(null);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   const modalOpen = () => {
     setEditingItem(null);
     setOpenModal(true);
   };
 
-  const modalClose = () => {
+  const modalClose = (shouldRefresh) => {
     setOpenModal(false);
     setEditingItem(null);
+    if (shouldRefresh) {
+      setRefreshKey((prev) => prev + 1);
+    }
   };
 
   const handleEdit = (item) => {
@@ -24,9 +30,8 @@ export default function InfoAndUpdates() {
     setOpenModal(true);
   };
 
-  const handleFormClose = (response) => {
-    // response contains the updated/created item data
-    modalClose();
+  const handleSalesEntry = (item) => {
+    setSalesEntryItem(item);
   };
 
   const handleMenuToggle = () => {
@@ -39,37 +44,35 @@ export default function InfoAndUpdates() {
 
   return (
     <div className="h-screen bg-slate-50 flex flex-col overflow-hidden">
-      {/* Fixed Header */}
-      <Header 
-        onMenuToggle={handleMenuToggle} 
+      <Header
+        onMenuToggle={handleMenuToggle}
         isMobileMenuOpen={isMobileMenuOpen}
       />
-      
-      {/* Main layout - takes remaining height */}
-      <div className="flex flex-1 overflow-hidden pt-14">
-        {/* Sidebar */}
-        <SideNav 
-          isOpen={isMobileMenuOpen} 
-          onClose={handleMenuClose}
-        />
 
-        {/* Main content area - scrollable */}
+      <div className="flex flex-1 overflow-hidden pt-14">
+        <SideNav isOpen={isMobileMenuOpen} onClose={handleMenuClose} />
+
         <main className="flex-1 overflow-y-auto">
-          <RFQSec modalOpen={modalOpen} onEdit={handleEdit} />
+          <RFQSec
+            key={refreshKey}
+            modalOpen={modalOpen}
+            onEdit={handleEdit}
+            onSalesEntry={handleSalesEntry}
+          />
         </main>
       </div>
 
-      {/* Modal */}
+      {/* RFQ Form Modal */}
       {openModal && (
         <div className="fixed inset-0 z-50 overflow-y-auto">
-          <div 
+          <div
             className="fixed inset-0 bg-black/50 backdrop-blur-sm transition-opacity"
-            onClick={modalClose}
+            onClick={() => modalClose()}
           />
           <div className="flex items-center justify-center min-h-screen p-4">
             <div className="relative w-full max-w-2xl animate-fadeIn">
-              <RFQForm 
-                onClose={handleFormClose}
+              <RFQForm
+                onClose={modalClose}
                 initialItem={editingItem}
                 isEditMode={!!editingItem}
               />
@@ -78,21 +81,20 @@ export default function InfoAndUpdates() {
         </div>
       )}
 
+      {/* Sales Entry Modal */}
+      {salesEntryItem && (
+        <SalesEntryModal
+          rfqItem={salesEntryItem}
+          onClose={() => setSalesEntryItem(null)}
+        />
+      )}
+
       <style jsx>{`
         @keyframes fadeIn {
-          0% {
-            opacity: 0;
-            transform: scale(0.95);
-          }
-          100% {
-            opacity: 1;
-            transform: scale(1);
-          }
+          0% { opacity: 0; transform: scale(0.95); }
+          100% { opacity: 1; transform: scale(1); }
         }
-        
-        .animate-fadeIn {
-          animation: fadeIn 0.2s ease-out;
-        }
+        .animate-fadeIn { animation: fadeIn 0.2s ease-out; }
       `}</style>
     </div>
   );

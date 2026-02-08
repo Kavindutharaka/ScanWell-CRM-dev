@@ -1,8 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Data;
-using System.Linq;
-using System.Threading.Tasks;
 using back_end.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
@@ -13,74 +11,70 @@ namespace back_end.Controllers
     [Route("api/[controller]")]
     public class WebLeadController : ControllerBase
     {
-        private readonly IConfiguration _configuration;
-        string dbcon;
-        DataTable tb;
-        SqlConnection myCon;
-        SqlCommand myCom;
-        SqlDataReader myR;
+        private readonly string _dbConnectionString;
 
         public WebLeadController(IConfiguration configuration)
         {
-            _configuration = configuration;
-            dbcon = _configuration.GetSection("DBCon").Value;
-            myCon = new SqlConnection(dbcon);
+            _dbConnectionString = configuration.GetSection("DBCon").Value;
         }
 
         [HttpGet, Route("web-leads")]
         public ActionResult GetWebLeads()
         {
             string query = @"SELECT TOP 20 * FROM [dbo].[web_leads] ORDER BY sysId DESC;";
-            tb = new DataTable();
-            using (myCon)
+            DataTable tb = new DataTable();
+            using (SqlConnection myCon = new SqlConnection(_dbConnectionString))
             {
                 myCon.Open();
-                using (myCom = new SqlCommand(query, myCon))
+                using (SqlCommand myCom = new SqlCommand(query, myCon))
                 {
-                    myR = myCom.ExecuteReader();
-                    tb.Load(myR);
-                    myR.Close();
-                    myCon.Close();
+                    using (SqlDataReader myR = myCom.ExecuteReader())
+                    {
+                        tb.Load(myR);
+                    }
                 }
-                return new OkObjectResult(tb);
+                myCon.Close();
             }
+            return new OkObjectResult(tb);
         }
 
         [HttpGet, Route("web-leads/all")]
         public ActionResult GetAllWebLeads()
         {
             string query = @"SELECT * FROM [dbo].[web_leads] ORDER BY sysId DESC;";
-            tb = new DataTable();
-            using (myCon)
+            DataTable tb = new DataTable();
+            using (SqlConnection myCon = new SqlConnection(_dbConnectionString))
             {
                 myCon.Open();
-                using (myCom = new SqlCommand(query, myCon))
+                using (SqlCommand myCom = new SqlCommand(query, myCon))
                 {
-                    myR = myCom.ExecuteReader();
-                    tb.Load(myR);
-                    myR.Close();
-                    myCon.Close();
+                    using (SqlDataReader myR = myCom.ExecuteReader())
+                    {
+                        tb.Load(myR);
+                    }
                 }
-                return new OkObjectResult(tb);
+                myCon.Close();
             }
+            return new OkObjectResult(tb);
         }
 
         [HttpGet, Route("web-lead/{id}")]
         public ActionResult GetWebLeadById(int id)
         {
             string query = @"SELECT * FROM [dbo].[web_leads] WHERE sysId = @id;";
-            tb = new DataTable();
-            using (myCon)
+            DataTable tb = new DataTable();
+            using (SqlConnection myCon = new SqlConnection(_dbConnectionString))
             {
                 myCon.Open();
-                using (myCom = new SqlCommand(query, myCon))
+                using (SqlCommand myCom = new SqlCommand(query, myCon))
                 {
                     myCom.Parameters.AddWithValue("@id", id);
-                    myR = myCom.ExecuteReader();
-                    tb.Load(myR);
-                    myR.Close();
-                    myCon.Close();
+                    using (SqlDataReader myR = myCom.ExecuteReader())
+                    {
+                        tb.Load(myR);
+                    }
                 }
+                myCon.Close();
             }
             if (tb.Rows.Count == 0)
             {
@@ -93,17 +87,17 @@ namespace back_end.Controllers
         public IActionResult CreateWebLead([FromBody] WebLead webLead)
         {
             string query = @"
-                INSERT INTO [dbo].[web_leads] 
+                INSERT INTO [dbo].[web_leads]
                 (name, tp, email)
-                VALUES 
+                VALUES
                 (@name, @tp, @email)";
 
             try
             {
-                using (myCon)
+                using (SqlConnection myCon = new SqlConnection(_dbConnectionString))
                 {
                     myCon.Open();
-                    using (myCom = new SqlCommand(query, myCon))
+                    using (SqlCommand myCom = new SqlCommand(query, myCon))
                     {
                         myCom.Parameters.AddWithValue("@name", webLead.name ?? (object)DBNull.Value);
                         myCom.Parameters.AddWithValue("@tp", webLead.tp ?? (object)DBNull.Value);
@@ -111,6 +105,7 @@ namespace back_end.Controllers
 
                         myCom.ExecuteNonQuery();
                     }
+                    myCon.Close();
                 }
                 return Ok(new { message = "Web lead created successfully" });
             }
@@ -135,10 +130,10 @@ namespace back_end.Controllers
 
             try
             {
-                using (myCon)
+                using (SqlConnection myCon = new SqlConnection(_dbConnectionString))
                 {
                     myCon.Open();
-                    using (myCom = new SqlCommand(query, myCon))
+                    using (SqlCommand myCom = new SqlCommand(query, myCon))
                     {
                         myCom.Parameters.AddWithValue("@sysId", webLead.sysId);
                         myCom.Parameters.AddWithValue("@name", webLead.name ?? (object)DBNull.Value);
@@ -148,6 +143,7 @@ namespace back_end.Controllers
                         int rows = myCom.ExecuteNonQuery();
                         if (rows == 0) return NotFound("Web lead not found.");
                     }
+                    myCon.Close();
                 }
                 return Ok(new { message = "Web lead updated successfully" });
             }
@@ -162,10 +158,10 @@ namespace back_end.Controllers
         {
             string query = @"DELETE FROM [dbo].[web_leads] WHERE sysId = @id";
 
-            using (myCon)
+            using (SqlConnection myCon = new SqlConnection(_dbConnectionString))
             {
                 myCon.Open();
-                using (myCom = new SqlCommand(query, myCon))
+                using (SqlCommand myCom = new SqlCommand(query, myCon))
                 {
                     myCom.Parameters.AddWithValue("@id", id);
 

@@ -1,12 +1,13 @@
 import { useState } from "react";
 import Header from "../../components/Header";
 import SideNav from "../../components/SideNav";
-import LeadForm from "./LeadForm";
+import ExcelUploadModal from "./ExcelUploadModal";
 import LeadSec from "./LeadSec";
 
 export default function LeadPage() {
   const [openModal, setOpenModal] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   const modalOpen = () => {
     setOpenModal(true);
@@ -14,6 +15,10 @@ export default function LeadPage() {
 
   const modalClose = () => {
     setOpenModal(false);
+  };
+
+  const handleImportSuccess = () => {
+    setRefreshKey((prev) => prev + 1);
   };
 
   const handleMenuToggle = () => {
@@ -26,36 +31,33 @@ export default function LeadPage() {
 
   return (
     <div className="h-screen bg-slate-50 flex flex-col overflow-hidden">
-      {/* Fixed Header */}
-      <Header 
-        onMenuToggle={handleMenuToggle} 
+      <Header
+        onMenuToggle={handleMenuToggle}
         isMobileMenuOpen={isMobileMenuOpen}
       />
-      
-      {/* Main layout - takes remaining height */}
-      <div className="flex flex-1 overflow-hidden pt-14">
-        {/* Sidebar */}
-        <SideNav 
-          isOpen={isMobileMenuOpen} 
-          onClose={handleMenuClose}
-        />
 
-        {/* Main content area - scrollable */}
+      <div className="flex flex-1 overflow-hidden pt-14">
+        <SideNav isOpen={isMobileMenuOpen} onClose={handleMenuClose} />
+
         <main className="flex-1 overflow-y-auto">
-          <LeadSec modalOpen={modalOpen} />
+          <LeadSec modalOpen={modalOpen} key={refreshKey} />
         </main>
       </div>
 
-      {/* Modal */}
       {openModal && (
         <div className="fixed inset-0 z-50 overflow-y-auto">
-          <div 
+          <div
             className="fixed inset-0 bg-black/50 backdrop-blur-sm transition-opacity"
             onClick={modalClose}
           />
           <div className="flex items-center justify-center min-h-screen p-4">
             <div className="relative w-full animate-fadeIn">
-              <LeadForm onClose={modalClose} />
+              <ExcelUploadModal
+                onClose={modalClose}
+                onImportSuccess={() => {
+                  handleImportSuccess();
+                }}
+              />
             </div>
           </div>
         </div>
@@ -72,7 +74,6 @@ export default function LeadPage() {
             transform: scale(1);
           }
         }
-        
         .animate-fadeIn {
           animation: fadeIn 0.2s ease-out;
         }

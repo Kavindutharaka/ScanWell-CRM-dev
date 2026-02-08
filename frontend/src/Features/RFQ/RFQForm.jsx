@@ -1,155 +1,122 @@
-import React, { useState, useEffect } from "react";
-import { X, FileText, Upload, Loader2, Save, DollarSignIcon } from "lucide-react";
-import { createRfq } from "../../api/RfqApi";
+import { useState, useEffect, useRef } from "react";
+import { X, Loader2, Save, DollarSignIcon, Link2, ChevronDown } from "lucide-react";
+import { createRfq, updateRfq } from "../../api/RfqApi";
+import { fetchAccountNames } from "../../api/AccountApi";
 
-export default function InfoAndUpdatesForm({ onClose, initialItem, isEditMode }) {
+export default function RFQForm({ onClose, initialItem, isEditMode }) {
   const [formData, setFormData] = useState({
     rfq_number: "",
     customer: "",
     valid_date: "",
-    file: null,
+    link: "",
   });
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
-  const [fileName, setFileName] = useState("");
+
+  // Account name suggestions
+  const [accountNames, setAccountNames] = useState([]);
+  const [customerQuery, setCustomerQuery] = useState("");
+  const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
+  const customerRef = useRef(null);
+
+  useEffect(() => {
+    loadAccountNames();
+  }, []);
 
   useEffect(() => {
     if (isEditMode && initialItem) {
       setFormData({
         rfq_number: initialItem.rfq_number || "",
         customer: initialItem.customer || "",
-        valid_date: initialItem.valid_date || "",
-        file: null,
+        valid_date: initialItem.valid_date
+          ? new Date(initialItem.valid_date).toISOString().split("T")[0]
+          : "",
+        link: initialItem.link || "",
       });
+      setCustomerQuery(initialItem.customer || "");
     }
   }, [isEditMode, initialItem]);
 
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
-    // Clear error for this field
-    if (errors[name]) {
-      setErrors(prev => ({
-        ...prev,
-        [name]: ""
-      }));
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (customerRef.current && !customerRef.current.contains(e.target)) {
+        setShowCustomerDropdown(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const loadAccountNames = async () => {
+    try {
+      const data = await fetchAccountNames();
+      setAccountNames(data || []);
+    } catch (err) {
+      console.error("Error loading account names:", err);
     }
   };
 
-  const handleFileChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      // Validate file type - only PDF files
-      const validTypes = ['application/pdf'];
-      const validExtensions = ['.pdf'];
-      const fileExtension = file.name.toLowerCase().substring(file.name.lastIndexOf('.'));
-      
-      if (!validTypes.includes(file.type) && !validExtensions.includes(fileExtension)) {
-        setErrors(prev => ({
-          ...prev,
-          file: "Please select a valid PDF file (.pdf)"
-        }));
-        e.target.value = null;
-        return;
-      }
+  const filteredAccounts = accountNames.filter((name) =>
+    name?.toLowerCase().includes(customerQuery.toLowerCase())
+  );
 
-      // Validate file size (max 20MB)
-      if (file.size > 20 * 1024 * 1024) {
-        setErrors(prev => ({
-          ...prev,
-          file: "File size must be less than 20MB"
-        }));
-        e.target.value = null;
-        return;
-      }
-      
-      setFormData(prev => ({
-        ...prev,
-        file: file
-      }));
-      
-      setFileName(file.name);
+  const handleCustomerInputChange = (value) => {
+    setCustomerQuery(value);
+    setFormData((prev) => ({ ...prev, customer: value }));
+    setShowCustomerDropdown(true);
+    if (errors.customer) {
+      setErrors((prev) => ({ ...prev, customer: "" }));
+    }
+  };
 
-      // Clear error
-      if (errors.file) {
-        setErrors(prev => ({
-          ...prev,
-          file: ""
-        }));
-      }
+  const handleSelectCustomer = (name) => {
+    setCustomerQuery(name);
+    setFormData((prev) => ({ ...prev, customer: name }));
+    setShowCustomerDropdown(false);
+    if (errors.customer) {
+      setErrors((prev) => ({ ...prev, customer: "" }));
+    }
+  };
+
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+    if (errors[name]) {
+      setErrors((prev) => ({ ...prev, [name]: "" }));
     }
   };
 
   const validateForm = () => {
     const newErrors = {};
-
-    if (!formData.rfq_number.trim()) {
-      newErrors.rfq_number = "RFQ Number is required";
-    }
-
-    if (!formData.customer.trim()) {
-      newErrors.customer = "Customer is required";
-    }
-
-    if (!formData.valid_date.trim()) {
-      newErrors.valid_date = "Valid Date is required";
-    }
-
-    if (!isEditMode && !formData.file) {
-      newErrors.file = "PDF file is required";
-    }
-
+    if (!formData.rfq_number.trim()) newErrors.rfq_number = "RFQ Number is required";
+    if (!formData.customer.trim()) newErrors.customer = "Customer is required";
+    if (!formData.valid_date.trim()) newErrors.valid_date = "Valid Date is required";
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
-  const convertFileToBase64 = (file) => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        // Get base64 string without the data:application/pdf;base64, prefix
-        const base64String = reader.result.split(',')[1];
-        resolve(base64String);
-      };
-      reader.onerror = (error) => reject(error);
-      reader.readAsDataURL(file);
-    });
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
-
-    if (!validateForm()) {
-      return;
-    }
+    if (!validateForm()) return;
 
     setLoading(true);
 
     try {
-      const file = formData.file;
-      const base64PDF = await convertFileToBase64(file);
-
       const itemData = {
         rfq_number: formData.rfq_number,
         customer: formData.customer,
         valid_date: formData.valid_date,
-        data_obj: base64PDF,
-        file_name: file.name,
-        added_by: "Kavindu Tharaka",
+        link: formData.link || null,
+        added_by: "",
       };
 
-      console.log("Saving RFQ with PDF...");
-      const response = await createRfq(itemData);
-
-      console.log(response);
-      if (response) {
-        window.location.reload();
+      if (isEditMode && initialItem) {
+        await updateRfq(initialItem.sysID, itemData);
+      } else {
+        await createRfq(itemData);
       }
 
-      onClose(itemData);
+      onClose(true);
     } catch (error) {
       console.error("Error saving RFQ:", error);
       setErrors({ submit: "Failed to save. Please try again." });
@@ -207,23 +174,42 @@ export default function InfoAndUpdatesForm({ onClose, initialItem, isEditMode })
           )}
         </div>
 
-        {/* Customer */}
-        <div>
+        {/* Customer - Autocomplete from Account Names */}
+        <div ref={customerRef} className="relative">
           <label className="block text-sm font-medium text-slate-700 mb-2">
             Customer <span className="text-red-500">*</span>
           </label>
-          <input
-            type="text"
-            name="customer"
-            value={formData.customer}
-            onChange={handleInputChange}
-            placeholder="Enter customer"
-            className={`w-full px-4 py-2.5 border rounded-lg focus:outline-none focus:ring-2 transition-all duration-200 ${
-              errors.customer
-                ? "border-red-300 focus:ring-red-500"
-                : "border-slate-300 focus:ring-blue-500"
-            }`}
-          />
+          <div className="relative">
+            <input
+              type="text"
+              value={customerQuery}
+              onChange={(e) => handleCustomerInputChange(e.target.value)}
+              onFocus={() => setShowCustomerDropdown(true)}
+              placeholder="Search account name..."
+              className={`w-full px-4 py-2.5 pr-10 border rounded-lg focus:outline-none focus:ring-2 transition-all duration-200 ${
+                errors.customer
+                  ? "border-red-300 focus:ring-red-500"
+                  : "border-slate-300 focus:ring-blue-500"
+              }`}
+            />
+            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+          </div>
+
+          {showCustomerDropdown && filteredAccounts.length > 0 && (
+            <div className="absolute z-20 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+              {filteredAccounts.map((name, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => handleSelectCustomer(name)}
+                  className="w-full text-left px-4 py-2.5 text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-700 transition-colors first:rounded-t-lg last:rounded-b-lg"
+                >
+                  {name}
+                </button>
+              ))}
+            </div>
+          )}
+
           {errors.customer && (
             <p className="mt-1.5 text-sm text-red-600">{errors.customer}</p>
           )}
@@ -250,66 +236,22 @@ export default function InfoAndUpdatesForm({ onClose, initialItem, isEditMode })
           )}
         </div>
 
-        {/* PDF Upload */}
+        {/* Link */}
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-2">
-            PDF File {!isEditMode && <span className="text-red-500">*</span>}
+            Link <span className="text-slate-400 text-xs">(optional)</span>
           </label>
-          
-          <div className="space-y-2">
-            {/* Upload Button */}
-            {!formData.file && (
-              <div>
-                <label
-                  htmlFor="file-upload"
-                  className={`flex flex-col items-center justify-center w-full h-24 border-2 border-dashed rounded-lg cursor-pointer transition-all duration-200 ${
-                    errors.file
-                      ? "border-red-300 bg-red-50 hover:bg-red-100"
-                      : "border-slate-300 bg-slate-50 hover:bg-slate-100"
-                  }`}
-                >
-                  <div className="flex flex-col items-center justify-center pt-2 pb-2">
-                    <FileText className={`w-6 h-6 mb-1 ${errors.file ? "text-red-400" : "text-slate-400"}`} />
-                    <p className={`text-xs ${errors.file ? "text-red-600" : "text-slate-500"}`}>
-                      <span className="font-medium">Click to upload</span> or drag and drop
-                    </p>
-                    <p className="text-xs text-slate-400 mt-0.5">PDF files only (Max 20MB)</p>
-                  </div>
-                  <input
-                    id="file-upload"
-                    type="file"
-                    accept=".pdf,application/pdf"
-                    onChange={handleFileChange}
-                    className="hidden"
-                  />
-                </label>
-              </div>
-            )}
-
-            {/* Selected File Display */}
-            {fileName && (
-              <div className="flex items-center justify-between gap-2 px-4 py-2 bg-blue-50 border border-blue-200 rounded-lg">
-                <div className="flex items-center gap-2">
-                  <FileText className="w-4 h-4 text-blue-600" />
-                  <span className="text-sm text-blue-700 font-medium truncate">{fileName}</span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setFormData(prev => ({ ...prev, file: null }));
-                    setFileName("");
-                  }}
-                  className="text-blue-600 hover:text-blue-800"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-            )}
+          <div className="relative">
+            <Link2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <input
+              type="text"
+              name="link"
+              value={formData.link}
+              onChange={handleInputChange}
+              placeholder="Paste link here..."
+              className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200"
+            />
           </div>
-          
-          {errors.file && (
-            <p className="mt-1.5 text-sm text-red-600">{errors.file}</p>
-          )}
         </div>
 
         {/* Submit Error */}

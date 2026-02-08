@@ -46,16 +46,22 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
   const [excelFile, setExcelFile] = useState(null);
   const [uploadProgress, setUploadProgress] = useState(false);
 
-  // Shipping lines configuration - Sea Spot Rates
-  const shippingLines = [
-    { code: 'MSC', name: 'MSC', color: 'bg-red-600' },
-    { code: 'ONE', name: 'ONE', color: 'bg-purple-600' },
-    { code: 'YML', name: 'YML', color: 'bg-orange-600' },
-    { code: 'UNIFEEDER', name: 'UNIFEEDER', color: 'bg-teal-600' },
-    { code: 'OOCL', name: 'OOCL', color: 'bg-cyan-600' },
-    { code: 'RCL', name: 'RCL', color: 'bg-pink-600' },
-    { code: 'CMA', name: 'CMA', color: 'bg-amber-600' },
-  ];
+  // Sea Spot Rates state (flat - no sub-modules)
+  const [seaSpotRates, setSeaSpotRates] = useState([]);
+  const [seaSpotLoading, setSeaSpotLoading] = useState(false);
+  const [showSeaSpotUploadModal, setShowSeaSpotUploadModal] = useState(false);
+  const [seaSpotExcelFile, setSeaSpotExcelFile] = useState(null);
+  const [seaSpotUploadProgress, setSeaSpotUploadProgress] = useState(false);
+
+  // Air Export Rates state
+  const [showAirExport, setShowAirExport] = useState(false);
+  const [airExportRates, setAirExportRates] = useState([]);
+  const [airExportLoading, setAirExportLoading] = useState(false);
+  const [showAirExportUploadModal, setShowAirExportUploadModal] = useState(false);
+  const [airExportExcelFile, setAirExportExcelFile] = useState(null);
+  const [airExportUploadProgress, setAirExportUploadProgress] = useState(false);
+  const [editingAirExportRate, setEditingAirExportRate] = useState(null);
+  const [showAirExportEditModal, setShowAirExportEditModal] = useState(false);
 
   // Shipping lines configuration - Linear Header's
   const linearHeaderLines = [
@@ -142,6 +148,386 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
       setLinerRates([]);
     } finally {
       setLinerLoading(false);
+    }
+  };
+
+  // Load all sea spot rates (flat, no category filter)
+  const loadSeaSpotRates = async () => {
+    setSeaSpotLoading(true);
+    try {
+      const response = await fetch(`${BASE_URL}/rates/linear/all-spot`);
+      const data = await response.json();
+      const transformed = data.map(rate => ({
+        id: rate.Id || rate.id,
+        liner: rate.Category || rate.category,
+        pol: rate.Pol || rate.pol,
+        pod: rate.Pod || rate.pod,
+        gp20Usd: rate.Gp20Usd || rate.gp20Usd || rate.gp20_usd,
+        hq40Usd: rate.Hq40Usd || rate.hq40Usd || rate.hq40_usd,
+        ttRouting: rate.TtRouting || rate.ttRouting || rate.tt_routing,
+        valid: rate.Valid || rate.valid,
+        remark: rate.Remark || rate.remark,
+        category: rate.Category || rate.category,
+      }));
+      setSeaSpotRates(transformed);
+    } catch (err) {
+      console.error('Error fetching sea spot rates:', err);
+      setSeaSpotRates([]);
+    } finally {
+      setSeaSpotLoading(false);
+    }
+  };
+
+  // Handle sea spot Excel upload
+  const handleSeaSpotExcelUpload = async () => {
+    if (!seaSpotExcelFile) {
+      window.alert('Please select an Excel file.');
+      return;
+    }
+
+    setSeaSpotUploadProgress(true);
+    try {
+      const data = await seaSpotExcelFile.arrayBuffer();
+      const workbook = XLSX.read(data, { type: "array" });
+      const sheet = workbook.Sheets[workbook.SheetNames[0]];
+      const excelData = XLSX.utils.sheet_to_json(sheet);
+
+      if (!excelData || excelData.length === 0) {
+        window.alert('Excel file is empty.');
+        setSeaSpotUploadProgress(false);
+        return;
+      }
+
+      const columnHeaders = Object.keys(excelData[0] || {});
+      const hasLiner = columnHeaders.some(c => c.toUpperCase() === 'LINER');
+      const hasPol = columnHeaders.some(c => c.toUpperCase() === 'POL');
+      const hasPod = columnHeaders.some(c => c.toUpperCase() === 'POD');
+      const hasRates = columnHeaders.some(c => c.includes('20GP') || c.includes('40HQ'));
+
+      if (!hasLiner || !hasPol || !hasPod || !hasRates) {
+        let msg = '❌ Excel format error!\n\nMissing required columns:\n';
+        if (!hasLiner) msg += '• LINER\n';
+        if (!hasPol) msg += '• POL\n';
+        if (!hasPod) msg += '• POD\n';
+        if (!hasRates) msg += '• 20GP / 40HQ\n';
+        msg += '\n✅ Required: LINER | POL | POD | 20GP | 40HQ | TT/ROUTING | VALID | REMARK';
+        window.alert(msg);
+        setSeaSpotUploadProgress(false);
+        return;
+      }
+
+      const parseExcelDate = (value) => {
+        if (!value) return null;
+        if (typeof value === 'number') {
+          const excelEpoch = new Date(1899, 11, 30);
+          const jsDate = new Date(excelEpoch.getTime() + value * 86400000);
+          return jsDate.toISOString().split('T')[0];
+        } else if (value instanceof Date) {
+          return value.toISOString().split('T')[0];
+        } else if (typeof value === 'string' && value.includes('/')) {
+          const parts = value.split('/');
+          if (parts.length === 3) return `${parts[2]}-${parts[0].padStart(2, '0')}-${parts[1].padStart(2, '0')}`;
+        }
+        return value;
+      };
+
+      const transformedData = excelData.map(row => {
+        const liner = row.LINER || row.Liner || row.liner || null;
+        const pol = row.POL || row.pol || null;
+        const pod = row.POD || row.pod || null;
+        const gp20 = row['20GP'] || row['20GP USD'] || row['20GP-USD'] || null;
+        const hq40 = row['40HQ'] || row['40HQ-USD'] || row['40HQ USD'] || null;
+        const ttRouting = row['TT/ROUTING'] || row['TT/ROUITNG'] || row['TT/Routing'] || row['TT-Routing'] || null;
+        const valid = parseExcelDate(row['VALID'] || row['VALID '] || row.Valid || row.valid);
+        const remark = row.REMARK || row.Remark || row.remark || row['REMRAK'] || null;
+
+        return {
+          Pol: pol,
+          Pod: pod,
+          Gp20Usd: gp20 ? parseFloat(gp20) : null,
+          Hq40Usd: hq40 ? parseFloat(hq40) : null,
+          TtRouting: ttRouting ? String(ttRouting) : null,
+          Valid: valid,
+          Category: liner,
+          LinerType: 'LINER',
+          Remark: remark ? String(remark) : null,
+        };
+      });
+
+      const validRows = transformedData.filter(r => r.Pol && r.Pod && r.Category && (r.Gp20Usd || r.Hq40Usd));
+
+      if (validRows.length === 0) {
+        window.alert('❌ No valid rows found. Each row needs LINER, POL, POD, and at least one rate.');
+        setSeaSpotUploadProgress(false);
+        return;
+      }
+
+      if (validRows.length < transformedData.length) {
+        const skipped = transformedData.length - validRows.length;
+        if (!window.confirm(`⚠️ ${skipped} rows will be skipped (missing required fields).\n\nContinue uploading ${validRows.length} valid rows?`)) {
+          setSeaSpotUploadProgress(false);
+          return;
+        }
+      }
+
+      const response = await fetch(`${BASE_URL}/rates/linear/bulk`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ Rates: validRows }),
+      });
+
+      const result = await response.json();
+      if (response.ok) {
+        window.alert(`✅ Uploaded ${result.successCount} sea spot rates successfully.`);
+        setShowSeaSpotUploadModal(false);
+        setSeaSpotExcelFile(null);
+        loadSeaSpotRates();
+      } else {
+        window.alert(`❌ Upload failed: ${result.message || 'Unknown error'}`);
+      }
+    } catch (err) {
+      console.error('Error uploading sea spot Excel:', err);
+      window.alert('❌ Failed to process Excel file. Check format and try again.');
+    } finally {
+      setSeaSpotUploadProgress(false);
+    }
+  };
+
+  // Delete all sea spot rates
+  const handleDeleteAllSpotRates = async () => {
+    if (!window.confirm('⚠️ Delete ALL sea spot rates? This cannot be undone.')) return;
+    try {
+      const response = await fetch(`${BASE_URL}/rates/linear/all-spot`, { method: 'DELETE' });
+      const result = await response.json();
+      window.alert(`✅ ${result.message}`);
+      loadSeaSpotRates();
+    } catch (err) {
+      window.alert('❌ Failed to delete rates.');
+    }
+  };
+
+  // ====== AIR EXPORT RATES FUNCTIONS ======
+
+  const loadAirExportRates = async () => {
+    setAirExportLoading(true);
+    try {
+      const response = await fetch(`${BASE_URL}/rates/air-export`);
+      const data = await response.json();
+      const transformed = data.map(rate => ({
+        id: rate.Id || rate.id,
+        commodityType: rate.commodity_type || rate.CommodityType || rate.commodityType,
+        airline: rate.airline || rate.Airline,
+        rateM: rate.rate_m || rate.RateM || rate.rateM,
+        rate45Minus: rate.rate_45_minus || rate.Rate45Minus || rate.rate45Minus,
+        rate45: rate.rate_45 || rate.Rate45 || rate.rate45,
+        rate100: rate.rate_100 || rate.Rate100 || rate.rate100,
+        rate300: rate.rate_300 || rate.Rate300 || rate.rate300,
+        rate500: rate.rate_500 || rate.Rate500 || rate.rate500,
+        rate1000: rate.rate_1000 || rate.Rate1000 || rate.rate1000,
+        surcharges: rate.surcharges || rate.Surcharges,
+        transitTime: rate.transit_time || rate.TransitTime || rate.transitTime,
+        frequency: rate.frequency || rate.Frequency,
+        routing: rate.routing || rate.Routing,
+        remarks: rate.remarks || rate.Remarks,
+        updatedDate: rate.updated_date || rate.UpdatedDate || rate.updatedDate,
+      }));
+      setAirExportRates(transformed);
+    } catch (err) {
+      console.error('Error fetching air export rates:', err);
+      setAirExportRates([]);
+    } finally {
+      setAirExportLoading(false);
+    }
+  };
+
+  const handleAirExportClick = () => {
+    const willShow = !showAirExport;
+    setShowAirExport(willShow);
+    setShowSeaSpotRates(false);
+    setShowLinearHeaders(false);
+    setShowDestinationHeaders(false);
+    setActiveLiner(null);
+    setActiveLinerCategory(null);
+    if (willShow) {
+      setActiveTab('airexport');
+      loadAirExportRates();
+    } else {
+      setActiveTab('all');
+    }
+  };
+
+  const handleAirExportExcelUpload = async () => {
+    if (!airExportExcelFile) {
+      window.alert('Please select an Excel file.');
+      return;
+    }
+
+    setAirExportUploadProgress(true);
+    try {
+      const data = await airExportExcelFile.arrayBuffer();
+      const workbook = XLSX.read(data, { type: 'array' });
+      const sheet = workbook.Sheets[workbook.SheetNames[0]];
+      const excelData = XLSX.utils.sheet_to_json(sheet);
+
+      if (!excelData || excelData.length === 0) {
+        window.alert('Excel file is empty.');
+        setAirExportUploadProgress(false);
+        return;
+      }
+
+      // Parse Excel date helper
+      const parseExcelDate = (value) => {
+        if (!value) return null;
+        if (typeof value === 'number') {
+          const excelEpoch = new Date(1899, 11, 30);
+          const jsDate = new Date(excelEpoch.getTime() + value * 86400000);
+          return jsDate.toISOString().split('T')[0];
+        } else if (value instanceof Date) {
+          return value.toISOString().split('T')[0];
+        } else if (typeof value === 'string') {
+          if (value.includes('/')) {
+            const parts = value.split('/');
+            if (parts.length === 3) return `${parts[2]}-${parts[0].padStart(2, '0')}-${parts[1].padStart(2, '0')}`;
+          }
+          // Handle "3-Oct", "25-Nov" etc
+          const dateParsed = new Date(value);
+          if (!isNaN(dateParsed.getTime())) return dateParsed.toISOString().split('T')[0];
+        }
+        return value;
+      };
+
+      // Helper to safely parse number
+      const parseNum = (val) => {
+        if (val === null || val === undefined || val === '' || val === 'N/A' || val === 'n/a') return null;
+        const num = parseFloat(String(val).replace(/[$,]/g, ''));
+        return isNaN(num) ? null : num;
+      };
+
+      // Extract commodity type from first row if present
+      const firstRow = excelData[0];
+      const commodityType = firstRow['Comodity Type'] || firstRow['Commodity Type'] || firstRow['COMMODITY TYPE'] || firstRow['commodity_type'] || firstRow['CommodityType'] || null;
+
+      const transformedData = excelData.map(row => {
+        const airline = row.AIRLINE || row.Airline || row.airline || null;
+        // Skip rows with no airline - they're likely sub-headers or empty
+        if (!airline) return null;
+
+        return {
+          CommodityType: row['Comodity Type'] || row['Commodity Type'] || row['COMMODITY TYPE'] || row['commodity_type'] || commodityType,
+          Airline: airline,
+          RateM: parseNum(row.M || row.m || row['MIN'] || row['Min']),
+          Rate45Minus: parseNum(row['-45'] || row['45-'] || row['-45 KG']),
+          Rate45: parseNum(row['45'] || row['+45'] || row['45 KG'] || row['+45 KG']),
+          Rate100: parseNum(row['100'] || row['+100'] || row['100 KG']),
+          Rate300: parseNum(row['300'] || row['+300'] || row['300 KG']),
+          Rate500: parseNum(row['500'] || row['+500'] || row['500 KG']),
+          Rate1000: parseNum(row['1000'] || row['+1000'] || row['1000 KG']),
+          Surcharges: row.SURCHARGES || row.Surcharges || row.surcharges || null,
+          TransitTime: row['T/T'] || row['TT'] || row.tt || row['Transit Time'] || null,
+          Frequency: row.FREQUENCY || row.Frequency || row.frequency || null,
+          Routing: row.ROUTINE || row.ROUTING || row.Routine || row.Routing || row.routing || null,
+          Remarks: row.REMARKS || row.Remarks || row.remarks || row.REMARK || row.Remark || null,
+          UpdatedDate: parseExcelDate(row['UPDATED DATE'] || row['Updated Date'] || row['updated_date'] || row['DATE']),
+        };
+      }).filter(Boolean);
+
+      const validRows = transformedData.filter(r => r.Airline);
+
+      if (validRows.length === 0) {
+        window.alert('❌ No valid rows found. Each row needs at least an AIRLINE column.');
+        setAirExportUploadProgress(false);
+        return;
+      }
+
+      if (validRows.length < transformedData.length) {
+        const skipped = transformedData.length - validRows.length;
+        if (!window.confirm(`⚠️ ${skipped} rows will be skipped (missing AIRLINE).\n\nContinue uploading ${validRows.length} valid rows?`)) {
+          setAirExportUploadProgress(false);
+          return;
+        }
+      }
+
+      const response = await fetch(`${BASE_URL}/rates/air-export/bulk`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ CommodityType: commodityType, Rates: validRows }),
+      });
+
+      const result = await response.json();
+      if (response.ok) {
+        window.alert(`✅ Uploaded ${result.successCount} air export rates successfully.`);
+        setShowAirExportUploadModal(false);
+        setAirExportExcelFile(null);
+        loadAirExportRates();
+      } else {
+        window.alert(`❌ Upload failed: ${result.message || 'Unknown error'}`);
+      }
+    } catch (err) {
+      console.error('Error uploading air export Excel:', err);
+      window.alert('❌ Failed to process Excel file. Check format and try again.');
+    } finally {
+      setAirExportUploadProgress(false);
+    }
+  };
+
+  const handleDeleteAirExportRate = async (rateId) => {
+    if (!window.confirm('Are you sure you want to delete this rate?')) return;
+    try {
+      const response = await fetch(`${BASE_URL}/rates/air-export/${rateId}`, { method: 'DELETE' });
+      if (response.ok) {
+        setAirExportRates(prev => prev.filter(r => r.id !== rateId));
+      }
+    } catch (err) {
+      window.alert('❌ Failed to delete rate.');
+    }
+  };
+
+  const handleDeleteAllAirExportRates = async () => {
+    if (!window.confirm('⚠️ Delete ALL air export rates? This cannot be undone.')) return;
+    try {
+      const response = await fetch(`${BASE_URL}/rates/air-export/all`, { method: 'DELETE' });
+      const result = await response.json();
+      window.alert(`✅ ${result.message}`);
+      loadAirExportRates();
+    } catch (err) {
+      window.alert('❌ Failed to delete rates.');
+    }
+  };
+
+  const handleSaveAirExportEdit = async () => {
+    if (!editingAirExportRate) return;
+    try {
+      const payload = {
+        CommodityType: editingAirExportRate.commodityType || null,
+        Airline: editingAirExportRate.airline || null,
+        RateM: editingAirExportRate.rateM ? parseFloat(editingAirExportRate.rateM) : null,
+        Rate45Minus: editingAirExportRate.rate45Minus ? parseFloat(editingAirExportRate.rate45Minus) : null,
+        Rate45: editingAirExportRate.rate45 ? parseFloat(editingAirExportRate.rate45) : null,
+        Rate100: editingAirExportRate.rate100 ? parseFloat(editingAirExportRate.rate100) : null,
+        Rate300: editingAirExportRate.rate300 ? parseFloat(editingAirExportRate.rate300) : null,
+        Rate500: editingAirExportRate.rate500 ? parseFloat(editingAirExportRate.rate500) : null,
+        Rate1000: editingAirExportRate.rate1000 ? parseFloat(editingAirExportRate.rate1000) : null,
+        Surcharges: editingAirExportRate.surcharges || null,
+        TransitTime: editingAirExportRate.transitTime || null,
+        Frequency: editingAirExportRate.frequency || null,
+        Routing: editingAirExportRate.routing || null,
+        Remarks: editingAirExportRate.remarks || null,
+        UpdatedDate: editingAirExportRate.updatedDate || null,
+      };
+      const response = await fetch(`${BASE_URL}/rates/air-export/${editingAirExportRate.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (response.ok) {
+        setShowAirExportEditModal(false);
+        setEditingAirExportRate(null);
+        loadAirExportRates();
+      } else {
+        window.alert('❌ Failed to update rate.');
+      }
+    } catch (err) {
+      window.alert('❌ Failed to update rate.');
     }
   };
 
@@ -295,7 +681,7 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
   const [showLinearHeaders, setShowLinearHeaders] = useState(false);
   // State for showing Destination Header's sub-section
   const [showDestinationHeaders, setShowDestinationHeaders] = useState(false);
-  // Track which category the active liner belongs to ('seaspot', 'linearheaders', or 'destinationheaders')
+  // Track which category the active liner belongs to ('linearheaders' or 'destinationheaders')
   const [activeLinerCategory, setActiveLinerCategory] = useState(null);
   // Destination rates data (separate from liner rates due to different format)
   const [destinationRates, setDestinationRates] = useState([]);
@@ -333,23 +719,14 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
     }
   };
 
-  // Handle liner tab click for Sea Spot Rates
-  const handleLinerClick = (linerCode) => {
-    setActiveLiner(linerCode);
-    setActiveLinerCategory('seaspot');
-    setActiveTab('liner'); // Special tab state for liners
-    setShowLinearHeaders(false);
-    setShowDestinationHeaders(false);
-    loadLinerRates(linerCode);
-  };
-
   // Handle liner tab click for Linear Header's
   const handleLinearHeaderLinerClick = (linerCode) => {
     setActiveLiner(linerCode);
     setActiveLinerCategory('linearheaders');
-    setActiveTab('liner'); // Special tab state for liners
+    setActiveTab('liner');
     setShowSeaSpotRates(false);
     setShowDestinationHeaders(false);
+    setShowAirExport(false);
     loadLinerRates(linerCode);
   };
 
@@ -357,27 +734,39 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
   const handleDestinationHeaderLinerClick = (linerCode) => {
     setActiveLiner(linerCode);
     setActiveLinerCategory('destinationheaders');
-    setActiveTab('liner'); // Special tab state for liners
+    setActiveTab('liner');
     setShowSeaSpotRates(false);
     setShowLinearHeaders(false);
+    setShowAirExport(false);
     loadDestinationRates(linerCode);
   };
 
   // Handle regular tab click
   const handleRegularTabClick = (tab) => {
     setActiveTab(tab);
-    setActiveLiner(null); // Clear liner selection
+    setActiveLiner(null);
     setActiveLinerCategory(null);
     setShowSeaSpotRates(false);
     setShowLinearHeaders(false);
     setShowDestinationHeaders(false);
+    setShowAirExport(false);
   };
 
   // Handle Sea Spot Rates button click
   const handleSeaSpotRatesClick = () => {
-    setShowSeaSpotRates(!showSeaSpotRates);
+    const willShow = !showSeaSpotRates;
+    setShowSeaSpotRates(willShow);
     setShowLinearHeaders(false);
     setShowDestinationHeaders(false);
+    setShowAirExport(false);
+    setActiveLiner(null);
+    setActiveLinerCategory(null);
+    if (willShow) {
+      setActiveTab('seaspot');
+      loadSeaSpotRates();
+    } else {
+      setActiveTab('all');
+    }
   };
 
   // Handle Linear Header's button click
@@ -385,6 +774,7 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
     setShowLinearHeaders(!showLinearHeaders);
     setShowSeaSpotRates(false);
     setShowDestinationHeaders(false);
+    setShowAirExport(false);
   };
 
   // Handle Destination Header's button click
@@ -392,6 +782,7 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
     setShowDestinationHeaders(!showDestinationHeaders);
     setShowSeaSpotRates(false);
     setShowLinearHeaders(false);
+    setShowAirExport(false);
   };
 
   const toggleRow = (rateId) => {
@@ -435,7 +826,11 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
   };
 
   const handleRefresh = () => {
-    if (activeLinerCategory === 'destinationheaders') {
+    if (activeTab === 'airexport') {
+      loadAirExportRates();
+    } else if (activeTab === 'seaspot') {
+      loadSeaSpotRates();
+    } else if (activeLinerCategory === 'destinationheaders') {
       loadDestinationRates(activeLiner);
     } else if (activeLiner) {
       loadLinerRates(activeLiner);
@@ -962,20 +1357,24 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
   const filteredRates = getFilteredRates();
 
   // Determine which data to display based on active category
-  const displayData = activeLinerCategory === 'destinationheaders'
-    ? destinationRates
-    : activeLiner
-      ? linerRates
-      : filteredRates;
-  const isLoadingData = activeLinerCategory === 'destinationheaders'
-    ? destinationLoading
-    : activeLiner
-      ? linerLoading
-      : loading;
+  // Sea Spot & Air Export rates are shown in their own inline sections, not in the card list
+  const displayData = (activeTab === 'seaspot' || activeTab === 'airexport')
+    ? []
+    : activeLinerCategory === 'destinationheaders'
+      ? destinationRates
+      : activeLiner
+        ? linerRates
+        : filteredRates;
+  const isLoadingData = (activeTab === 'seaspot' || activeTab === 'airexport')
+    ? false
+    : activeLinerCategory === 'destinationheaders'
+      ? destinationLoading
+      : activeLiner
+        ? linerLoading
+        : loading;
 
-  // Get active liner details - check all three categories
-  const activeLinerDetails = shippingLines.find(liner => liner.code === activeLiner)
-    || linearHeaderLines.find(liner => liner.code === activeLiner)
+  // Get active liner details - check Linear Header's and Destination Header's categories
+  const activeLinerDetails = linearHeaderLines.find(liner => liner.code === activeLiner)
     || destinationHeaderLines.find(liner => liner.code === activeLiner);
 
   return (
@@ -993,9 +1392,9 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
             </div>
             
             {/* Conditional Button Display */}
-            {!activeLiner ? (
-              <button 
-                onClick={modalOpen} 
+            {activeTab === 'seaspot' || activeTab === 'airexport' ? null : !activeLiner ? (
+              <button
+                onClick={modalOpen}
                 className="inline-flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 transition-colors shadow-lg hover:shadow-xl"
               >
                 <Plus className="w-5 h-5" />
@@ -1035,13 +1434,13 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
             <button
               onClick={handleSeaSpotRatesClick}
               className={`px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 ${
-                showSeaSpotRates || activeLinerCategory === 'seaspot'
+                showSeaSpotRates
                   ? 'bg-indigo-600 text-white shadow-md'
                   : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'
               }`}
             >
               <Ship className="w-4 h-4" /> Sea Spot Rates
-              <ChevronDown className={`w-4 h-4 transition-transform ${showSeaSpotRates || activeLinerCategory === 'seaspot' ? 'rotate-180' : ''}`} />
+              <ChevronDown className={`w-4 h-4 transition-transform ${showSeaSpotRates ? 'rotate-180' : ''}`} />
             </button>
 
             {/* Linear Header's Button */}
@@ -1070,6 +1469,19 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
               <ChevronDown className={`w-4 h-4 transition-transform ${showDestinationHeaders || activeLinerCategory === 'destinationheaders' ? 'rotate-180' : ''}`} />
             </button>
 
+            {/* Air Export Rates Button */}
+            <button
+              onClick={handleAirExportClick}
+              className={`px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 ${
+                showAirExport
+                  ? 'bg-amber-600 text-white shadow-md'
+                  : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'
+              }`}
+            >
+              <Plane className="w-4 h-4" /> Air Export Rates
+              <ChevronDown className={`w-4 h-4 transition-transform ${showAirExport ? 'rotate-180' : ''}`} />
+            </button>
+
             {/* Spacer to push search bar to right */}
             <div className="flex-1"></div>
 
@@ -1086,23 +1498,128 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
             </div>
           </div>
 
-          {/* Sea Spot Rates Sub-section - Shipping Line Buttons */}
-          {(showSeaSpotRates || activeLinerCategory === 'seaspot') && (
-            <div className="flex flex-wrap gap-2 mb-4 p-3 bg-slate-100 rounded-lg border border-slate-200">
-              <span className="text-xs text-slate-500 font-medium w-full mb-2">Sea Spot Rates</span>
-              {shippingLines.map((liner) => (
-                <button
-                  key={liner.code}
-                  onClick={() => handleLinerClick(liner.code)}
-                  className={`px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 ${
-                    activeLiner === liner.code && activeLinerCategory === 'seaspot'
-                      ? `${liner.color} text-white shadow-md`
-                      : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'
-                  }`}
-                >
-                  <Ship className="w-4 h-4" /> {liner.name}
-                </button>
-              ))}
+          {/* Sea Spot Rates Section - Flat table with upload */}
+          {showSeaSpotRates && (
+            <div className="mb-4 p-4 bg-indigo-50 rounded-lg border border-indigo-200">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <Ship className="w-5 h-5 text-indigo-600" />
+                  <span className="text-sm font-semibold text-indigo-700">Sea Spot Rates ({seaSpotRates.length})</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setShowSeaSpotUploadModal(true)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-xs font-medium hover:bg-indigo-700 transition-colors"
+                  >
+                    <Upload className="w-3.5 h-3.5" />
+                    Upload Excel
+                  </button>
+                  {isAdmin && seaSpotRates.length > 0 && (
+                    <button
+                      onClick={handleDeleteAllSpotRates}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600 text-white rounded-lg text-xs font-medium hover:bg-red-700 transition-colors"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      Clear All
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {seaSpotLoading ? (
+                <div className="text-center py-6">
+                  <RefreshCw className="w-6 h-6 text-indigo-600 animate-spin mx-auto mb-2" />
+                  <p className="text-sm text-slate-500">Loading sea spot rates...</p>
+                </div>
+              ) : seaSpotRates.length > 0 ? (
+                <div className="overflow-x-auto bg-white rounded-lg border border-slate-200">
+                  <table className="w-full text-sm">
+                    <thead className="bg-slate-50 border-b border-slate-200">
+                      <tr>
+                        <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase">Liner</th>
+                        <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase">POL</th>
+                        <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase">POD</th>
+                        <th className="px-3 py-2.5 text-right text-xs font-semibold text-slate-600 uppercase">20GP</th>
+                        <th className="px-3 py-2.5 text-right text-xs font-semibold text-slate-600 uppercase">40HQ</th>
+                        <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase">TT/Routing</th>
+                        <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase">Valid</th>
+                        <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase">Remark</th>
+                        {isAdmin && <th className="px-3 py-2.5 w-10"></th>}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {seaSpotRates.map((rate) => (
+                        <tr key={rate.id} className="hover:bg-slate-50">
+                          <td className="px-3 py-2 font-semibold text-indigo-700">{rate.liner || '—'}</td>
+                          <td className="px-3 py-2 text-slate-700">{rate.pol || '—'}</td>
+                          <td className="px-3 py-2 text-slate-700">{rate.pod || '—'}</td>
+                          <td className="px-3 py-2 text-right font-medium text-slate-900">{rate.gp20Usd != null ? `$${parseFloat(rate.gp20Usd).toLocaleString()}` : '—'}</td>
+                          <td className="px-3 py-2 text-right font-medium text-slate-900">{rate.hq40Usd != null ? `$${parseFloat(rate.hq40Usd).toLocaleString()}` : '—'}</td>
+                          <td className="px-3 py-2 text-slate-600">{rate.ttRouting || '—'}</td>
+                          <td className="px-3 py-2 text-slate-600 whitespace-nowrap">{rate.valid ? new Date(rate.valid).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) : '—'}</td>
+                          <td className="px-3 py-2 text-slate-500 text-xs max-w-[150px] truncate">{rate.remark || '—'}</td>
+                          {isAdmin && (
+                            <td className="px-3 py-2 text-center">
+                              <button
+                                onClick={async () => {
+                                  if (!window.confirm('Delete this rate?')) return;
+                                  try {
+                                    await fetch(`${BASE_URL}/rates/linear/${rate.id}`, { method: 'DELETE' });
+                                    setSeaSpotRates(prev => prev.filter(r => r.id !== rate.id));
+                                  } catch (err) { console.error(err); }
+                                }}
+                                className="p-1 hover:bg-red-50 rounded text-red-500 hover:text-red-700"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </td>
+                          )}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="text-center py-6 text-slate-400 text-sm">
+                  No sea spot rates. Upload an Excel file to get started.
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Sea Spot Upload Modal */}
+          {showSeaSpotUploadModal && (
+            <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+              <div className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden">
+                <div className="bg-gradient-to-r from-indigo-600 to-indigo-700 px-6 py-4 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Upload className="w-5 h-5 text-white" />
+                    <h3 className="text-lg font-bold text-white">Upload Sea Spot Rates</h3>
+                  </div>
+                  <button onClick={() => { setShowSeaSpotUploadModal(false); setSeaSpotExcelFile(null); }} className="text-white hover:bg-white/20 rounded-lg p-2">
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+                <div className="p-6 space-y-4">
+                  <p className="text-sm text-slate-600">
+                    Upload an Excel file with headers:<br/>
+                    <code className="text-xs bg-slate-100 px-2 py-1 rounded mt-1 inline-block">LINER | POL | POD | 20GP | 40HQ | TT/ROUTING | VALID | REMARK</code>
+                  </p>
+                  <div>
+                    <label className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed border-slate-300 rounded-lg cursor-pointer hover:bg-slate-50">
+                      <FileSpreadsheet className="w-6 h-6 text-slate-400 mb-1" />
+                      <p className="text-xs text-slate-500">{seaSpotExcelFile ? seaSpotExcelFile.name : 'Click to select Excel file'}</p>
+                      <input type="file" accept=".xlsx,.xls" className="hidden" onChange={(e) => setSeaSpotExcelFile(e.target.files[0])} />
+                    </label>
+                  </div>
+                  <div className="flex justify-end gap-3">
+                    <button onClick={() => { setShowSeaSpotUploadModal(false); setSeaSpotExcelFile(null); }} className="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 text-sm font-medium">Cancel</button>
+                    <button onClick={handleSeaSpotExcelUpload} disabled={!seaSpotExcelFile || seaSpotUploadProgress} className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm font-medium disabled:opacity-50 flex items-center gap-2">
+                      {seaSpotUploadProgress ? <><RefreshCw className="w-4 h-4 animate-spin" /> Uploading...</> : <><Upload className="w-4 h-4" /> Upload</>}
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
 
@@ -1143,6 +1660,339 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
                   <MapPin className="w-4 h-4" /> {liner.name}
                 </button>
               ))}
+            </div>
+          )}
+
+          {/* Air Export Rates Section */}
+          {showAirExport && (
+            <div className="mb-4">
+              {/* Header bar */}
+              <div className="bg-gradient-to-r from-amber-600 to-amber-700 text-white rounded-t-xl p-4 shadow-md">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <Plane className="w-6 h-6" />
+                    <div>
+                      <h3 className="text-lg font-bold">Air Export Rates</h3>
+                      <p className="text-sm opacity-90">
+                        {airExportRates.length} rates loaded
+                        {airExportRates.length > 0 && airExportRates[0]?.commodityType && (
+                          <span> · {airExportRates[0].commodityType}</span>
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setShowAirExportUploadModal(true)}
+                      className="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg transition-all flex items-center gap-2 text-sm font-medium"
+                    >
+                      <Upload className="w-4 h-4" />
+                      Upload Excel
+                    </button>
+                    {isAdmin && airExportRates.length > 0 && (
+                      <button
+                        onClick={handleDeleteAllAirExportRates}
+                        className="bg-red-500/80 hover:bg-red-500 px-4 py-2 rounded-lg transition-all flex items-center gap-2 text-sm font-medium"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                        Clear All
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Card list */}
+              <div className="bg-white rounded-b-xl border border-t-0 border-slate-200">
+                {airExportLoading ? (
+                  <div className="text-center py-8">
+                    <RefreshCw className="w-8 h-8 text-amber-600 animate-spin mx-auto mb-2" />
+                    <p className="text-sm text-slate-500">Loading air export rates...</p>
+                  </div>
+                ) : airExportRates.length > 0 ? (
+                  <div className="divide-y divide-slate-100">
+                    {airExportRates.map((rate) => (
+                      <div key={rate.id} className="p-4 hover:bg-slate-50 transition-colors">
+                        {/* Desktop Grid View */}
+                        <div className="hidden md:grid grid-cols-12 gap-4 items-center">
+                          {/* Airline Badge */}
+                          <div className="col-span-2">
+                            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium text-white bg-amber-600">
+                              <Plane className="w-4 h-4" />
+                              <span className="uppercase">{rate.airline || '—'}</span>
+                            </div>
+                            {rate.commodityType && (
+                              <div className="text-[10px] text-slate-400 mt-1 truncate max-w-[140px]">{rate.commodityType}</div>
+                            )}
+                          </div>
+
+                          {/* Rates Grid - M, -45, 45, 100, 300, 500, 1000 */}
+                          <div className="col-span-5">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              {rate.rateM != null && (
+                                <div className="bg-amber-50 border border-amber-200 rounded px-2 py-1 text-center min-w-[60px]">
+                                  <div className="text-[10px] text-amber-600 font-semibold">M</div>
+                                  <div className="text-sm font-bold text-amber-800">${parseFloat(rate.rateM).toLocaleString()}</div>
+                                </div>
+                              )}
+                              {rate.rate45Minus != null && (
+                                <div className="bg-slate-50 border border-slate-200 rounded px-2 py-1 text-center min-w-[55px]">
+                                  <div className="text-[10px] text-slate-500">-45</div>
+                                  <div className="text-sm font-bold text-slate-800">${parseFloat(rate.rate45Minus).toLocaleString()}</div>
+                                </div>
+                              )}
+                              {rate.rate45 != null && (
+                                <div className="bg-indigo-50 border border-indigo-200 rounded px-2 py-1 text-center min-w-[55px]">
+                                  <div className="text-[10px] text-indigo-600 font-semibold">45</div>
+                                  <div className="text-sm font-bold text-indigo-700">${parseFloat(rate.rate45).toLocaleString()}</div>
+                                </div>
+                              )}
+                              {rate.rate100 != null && (
+                                <div className="bg-slate-50 border border-slate-200 rounded px-2 py-1 text-center min-w-[55px]">
+                                  <div className="text-[10px] text-slate-500">100</div>
+                                  <div className="text-sm font-bold text-slate-800">${parseFloat(rate.rate100).toLocaleString()}</div>
+                                </div>
+                              )}
+                              {rate.rate300 != null && (
+                                <div className="bg-slate-50 border border-slate-200 rounded px-2 py-1 text-center min-w-[55px]">
+                                  <div className="text-[10px] text-slate-500">300</div>
+                                  <div className="text-sm font-bold text-slate-800">${parseFloat(rate.rate300).toLocaleString()}</div>
+                                </div>
+                              )}
+                              {rate.rate500 != null && (
+                                <div className="bg-slate-50 border border-slate-200 rounded px-2 py-1 text-center min-w-[55px]">
+                                  <div className="text-[10px] text-slate-500">500</div>
+                                  <div className="text-sm font-bold text-slate-800">${parseFloat(rate.rate500).toLocaleString()}</div>
+                                </div>
+                              )}
+                              {rate.rate1000 != null && (
+                                <div className="bg-slate-50 border border-slate-200 rounded px-2 py-1 text-center min-w-[55px]">
+                                  <div className="text-[10px] text-slate-500">1000</div>
+                                  <div className="text-sm font-bold text-slate-800">${parseFloat(rate.rate1000).toLocaleString()}</div>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Routing & Details */}
+                          <div className="col-span-3">
+                            {rate.routing && (
+                              <div className="text-sm font-medium text-slate-700 flex items-center gap-1 mb-1">
+                                <ArrowRight className="w-3 h-3 text-slate-400" />
+                                {rate.routing}
+                              </div>
+                            )}
+                            <div className="flex items-center gap-3 text-xs text-slate-500">
+                              {rate.transitTime && (
+                                <span className="flex items-center gap-1">
+                                  <Clock className="w-3 h-3" /> {rate.transitTime}
+                                </span>
+                              )}
+                              {rate.frequency && <span>{rate.frequency}</span>}
+                              {rate.surcharges && (
+                                <span className="text-orange-600 text-[10px]">{rate.surcharges}</span>
+                              )}
+                            </div>
+                            {rate.remarks && (
+                              <div className="text-[10px] text-slate-400 mt-1 truncate max-w-[250px]">{rate.remarks}</div>
+                            )}
+                          </div>
+
+                          {/* Date & Actions */}
+                          <div className="col-span-2 flex items-center justify-end gap-2">
+                            {rate.updatedDate && (
+                              <div className="flex items-center gap-1 text-xs text-slate-500 mr-2">
+                                <Calendar className="w-3 h-3" />
+                                {new Date(rate.updatedDate).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
+                              </div>
+                            )}
+                            <button
+                              onClick={() => { setEditingAirExportRate({...rate}); setShowAirExportEditModal(true); }}
+                              className="p-2 hover:bg-amber-50 rounded-lg transition-colors"
+                              title="Edit Rate"
+                            >
+                              <Edit className="w-4 h-4 text-slate-600 hover:text-amber-600" />
+                            </button>
+                            {isAdmin && (
+                              <button
+                                onClick={() => handleDeleteAirExportRate(rate.id)}
+                                className="p-2 hover:bg-red-50 rounded-lg transition-colors"
+                                title="Delete Rate"
+                              >
+                                <Trash2 className="w-4 h-4 text-slate-600 hover:text-red-600" />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Mobile Card View */}
+                        <div className="md:hidden space-y-3">
+                          <div className="flex items-center justify-between">
+                            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium text-white bg-amber-600">
+                              <Plane className="w-4 h-4" />
+                              <span className="uppercase">{rate.airline || '—'}</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <button onClick={() => { setEditingAirExportRate({...rate}); setShowAirExportEditModal(true); }} className="p-2 hover:bg-amber-50 rounded-lg">
+                                <Edit className="w-4 h-4 text-slate-600" />
+                              </button>
+                              {isAdmin && (
+                                <button onClick={() => handleDeleteAirExportRate(rate.id)} className="p-2 hover:bg-red-50 rounded-lg">
+                                  <Trash2 className="w-4 h-4 text-red-600" />
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            {rate.rateM != null && <div className="bg-amber-50 border border-amber-200 rounded px-2 py-1 text-center"><div className="text-[10px] text-amber-600">M</div><div className="text-sm font-bold">${parseFloat(rate.rateM).toLocaleString()}</div></div>}
+                            {rate.rate45Minus != null && <div className="bg-slate-50 rounded px-2 py-1 text-center"><div className="text-[10px]">-45</div><div className="text-sm font-bold">${parseFloat(rate.rate45Minus).toLocaleString()}</div></div>}
+                            {rate.rate45 != null && <div className="bg-indigo-50 rounded px-2 py-1 text-center"><div className="text-[10px] text-indigo-600">45</div><div className="text-sm font-bold">${parseFloat(rate.rate45).toLocaleString()}</div></div>}
+                            {rate.rate100 != null && <div className="bg-slate-50 rounded px-2 py-1 text-center"><div className="text-[10px]">100</div><div className="text-sm font-bold">${parseFloat(rate.rate100).toLocaleString()}</div></div>}
+                            {rate.rate300 != null && <div className="bg-slate-50 rounded px-2 py-1 text-center"><div className="text-[10px]">300</div><div className="text-sm font-bold">${parseFloat(rate.rate300).toLocaleString()}</div></div>}
+                            {rate.rate500 != null && <div className="bg-slate-50 rounded px-2 py-1 text-center"><div className="text-[10px]">500</div><div className="text-sm font-bold">${parseFloat(rate.rate500).toLocaleString()}</div></div>}
+                            {rate.rate1000 != null && <div className="bg-slate-50 rounded px-2 py-1 text-center"><div className="text-[10px]">1000</div><div className="text-sm font-bold">${parseFloat(rate.rate1000).toLocaleString()}</div></div>}
+                          </div>
+                          <div className="flex items-center justify-between text-xs text-slate-500">
+                            <div className="flex items-center gap-2">
+                              {rate.routing && <span>{rate.routing}</span>}
+                              {rate.transitTime && <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{rate.transitTime}</span>}
+                            </div>
+                            {rate.updatedDate && (
+                              <div className="flex items-center gap-1">
+                                <Calendar className="w-3 h-3" />
+                                {new Date(rate.updatedDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-slate-400 text-sm">
+                    <Plane className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+                    No air export rates. Upload an Excel file to get started.
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Air Export Upload Modal */}
+          {showAirExportUploadModal && (
+            <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+              <div className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden">
+                <div className="bg-gradient-to-r from-amber-600 to-amber-700 px-6 py-4 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Upload className="w-5 h-5 text-white" />
+                    <h3 className="text-lg font-bold text-white">Upload Air Export Rates</h3>
+                  </div>
+                  <button onClick={() => { setShowAirExportUploadModal(false); setAirExportExcelFile(null); }} className="text-white hover:bg-white/20 rounded-lg p-2">
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+                <div className="p-6 space-y-4">
+                  <p className="text-sm text-slate-600">
+                    Upload an Excel file with headers:<br/>
+                    <code className="text-[10px] bg-slate-100 px-2 py-1 rounded mt-1 inline-block leading-relaxed">
+                      Commodity Type | AIRLINE | M | -45 | 45 | 100 | 300 | 500 | 1000 | SURCHARGES | T/T | FREQUENCY | ROUTINE | REMARKS | UPDATED DATE
+                    </code>
+                  </p>
+                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                    <p className="text-xs text-amber-700">
+                      <strong>Note:</strong> Commodity Type is shared across all rows. Blank cells will be stored as empty. Rows without AIRLINE will be skipped.
+                    </p>
+                  </div>
+                  <div>
+                    <label className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed border-slate-300 rounded-lg cursor-pointer hover:bg-slate-50">
+                      <FileSpreadsheet className="w-6 h-6 text-slate-400 mb-1" />
+                      <p className="text-xs text-slate-500">{airExportExcelFile ? airExportExcelFile.name : 'Click to select Excel file'}</p>
+                      <input type="file" accept=".xlsx,.xls" className="hidden" onChange={(e) => setAirExportExcelFile(e.target.files[0])} />
+                    </label>
+                  </div>
+                  <div className="flex justify-end gap-3">
+                    <button onClick={() => { setShowAirExportUploadModal(false); setAirExportExcelFile(null); }} className="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 text-sm font-medium">Cancel</button>
+                    <button onClick={handleAirExportExcelUpload} disabled={!airExportExcelFile || airExportUploadProgress} className="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 text-sm font-medium disabled:opacity-50 flex items-center gap-2">
+                      {airExportUploadProgress ? <><RefreshCw className="w-4 h-4 animate-spin" /> Uploading...</> : <><Upload className="w-4 h-4" /> Upload</>}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Air Export Edit Modal */}
+          {showAirExportEditModal && editingAirExportRate && (
+            <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+              <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden max-h-[90vh] overflow-y-auto">
+                <div className="bg-gradient-to-r from-amber-600 to-amber-700 px-6 py-4 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Edit className="w-5 h-5 text-white" />
+                    <h3 className="text-lg font-bold text-white">Edit Air Export Rate</h3>
+                  </div>
+                  <button onClick={() => { setShowAirExportEditModal(false); setEditingAirExportRate(null); }} className="text-white hover:bg-white/20 rounded-lg p-2">
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+                <div className="p-6 space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-medium text-slate-600 mb-1">Commodity Type</label>
+                      <input type="text" value={editingAirExportRate.commodityType || ''} onChange={(e) => setEditingAirExportRate({...editingAirExportRate, commodityType: e.target.value})} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-slate-600 mb-1">Airline</label>
+                      <input type="text" value={editingAirExportRate.airline || ''} onChange={(e) => setEditingAirExportRate({...editingAirExportRate, airline: e.target.value})} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500" />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-4 gap-3">
+                    {[
+                      { key: 'rateM', label: 'M (Min)' },
+                      { key: 'rate45Minus', label: '-45 kg' },
+                      { key: 'rate45', label: '45 kg' },
+                      { key: 'rate100', label: '100 kg' },
+                      { key: 'rate300', label: '300 kg' },
+                      { key: 'rate500', label: '500 kg' },
+                      { key: 'rate1000', label: '1000 kg' },
+                    ].map(({ key, label }) => (
+                      <div key={key}>
+                        <label className="block text-xs font-medium text-slate-600 mb-1">{label}</label>
+                        <input type="number" step="0.01" value={editingAirExportRate[key] ?? ''} onChange={(e) => setEditingAirExportRate({...editingAirExportRate, [key]: e.target.value})} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500" placeholder="—" />
+                      </div>
+                    ))}
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-medium text-slate-600 mb-1">Surcharges</label>
+                      <input type="text" value={editingAirExportRate.surcharges || ''} onChange={(e) => setEditingAirExportRate({...editingAirExportRate, surcharges: e.target.value})} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-slate-600 mb-1">T/T</label>
+                      <input type="text" value={editingAirExportRate.transitTime || ''} onChange={(e) => setEditingAirExportRate({...editingAirExportRate, transitTime: e.target.value})} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500" />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-medium text-slate-600 mb-1">Frequency</label>
+                      <input type="text" value={editingAirExportRate.frequency || ''} onChange={(e) => setEditingAirExportRate({...editingAirExportRate, frequency: e.target.value})} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-slate-600 mb-1">Routing</label>
+                      <input type="text" value={editingAirExportRate.routing || ''} onChange={(e) => setEditingAirExportRate({...editingAirExportRate, routing: e.target.value})} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500" />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 mb-1">Remarks</label>
+                    <input type="text" value={editingAirExportRate.remarks || ''} onChange={(e) => setEditingAirExportRate({...editingAirExportRate, remarks: e.target.value})} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500" />
+                  </div>
+                  <div className="flex justify-end gap-3 pt-2">
+                    <button onClick={() => { setShowAirExportEditModal(false); setEditingAirExportRate(null); }} className="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 text-sm font-medium">Cancel</button>
+                    <button onClick={handleSaveAirExportEdit} className="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 text-sm font-medium flex items-center gap-2">
+                      Save Changes
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
         </div>
@@ -1800,7 +2650,7 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
         )}
 
         {/* Empty & Refresh */}
-        {!isLoadingData && !error && displayData.length === 0 && (
+        {!isLoadingData && !error && displayData.length === 0 && activeTab !== 'seaspot' && activeTab !== 'airexport' && (
           <div className="bg-white rounded-xl shadow-sm border p-12 text-center">
             <DollarSign className="w-16 h-16 text-slate-300 mx-auto mb-4" />
             <h3 className="text-lg font-medium mb-2">No rates found</h3>
