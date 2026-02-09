@@ -103,6 +103,11 @@ export default function SideNav({ isOpen, onClose, scrollBottom = false }) {
       icon: CreditCard,
       label: "Accounts",
       permissionKey: "AccountView"
+    },
+    {
+      path: "/reports",
+      icon: BarChart3,
+      label: "Reports"
     }
   ];
 

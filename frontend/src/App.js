@@ -21,6 +21,7 @@ import EmployeeRoleManagement from './Features/RoleBase/EmployeeRoleManagement';
 import Profile from './Features/Profile/Profile';
 import Quotes from './Features/Quotes/Quotes';
 import WarehouseQuoteView from './Features/Quotes/WarehouseQuoteView';
+import Reports from './Features/Reports/Reports';
 
 function App() {
   return (
@@ -48,7 +49,8 @@ function App() {
             <Route path="/rolebase" element={<EmployeeRoleManagement />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/warehouse-quotes/:id" element={<WarehouseQuoteView />} />
-            
+            <Route path="/reports" element={<Reports />} />
+
             {/* Default redirect when logged in */}
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
           </Route>
