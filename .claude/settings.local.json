@@ -3,7 +3,12 @@
     "allow": [
       "Bash(npx eslint:*)",
       "Bash(ls -la \"C:\\\\Users\\\\Admin\\\\.claude-worktrees\\\\ScanWell-CRM-dev\\\\gracious-tharp\\\\back-end\\\\back-end\\\\Controllers\"\" | grep -i \"quote \")",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(del \"C:\\\\Users\\\\Admin\\\\.claude-worktrees\\\\ScanWell-CRM-dev\\\\hopeful-hawking\\\\frontend\\\\src\\\\Features\\\\Leads\\\\LeadForm.jsx\")",
+      "Bash(git log:*)",
+      "Bash(npx vite build --logLevel error)",
+      "Bash(npm run build)",
+      "Bash(dotnet build:*)"
     ]
   }
 }

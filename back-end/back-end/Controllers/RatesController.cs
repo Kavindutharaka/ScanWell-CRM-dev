@@ -429,6 +429,47 @@ namespace back_end.Controllers
             }
         }
 
+        // GET: api/rates/linear/all-spot - Get all sea spot liner rates (no category filter)
+        [HttpGet, Route("linear/all-spot")]
+        public ActionResult getAllSpotRates()
+        {
+            string query = @"SELECT * FROM [dbo].[linear_rates] WHERE liner_type IS NULL OR liner_type = 'LINER' ORDER BY id DESC;";
+            DataTable spotTb = new DataTable();
+
+            using (SqlConnection con = new SqlConnection(_dbConnectionString))
+            {
+                con.Open();
+                using (SqlCommand cmd = new SqlCommand(query, con))
+                {
+                    using (SqlDataReader reader = cmd.ExecuteReader())
+                    {
+                        spotTb.Load(reader);
+                    }
+                }
+                con.Close();
+            }
+
+            return new OkObjectResult(spotTb);
+        }
+
+        // DELETE: api/rates/linear/all-spot - Delete all sea spot liner rates
+        [HttpDelete, Route("linear/all-spot")]
+        public IActionResult DeleteAllSpotRates()
+        {
+            string query = @"DELETE FROM [dbo].[linear_rates] WHERE liner_type IS NULL OR liner_type = 'LINER';";
+
+            using (SqlConnection con = new SqlConnection(_dbConnectionString))
+            {
+                con.Open();
+                using (SqlCommand cmd = new SqlCommand(query, con))
+                {
+                    int rowsAffected = cmd.ExecuteNonQuery();
+                    con.Close();
+                    return Ok(new { message = $"Deleted {rowsAffected} sea spot rates", count = rowsAffected });
+                }
+            }
+        }
+
         // ============================================================================
         // DESTINATION RATES ENDPOINTS (Different format: DESTINATION, LINER, 20GP, 40HQ, TT/ROUTING, VALID)
         // ============================================================================
@@ -646,6 +687,185 @@ namespace back_end.Controllers
                     con.Close();
 
                     return Ok(new { message = $"Deleted {rowsAffected} rates for category {category}", count = rowsAffected });
+                }
+            }
+        }
+
+        // ============================================================================
+        // AIR EXPORT RATES ENDPOINTS
+        // ============================================================================
+
+        // GET: api/rates/air-export - Get all air export rates
+        [HttpGet, Route("air-export")]
+        public ActionResult getAirExportRates()
+        {
+            string query = @"SELECT * FROM [dbo].[air_export_rates] ORDER BY id DESC;";
+            DataTable airTb = new DataTable();
+
+            using (SqlConnection con = new SqlConnection(_dbConnectionString))
+            {
+                con.Open();
+                using (SqlCommand cmd = new SqlCommand(query, con))
+                {
+                    using (SqlDataReader reader = cmd.ExecuteReader())
+                    {
+                        airTb.Load(reader);
+                    }
+                }
+                con.Close();
+            }
+
+            return new OkObjectResult(airTb);
+        }
+
+        // POST: api/rates/air-export/bulk - Bulk upload air export rates
+        [HttpPost, Route("air-export/bulk")]
+        public IActionResult BulkInsertAirExportRates([FromBody] AirExportRateBulkRequest request)
+        {
+            if (request?.Rates == null || request.Rates.Count == 0)
+                return BadRequest(new { message = "No rates provided." });
+
+            int successCount = 0;
+            int failCount = 0;
+
+            // Use the shared commodity type from request if individual rows don't have one
+            string sharedCommodityType = request.CommodityType;
+
+            using (SqlConnection con = new SqlConnection(_dbConnectionString))
+            {
+                con.Open();
+
+                foreach (var rate in request.Rates)
+                {
+                    try
+                    {
+                        string query = @"INSERT INTO [dbo].[air_export_rates]
+                            (commodity_type, airline, rate_m, rate_45_minus, rate_45, rate_100, rate_300, rate_500, rate_1000, surcharges, transit_time, frequency, routing, remarks, updated_date)
+                            VALUES
+                            (@commodity_type, @airline, @rate_m, @rate_45_minus, @rate_45, @rate_100, @rate_300, @rate_500, @rate_1000, @surcharges, @transit_time, @frequency, @routing, @remarks, @updated_date);";
+
+                        using (SqlCommand cmd = new SqlCommand(query, con))
+                        {
+                            cmd.Parameters.AddWithValue("@commodity_type", rate.CommodityType ?? sharedCommodityType ?? (object)DBNull.Value);
+                            cmd.Parameters.AddWithValue("@airline", rate.Airline ?? (object)DBNull.Value);
+                            cmd.Parameters.AddWithValue("@rate_m", rate.RateM ?? (object)DBNull.Value);
+                            cmd.Parameters.AddWithValue("@rate_45_minus", rate.Rate45Minus ?? (object)DBNull.Value);
+                            cmd.Parameters.AddWithValue("@rate_45", rate.Rate45 ?? (object)DBNull.Value);
+                            cmd.Parameters.AddWithValue("@rate_100", rate.Rate100 ?? (object)DBNull.Value);
+                            cmd.Parameters.AddWithValue("@rate_300", rate.Rate300 ?? (object)DBNull.Value);
+                            cmd.Parameters.AddWithValue("@rate_500", rate.Rate500 ?? (object)DBNull.Value);
+                            cmd.Parameters.AddWithValue("@rate_1000", rate.Rate1000 ?? (object)DBNull.Value);
+                            cmd.Parameters.AddWithValue("@surcharges", rate.Surcharges ?? (object)DBNull.Value);
+                            cmd.Parameters.AddWithValue("@transit_time", rate.TransitTime ?? (object)DBNull.Value);
+                            cmd.Parameters.AddWithValue("@frequency", rate.Frequency ?? (object)DBNull.Value);
+                            cmd.Parameters.AddWithValue("@routing", rate.Routing ?? (object)DBNull.Value);
+                            cmd.Parameters.AddWithValue("@remarks", rate.Remarks ?? (object)DBNull.Value);
+                            cmd.Parameters.AddWithValue("@updated_date", rate.UpdatedDate ?? (object)DBNull.Value);
+
+                            cmd.ExecuteNonQuery();
+                            successCount++;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        failCount++;
+                        Console.WriteLine($"Failed to insert air export rate: {ex.Message}");
+                    }
+                }
+                con.Close();
+            }
+
+            return Ok(new { successCount, failCount, message = $"Inserted {successCount} air export rates." });
+        }
+
+        // PUT: api/rates/air-export/{id} - Update single air export rate
+        [HttpPut, Route("air-export/{id:int}")]
+        public IActionResult UpdateAirExportRate(int id, [FromBody] AirExportRate rate)
+        {
+            string query = @"UPDATE [dbo].[air_export_rates] SET
+                commodity_type = @commodity_type,
+                airline = @airline,
+                rate_m = @rate_m,
+                rate_45_minus = @rate_45_minus,
+                rate_45 = @rate_45,
+                rate_100 = @rate_100,
+                rate_300 = @rate_300,
+                rate_500 = @rate_500,
+                rate_1000 = @rate_1000,
+                surcharges = @surcharges,
+                transit_time = @transit_time,
+                frequency = @frequency,
+                routing = @routing,
+                remarks = @remarks,
+                updated_date = @updated_date
+                WHERE id = @id;";
+
+            using (SqlConnection con = new SqlConnection(_dbConnectionString))
+            {
+                con.Open();
+                using (SqlCommand cmd = new SqlCommand(query, con))
+                {
+                    cmd.Parameters.AddWithValue("@id", id);
+                    cmd.Parameters.AddWithValue("@commodity_type", rate.CommodityType ?? (object)DBNull.Value);
+                    cmd.Parameters.AddWithValue("@airline", rate.Airline ?? (object)DBNull.Value);
+                    cmd.Parameters.AddWithValue("@rate_m", rate.RateM ?? (object)DBNull.Value);
+                    cmd.Parameters.AddWithValue("@rate_45_minus", rate.Rate45Minus ?? (object)DBNull.Value);
+                    cmd.Parameters.AddWithValue("@rate_45", rate.Rate45 ?? (object)DBNull.Value);
+                    cmd.Parameters.AddWithValue("@rate_100", rate.Rate100 ?? (object)DBNull.Value);
+                    cmd.Parameters.AddWithValue("@rate_300", rate.Rate300 ?? (object)DBNull.Value);
+                    cmd.Parameters.AddWithValue("@rate_500", rate.Rate500 ?? (object)DBNull.Value);
+                    cmd.Parameters.AddWithValue("@rate_1000", rate.Rate1000 ?? (object)DBNull.Value);
+                    cmd.Parameters.AddWithValue("@surcharges", rate.Surcharges ?? (object)DBNull.Value);
+                    cmd.Parameters.AddWithValue("@transit_time", rate.TransitTime ?? (object)DBNull.Value);
+                    cmd.Parameters.AddWithValue("@frequency", rate.Frequency ?? (object)DBNull.Value);
+                    cmd.Parameters.AddWithValue("@routing", rate.Routing ?? (object)DBNull.Value);
+                    cmd.Parameters.AddWithValue("@remarks", rate.Remarks ?? (object)DBNull.Value);
+                    cmd.Parameters.AddWithValue("@updated_date", rate.UpdatedDate ?? (object)DBNull.Value);
+
+                    int rowsAffected = cmd.ExecuteNonQuery();
+                    if (rowsAffected == 0)
+                        return NotFound(new { message = $"Air export rate with id {id} not found." });
+
+                    return Ok(new { message = "Updated successfully." });
+                }
+            }
+        }
+
+        // DELETE: api/rates/air-export/{id} - Delete single air export rate
+        [HttpDelete, Route("air-export/{id:int}")]
+        public IActionResult DeleteAirExportRate(int id)
+        {
+            string query = @"DELETE FROM [dbo].[air_export_rates] WHERE id = @id;";
+
+            using (SqlConnection con = new SqlConnection(_dbConnectionString))
+            {
+                con.Open();
+                using (SqlCommand cmd = new SqlCommand(query, con))
+                {
+                    cmd.Parameters.AddWithValue("@id", id);
+                    int rowsAffected = cmd.ExecuteNonQuery();
+
+                    if (rowsAffected == 0)
+                        return NotFound(new { message = $"Air export rate with id {id} not found." });
+
+                    return Ok(new { message = "Deleted successfully." });
+                }
+            }
+        }
+
+        // DELETE: api/rates/air-export/all - Delete all air export rates
+        [HttpDelete, Route("air-export/all")]
+        public IActionResult DeleteAllAirExportRates()
+        {
+            string query = @"DELETE FROM [dbo].[air_export_rates];";
+
+            using (SqlConnection con = new SqlConnection(_dbConnectionString))
+            {
+                con.Open();
+                using (SqlCommand cmd = new SqlCommand(query, con))
+                {
+                    int rowsAffected = cmd.ExecuteNonQuery();
+                    return Ok(new { message = $"Deleted {rowsAffected} air export rates.", count = rowsAffected });
                 }
             }
         }

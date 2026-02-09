@@ -90,8 +90,8 @@ namespace back_end.Controllers
                             string insertOutcomeQuery = @"
                                 INSERT INTO quote_outcomes 
                                 (quote_id, outcome_status, won_amount, lost_reason, lost_note, created_date)
-                                VALUES 
-                                (@QuoteId, @OutcomeStatus, @WonAmount, @LostReason, @LostNote, GETDATE())";
+                                VALUES
+                                (@QuoteId, @OutcomeStatus, @WonAmount, @LostReason, @LostNote, GETUTCDATE())";
 
                             using (SqlCommand insertCmd = new SqlCommand(insertOutcomeQuery, myCon, transaction))
                             {
@@ -194,7 +194,9 @@ namespace back_end.Controllers
                                     wonAmount = myR["won_amount"] != DBNull.Value ? myR["won_amount"] : null,
                                     lostReason = myR["lost_reason"] != DBNull.Value ? myR["lost_reason"] : null,
                                     lostNote = myR["lost_note"] != DBNull.Value ? myR["lost_note"] : null,
-                                    createdDate = myR["created_date"]
+                                    createdDate = myR["created_date"] != DBNull.Value
+                                        ? DateTime.SpecifyKind(Convert.ToDateTime(myR["created_date"]), DateTimeKind.Utc)
+                                        : (DateTime?)null
                                 });
                             }
                             else

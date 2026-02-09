@@ -20,7 +20,8 @@ import {
   Settings,
   Info,
   ChartLine,
-  Shield
+  Shield,
+  Globe
 } from "lucide-react";
 import { AuthContext } from "../context/AuthContext";
 
@@ -67,8 +68,8 @@ export default function SideNav({ isOpen, onClose, scrollBottom = false }) {
     },
     {
       path: "/mail-tracking",
-      icon: Mail,
-      label: "Email Leads"
+      icon: Globe,
+      label: "Web Leads"
     }
   ];
 
@@ -102,6 +103,11 @@ export default function SideNav({ isOpen, onClose, scrollBottom = false }) {
       icon: CreditCard,
       label: "Accounts",
       permissionKey: "AccountView"
+    },
+    {
+      path: "/reports",
+      icon: BarChart3,
+      label: "Reports"
     }
   ];
 

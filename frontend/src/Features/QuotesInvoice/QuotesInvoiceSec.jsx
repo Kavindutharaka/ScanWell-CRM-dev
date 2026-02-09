@@ -130,6 +130,11 @@ function SalesPerson({ customerName }) {
               LKR {parseFloat(outcome.wonAmount).toLocaleString()}
             </span>
           )}
+          {outcome.createdDate && (
+            <span className="text-[10px] text-gray-400">
+              {new Date(outcome.createdDate).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })}
+            </span>
+          )}
         </div>
       );
     }
@@ -144,6 +149,11 @@ function SalesPerson({ customerName }) {
           {outcome.lostReason && (
             <span className="text-xs text-gray-600">
               {outcome.lostReason}
+            </span>
+          )}
+          {outcome.createdDate && (
+            <span className="text-[10px] text-gray-400">
+              {new Date(outcome.createdDate).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })}
             </span>
           )}
         </div>
