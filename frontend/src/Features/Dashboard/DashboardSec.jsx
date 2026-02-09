@@ -1,6 +1,8 @@
-import React, { useState, useEffect, useContext, useCallback } from "react";
+import React, { useState, useEffect, useContext, useCallback, useRef } from "react";
 import { AuthContext } from "../../context/AuthContext";
 import api from "../../config/axios";
+import { STATIC_URL } from "../../config/apiConfig";
+import { fetchNewsFeedImages, uploadNewsFeedImage, deleteNewsFeedImage } from "../../api/NewsFeedApi";
 import {
   LayoutGrid,
   Newspaper,
@@ -19,7 +21,12 @@ import {
   Percent,
   Award,
   Zap,
-  Building2
+  Building2,
+  Plus,
+  Trash2,
+  X,
+  Upload,
+  Image as ImageIcon
 } from "lucide-react";
 
 // ===== COLORS =====
@@ -73,6 +80,17 @@ export default function DashboardSec() {
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
 
+  // ===== NEWS FEED STATE =====
+  const [newsFeedImages, setNewsFeedImages] = useState([]);
+  const [newsFeedLoading, setNewsFeedLoading] = useState(false);
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [uploadFile, setUploadFile] = useState(null);
+  const [uploadCaption, setUploadCaption] = useState("");
+  const [uploadPreview, setUploadPreview] = useState(null);
+  const [uploading, setUploading] = useState(false);
+  const [lightboxImage, setLightboxImage] = useState(null);
+  const fileInputRef = useRef(null);
+
   // ===== FETCH =====
   const fetchDashboard = useCallback(async () => {
     // Don't fetch until auth is fully loaded (user + permission resolved)
@@ -95,6 +113,75 @@ export default function DashboardSec() {
   useEffect(() => {
     fetchDashboard();
   }, [fetchDashboard]);
+
+  // ===== NEWS FEED FUNCTIONS =====
+  const loadNewsFeed = useCallback(async () => {
+    setNewsFeedLoading(true);
+    try {
+      const imgs = await fetchNewsFeedImages();
+      setNewsFeedImages(Array.isArray(imgs) ? imgs : []);
+    } catch (err) {
+      console.error("News feed error:", err);
+      setNewsFeedImages([]);
+    } finally {
+      setNewsFeedLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === "newsfeed") loadNewsFeed();
+  }, [activeTab, loadNewsFeed]);
+
+  const handleFileSelect = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadFile(file);
+    const reader = new FileReader();
+    reader.onload = (ev) => setUploadPreview(ev.target.result);
+    reader.readAsDataURL(file);
+  };
+
+  const handleUpload = async () => {
+    if (!uploadFile) return;
+    setUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append("imageFile", uploadFile);
+      fd.append("caption", uploadCaption);
+      fd.append("uploadedBy", permission?.Username || user?.username || "Admin");
+      await uploadNewsFeedImage(fd);
+      setShowUploadModal(false);
+      setUploadFile(null);
+      setUploadCaption("");
+      setUploadPreview(null);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      loadNewsFeed();
+    } catch (err) {
+      console.error("Upload error:", err);
+      alert("Failed to upload image. " + (err?.response?.data || err.message));
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleDeleteImage = async (id) => {
+    if (!window.confirm("Are you sure you want to delete this image?")) return;
+    try {
+      await deleteNewsFeedImage(id);
+      loadNewsFeed();
+    } catch (err) {
+      console.error("Delete error:", err);
+      alert("Failed to delete image.");
+    }
+  };
+
+  const closeUploadModal = () => {
+    setShowUploadModal(false);
+    setUploadFile(null);
+    setUploadCaption("");
+    setUploadPreview(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
 
   // ===== PRESETS =====
   const setPreset = (preset) => {
@@ -650,12 +737,226 @@ export default function DashboardSec() {
 
         {/* NEWS FEED */}
         {activeTab === "newsfeed" && (
-          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-10 min-h-[500px] flex items-center justify-center">
-            <div className="text-center">
-              <Newspaper className="w-16 h-16 text-slate-300 mx-auto mb-4" />
-              <h2 className="text-xl font-semibold text-slate-600 mb-2">News Feed</h2>
-              <p className="text-slate-400 text-sm">Company news and updates will appear here</p>
+          <div className="min-h-[500px]">
+            {/* Header */}
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h2 className="text-xl font-bold text-slate-800">Company News Feed</h2>
+                <p className="text-sm text-slate-400 mt-1">Latest news, announcements & updates</p>
+              </div>
+              {isAdmin && (
+                <button
+                  onClick={() => setShowUploadModal(true)}
+                  className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors shadow-sm text-sm font-medium"
+                >
+                  <Plus className="w-4 h-4" />
+                  Add Image
+                </button>
+              )}
             </div>
+
+            {/* Loading */}
+            {newsFeedLoading ? (
+              <div className="flex items-center justify-center h-64">
+                <RefreshCw className="w-8 h-8 text-blue-400 animate-spin" />
+              </div>
+            ) : newsFeedImages.length === 0 ? (
+              /* Empty State */
+              <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-16 flex items-center justify-center">
+                <div className="text-center">
+                  <Newspaper className="w-16 h-16 text-slate-300 mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold text-slate-500 mb-2">No News Yet</h3>
+                  <p className="text-slate-400 text-sm">
+                    {isAdmin
+                      ? "Click \"Add Image\" to post company news and updates."
+                      : "Company news and updates will appear here."}
+                  </p>
+                </div>
+              </div>
+            ) : (
+              /* Masonry Grid */
+              <div className="columns-1 sm:columns-2 lg:columns-3 xl:columns-4 gap-4 space-y-4">
+                {newsFeedImages.map((img) => (
+                  <div
+                    key={img.SysID}
+                    className="break-inside-avoid group relative rounded-xl overflow-hidden bg-white border border-slate-200 shadow-sm hover:shadow-lg transition-all duration-300 cursor-pointer"
+                    onClick={() => setLightboxImage(img)}
+                  >
+                    <img
+                      src={`${STATIC_URL}${img.image_url}`}
+                      alt={img.caption || "News image"}
+                      className="w-full h-auto block"
+                      loading="lazy"
+                    />
+                    {/* Hover Overlay */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/0 to-black/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-4">
+                      {img.caption && (
+                        <p className="text-white text-sm font-medium mb-1 line-clamp-2">{img.caption}</p>
+                      )}
+                      <div className="flex items-center justify-between">
+                        <p className="text-white/70 text-xs">
+                          {img.uploaded_by} &middot;{" "}
+                          {img.created_at
+                            ? new Date(img.created_at).toLocaleDateString(undefined, {
+                                month: "short",
+                                day: "numeric",
+                                year: "numeric",
+                              })
+                            : ""}
+                        </p>
+                        {isAdmin && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteImage(img.SysID);
+                            }}
+                            className="w-8 h-8 rounded-lg bg-red-500/80 hover:bg-red-600 flex items-center justify-center transition-colors"
+                            title="Delete image"
+                          >
+                            <Trash2 className="w-4 h-4 text-white" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Upload Modal */}
+            {showUploadModal && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={closeUploadModal}>
+                <div
+                  className="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 overflow-hidden"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {/* Modal Header */}
+                  <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+                    <h3 className="text-lg font-bold text-slate-800">Upload News Image</h3>
+                    <button
+                      onClick={closeUploadModal}
+                      className="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center transition-colors"
+                    >
+                      <X className="w-5 h-5 text-slate-400" />
+                    </button>
+                  </div>
+
+                  {/* Modal Body */}
+                  <div className="p-6 space-y-4">
+                    {/* File Input Area */}
+                    {!uploadPreview ? (
+                      <label className="flex flex-col items-center justify-center w-full h-48 border-2 border-dashed border-slate-300 rounded-xl cursor-pointer hover:border-blue-400 hover:bg-blue-50/30 transition-colors">
+                        <ImageIcon className="w-10 h-10 text-slate-300 mb-2" />
+                        <span className="text-sm font-medium text-slate-500">Click to select an image</span>
+                        <span className="text-xs text-slate-400 mt-1">JPG, PNG, GIF, WebP (max 10MB)</span>
+                        <input
+                          ref={fileInputRef}
+                          type="file"
+                          accept="image/jpeg,image/png,image/gif,image/webp"
+                          className="hidden"
+                          onChange={handleFileSelect}
+                        />
+                      </label>
+                    ) : (
+                      <div className="relative">
+                        <img
+                          src={uploadPreview}
+                          alt="Preview"
+                          className="w-full max-h-64 object-contain rounded-xl border border-slate-200"
+                        />
+                        <button
+                          onClick={() => {
+                            setUploadFile(null);
+                            setUploadPreview(null);
+                            if (fileInputRef.current) fileInputRef.current.value = "";
+                          }}
+                          className="absolute top-2 right-2 w-7 h-7 rounded-full bg-red-500 hover:bg-red-600 flex items-center justify-center transition-colors"
+                        >
+                          <X className="w-4 h-4 text-white" />
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Caption Input */}
+                    <div>
+                      <label className="text-sm font-medium text-slate-600 mb-1 block">Caption (optional)</label>
+                      <input
+                        type="text"
+                        value={uploadCaption}
+                        onChange={(e) => setUploadCaption(e.target.value)}
+                        placeholder="Add a caption..."
+                        maxLength={500}
+                        className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Modal Footer */}
+                  <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-slate-100 bg-slate-50">
+                    <button
+                      onClick={closeUploadModal}
+                      className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-200 rounded-lg transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleUpload}
+                      disabled={!uploadFile || uploading}
+                      className="flex items-center gap-2 px-5 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium transition-colors"
+                    >
+                      {uploading ? (
+                        <>
+                          <RefreshCw className="w-4 h-4 animate-spin" />
+                          Uploading...
+                        </>
+                      ) : (
+                        <>
+                          <Upload className="w-4 h-4" />
+                          Upload
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Lightbox */}
+            {lightboxImage && (
+              <div
+                className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm"
+                onClick={() => setLightboxImage(null)}
+              >
+                <div className="relative max-w-[90vw] max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
+                  <img
+                    src={`${STATIC_URL}${lightboxImage.image_url}`}
+                    alt={lightboxImage.caption || "News image"}
+                    className="max-w-full max-h-[85vh] object-contain rounded-xl shadow-2xl"
+                  />
+                  <button
+                    onClick={() => setLightboxImage(null)}
+                    className="absolute -top-3 -right-3 w-10 h-10 rounded-full bg-white shadow-lg flex items-center justify-center hover:bg-slate-100 transition-colors"
+                  >
+                    <X className="w-5 h-5 text-slate-600" />
+                  </button>
+                  {lightboxImage.caption && (
+                    <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-4 rounded-b-xl">
+                      <p className="text-white text-sm font-medium">{lightboxImage.caption}</p>
+                      <p className="text-white/60 text-xs mt-1">
+                        {lightboxImage.uploaded_by} &middot;{" "}
+                        {lightboxImage.created_at
+                          ? new Date(lightboxImage.created_at).toLocaleDateString(undefined, {
+                              month: "short",
+                              day: "numeric",
+                              year: "numeric",
+                            })
+                          : ""}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
