@@ -109,14 +109,9 @@ namespace back_end.Controllers
                     q.Status,
                     q.CreatedBy,
                     ISNULL(e.fname, '') + ' ' + ISNULL(e.lname, '') AS SalesPerson,
-                    e.department AS Department,
-                    qo.outcome_status AS OutcomeStatus,
-                    qo.won_amount AS WonAmount,
-                    qo.lost_reason AS LostReason,
-                    qo.created_date AS OutcomeDate
+                    e.department AS Department
                 FROM [dbo].[Quotes] q
                 LEFT JOIN [dbo].[emp_reg] e ON q.CreatedBy = e.SysID
-                LEFT JOIN [dbo].[quote_outcomes] qo ON q.QuoteId = qo.quote_id
                 {whereClause}
                 ORDER BY q.CreatedDate DESC, q.QuoteId DESC;";
 
@@ -336,7 +331,7 @@ namespace back_end.Controllers
         [HttpGet, Route("filter/departments")]
         public ActionResult GetDepartments()
         {
-            string query = @"SELECT Id, dName FROM [dbo].[department] ORDER BY dName;";
+            string query = @"SELECT SysID, d_name FROM [dbo].[department] ORDER BY d_name;";
 
             DataTable tb = new DataTable();
             using (SqlConnection con = new SqlConnection(_dbConnectionString))

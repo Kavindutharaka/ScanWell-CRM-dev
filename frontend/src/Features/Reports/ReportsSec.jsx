@@ -59,7 +59,7 @@ export default function ReportsSec() {
         const deptData = await deptRes.json();
         const countryData = await countryRes.json();
         setSalespersons(spData.map(s => s.name || s.Name).filter(Boolean));
-        setDepartments(deptData.map(d => d.dName || d.DName || d.dname).filter(Boolean));
+        setDepartments(deptData.map(d => d.d_name || d.dName || d.DName || d.dname).filter(Boolean));
         setCountries(countryData.map(c => c.country || c.Country).filter(Boolean));
       } catch (err) {
         console.error("Failed to load filter data:", err);
@@ -210,19 +210,20 @@ export default function ReportsSec() {
     switch (activeReport) {
       case "quotation": {
         const total = reportData.length;
-        const won = reportData.filter(r => r.OutcomeStatus === "won" || r.outcomeStatus === "won").length;
-        const lost = reportData.filter(r => r.OutcomeStatus === "lost" || r.outcomeStatus === "lost").length;
-        const pending = total - won - lost;
-        const totalWonAmt = reportData
-          .filter(r => r.OutcomeStatus === "won" || r.outcomeStatus === "won")
-          .reduce((sum, r) => sum + (parseFloat(r.WonAmount || r.wonAmount || 0)), 0);
+        const statusCounts = {};
+        reportData.forEach(r => {
+          const s = (r.Status || r.status || "draft").toLowerCase();
+          statusCounts[s] = (statusCounts[s] || 0) + 1;
+        });
         return (
           <div className="summary">
             <div className="summary-item"><strong>{total}</strong>Total Quotations</div>
-            <div className="summary-item"><strong style={{ color: "#16a34a" }}>{won}</strong>Won</div>
-            <div className="summary-item"><strong style={{ color: "#dc2626" }}>{lost}</strong>Lost</div>
-            <div className="summary-item"><strong style={{ color: "#2563eb" }}>{pending}</strong>Pending</div>
-            {totalWonAmt > 0 && <div className="summary-item"><strong style={{ color: "#16a34a" }}>${totalWonAmt.toLocaleString()}</strong>Won Amount</div>}
+            {Object.entries(statusCounts).map(([s, count]) => (
+              <div key={s} className="summary-item">
+                <strong style={{ color: s === "approved" ? "#16a34a" : s === "draft" ? "#2563eb" : s === "sent" ? "#7c3aed" : "#64748b" }}>{count}</strong>
+                {s.charAt(0).toUpperCase() + s.slice(1)}
+              </div>
+            ))}
           </div>
         );
       }
@@ -508,13 +509,12 @@ export default function ReportsSec() {
                           <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-600">POD</th>
                           <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-600">Sales Person</th>
                           <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-600">Department</th>
-                          <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-600">Outcome</th>
-                          <th className="px-3 py-2.5 text-right text-xs font-semibold text-slate-600">Amount</th>
+                          <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-600">Status</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
                         {reportData.map((row, i) => {
-                          const outcome = row.OutcomeStatus || row.outcomeStatus;
+                          const status = (row.Status || row.status || "draft").toLowerCase();
                           return (
                             <tr key={i} className="hover:bg-slate-50">
                               <td className="px-3 py-2 text-slate-400 text-xs">{i + 1}</td>
@@ -535,12 +535,14 @@ export default function ReportsSec() {
                               <td className="px-3 py-2 text-slate-700">{row.SalesPerson || row.salesPerson || "—"}</td>
                               <td className="px-3 py-2 text-slate-600 text-xs">{row.Department || row.department || "—"}</td>
                               <td className="px-3 py-2">
-                                {outcome === "won" && <span className="badge badge-won">WON</span>}
-                                {outcome === "lost" && <span className="badge badge-lost">LOST</span>}
-                                {!outcome && <span className="text-xs text-slate-400">—</span>}
-                              </td>
-                              <td className="px-3 py-2 text-right font-medium">
-                                {outcome === "won" && (row.WonAmount || row.wonAmount) ? `$${parseFloat(row.WonAmount || row.wonAmount).toLocaleString()}` : "—"}
+                                <span className={`inline-flex px-2 py-0.5 rounded text-xs font-medium ${
+                                  status === "approved" ? "bg-green-100 text-green-700" :
+                                  status === "sent" ? "bg-violet-100 text-violet-700" :
+                                  status === "draft" ? "bg-blue-100 text-blue-700" :
+                                  "bg-slate-100 text-slate-600"
+                                }`}>
+                                  {status.charAt(0).toUpperCase() + status.slice(1)}
+                                </span>
                               </td>
                             </tr>
                           );
