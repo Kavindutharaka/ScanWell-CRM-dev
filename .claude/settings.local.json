@@ -12,7 +12,10 @@
       "Bash(npx react-scripts build:*)",
       "Bash(curl:*)",
       "Bash(python3:*)",
-      "Bash(dir:*)"
+      "Bash(dir:*)",
+      "Bash(netstat:*)",
+      "Bash(findstr:*)",
+      "Bash(netsh interface ipv4 show excludedportrange:*)"
     ]
   }
 }

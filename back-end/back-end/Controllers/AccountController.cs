@@ -29,21 +29,74 @@ namespace back_end.Controllers
         }
 
         [HttpGet, Route("account")]
-        public ActionResult getAccounts()
+        public ActionResult getAccounts([FromQuery] int page = 1, [FromQuery] int pageSize = 25, [FromQuery] string search = "")
         {
-            string query = @"SELECT TOP 20 * FROM [dbo].[account_reg] ORDER BY SysID DESC;";
-            tb = new DataTable();
-            using (myCon)
+            int offset = (page - 1) * pageSize;
+            string searchFilter = "";
+
+            if (!string.IsNullOrWhiteSpace(search))
             {
-                myCon.Open();
-                using (myCom = new SqlCommand(query, myCon))
+                searchFilter = @" WHERE (accountName LIKE @search
+                    OR domain LIKE @search
+                    OR fmsCode LIKE @search
+                    OR industry LIKE @search
+                    OR location LIKE @search
+                    OR salesPerson LIKE @search
+                    OR primaryContact LIKE @search
+                    OR primaryEmail LIKE @search
+                    OR accountType LIKE @search
+                    OR description LIKE @search) ";
+            }
+
+            string countQuery = $"SELECT COUNT(*) FROM [dbo].[account_reg]{searchFilter};";
+            string dataQuery = $@"SELECT * FROM [dbo].[account_reg]{searchFilter}
+                ORDER BY SysID DESC
+                OFFSET @offset ROWS FETCH NEXT @pageSize ROWS ONLY;";
+
+            try
+            {
+                int totalCount = 0;
+                tb = new DataTable();
+
+                using (var con = new SqlConnection(dbcon))
                 {
-                    myR = myCom.ExecuteReader();
-                    tb.Load(myR);
-                    myR.Close();
-                    myCon.Close();
+                    con.Open();
+
+                    // Get total count
+                    using (var cmd = new SqlCommand(countQuery, con))
+                    {
+                        if (!string.IsNullOrWhiteSpace(search))
+                            cmd.Parameters.AddWithValue("@search", $"%{search}%");
+                        totalCount = (int)cmd.ExecuteScalar();
+                    }
+
+                    // Get paged data
+                    using (var cmd = new SqlCommand(dataQuery, con))
+                    {
+                        if (!string.IsNullOrWhiteSpace(search))
+                            cmd.Parameters.AddWithValue("@search", $"%{search}%");
+                        cmd.Parameters.AddWithValue("@offset", offset);
+                        cmd.Parameters.AddWithValue("@pageSize", pageSize);
+
+                        using (var reader = cmd.ExecuteReader())
+                        {
+                            tb.Load(reader);
+                        }
+                    }
                 }
-                return new OkObjectResult(tb);
+
+                return Ok(new
+                {
+                    data = tb,
+                    totalCount = totalCount,
+                    page = page,
+                    pageSize = pageSize,
+                    totalPages = (int)Math.Ceiling((double)totalCount / pageSize)
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, "Error: " + ex.Message);
             }
         }
 

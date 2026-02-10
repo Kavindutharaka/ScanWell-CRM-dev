@@ -4,8 +4,10 @@ import { BASE_URL } from '../config/apiConfig';
 // const BASE_URL = 'http://localhost:5054/api/Account';
 // const BASE_URL = './api/Account';
 
-export const fetchAccounts = async () => {
-  const response = await axios.get(`${BASE_URL}/Account/account`);
+export const fetchAccounts = async (page = 1, pageSize = 25, search = '') => {
+  const params = { page, pageSize };
+  if (search.trim()) params.search = search.trim();
+  const response = await axios.get(`${BASE_URL}/Account/account`, { params });
   return response.data;
 };
 

@@ -1,6 +1,7 @@
 import { useContext } from 'react';
 import logo from '../assets/images/logo.png';
 import appLogo from '../assets/images/app_logo.png';
+import scanwellLogo from '../assets/images/logo_scanwell.jpeg';
 import { Bell, MessageSquareText, Menu, X, User, LogOut } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import { BASE_URL } from '../config/apiConfig';
@@ -106,6 +107,13 @@ function Header({ onMenuToggle, isMobileMenuOpen }) {
           alt="Sales Drive" 
           className="h-7 w-auto" 
         /> */}
+        {/* Scanwell Logo */}
+        <img
+          src={scanwellLogo}
+          alt="Scanwell"
+          className="h-9 w-auto rounded object-contain"
+        />
+
         {/* Notifications */}
         <div className="relative group">
           <button

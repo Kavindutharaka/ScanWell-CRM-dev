@@ -433,7 +433,7 @@ namespace back_end.Controllers
         [HttpGet, Route("linear/all-spot")]
         public ActionResult getAllSpotRates()
         {
-            string query = @"SELECT * FROM [dbo].[linear_rates] WHERE liner_type IS NULL OR liner_type = 'LINER' ORDER BY id DESC;";
+            string query = @"SELECT * FROM [dbo].[linear_rates] WHERE liner_type = 'LINER' ORDER BY id DESC;";
             DataTable spotTb = new DataTable();
 
             using (SqlConnection con = new SqlConnection(_dbConnectionString))
@@ -456,7 +456,7 @@ namespace back_end.Controllers
         [HttpDelete, Route("linear/all-spot")]
         public IActionResult DeleteAllSpotRates()
         {
-            string query = @"DELETE FROM [dbo].[linear_rates] WHERE liner_type IS NULL OR liner_type = 'LINER';";
+            string query = @"DELETE FROM [dbo].[linear_rates] WHERE liner_type = 'LINER';";
 
             using (SqlConnection con = new SqlConnection(_dbConnectionString))
             {
@@ -466,6 +466,24 @@ namespace back_end.Controllers
                     int rowsAffected = cmd.ExecuteNonQuery();
                     con.Close();
                     return Ok(new { message = $"Deleted {rowsAffected} sea spot rates", count = rowsAffected });
+                }
+            }
+        }
+
+        // POST: api/rates/linear/fix-liner-type - Fix existing records with NULL liner_type that have a category
+        [HttpPost, Route("linear/fix-liner-type")]
+        public IActionResult FixLinerType()
+        {
+            string query = @"UPDATE [dbo].[linear_rates] SET liner_type = 'LINEAR_HEADER' WHERE liner_type IS NULL AND category IS NOT NULL;";
+
+            using (SqlConnection con = new SqlConnection(_dbConnectionString))
+            {
+                con.Open();
+                using (SqlCommand cmd = new SqlCommand(query, con))
+                {
+                    int rowsAffected = cmd.ExecuteNonQuery();
+                    con.Close();
+                    return Ok(new { message = $"Updated {rowsAffected} records with liner_type = 'LINEAR_HEADER'", count = rowsAffected });
                 }
             }
         }
@@ -740,12 +758,13 @@ namespace back_end.Controllers
                     try
                     {
                         string query = @"INSERT INTO [dbo].[air_export_rates]
-                            (commodity_type, airline, rate_m, rate_45_minus, rate_45, rate_100, rate_300, rate_500, rate_1000, surcharges, transit_time, frequency, routing, remarks, updated_date)
+                            (country, commodity_type, airline, rate_m, rate_45_minus, rate_45, rate_100, rate_300, rate_500, rate_1000, surcharges, transit_time, frequency, routing, remarks, updated_date)
                             VALUES
-                            (@commodity_type, @airline, @rate_m, @rate_45_minus, @rate_45, @rate_100, @rate_300, @rate_500, @rate_1000, @surcharges, @transit_time, @frequency, @routing, @remarks, @updated_date);";
+                            (@country, @commodity_type, @airline, @rate_m, @rate_45_minus, @rate_45, @rate_100, @rate_300, @rate_500, @rate_1000, @surcharges, @transit_time, @frequency, @routing, @remarks, @updated_date);";
 
                         using (SqlCommand cmd = new SqlCommand(query, con))
                         {
+                            cmd.Parameters.AddWithValue("@country", rate.Country ?? (object)DBNull.Value);
                             cmd.Parameters.AddWithValue("@commodity_type", rate.CommodityType ?? sharedCommodityType ?? (object)DBNull.Value);
                             cmd.Parameters.AddWithValue("@airline", rate.Airline ?? (object)DBNull.Value);
                             cmd.Parameters.AddWithValue("@rate_m", rate.RateM ?? (object)DBNull.Value);
@@ -783,6 +802,7 @@ namespace back_end.Controllers
         public IActionResult UpdateAirExportRate(int id, [FromBody] AirExportRate rate)
         {
             string query = @"UPDATE [dbo].[air_export_rates] SET
+                country = @country,
                 commodity_type = @commodity_type,
                 airline = @airline,
                 rate_m = @rate_m,
@@ -806,6 +826,7 @@ namespace back_end.Controllers
                 using (SqlCommand cmd = new SqlCommand(query, con))
                 {
                     cmd.Parameters.AddWithValue("@id", id);
+                    cmd.Parameters.AddWithValue("@country", rate.Country ?? (object)DBNull.Value);
                     cmd.Parameters.AddWithValue("@commodity_type", rate.CommodityType ?? (object)DBNull.Value);
                     cmd.Parameters.AddWithValue("@airline", rate.Airline ?? (object)DBNull.Value);
                     cmd.Parameters.AddWithValue("@rate_m", rate.RateM ?? (object)DBNull.Value);

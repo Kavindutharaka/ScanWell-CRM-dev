@@ -16,6 +16,13 @@ export default function Account() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  // Pagination state
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+  const [totalCount, setTotalCount] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+  const [searchQuery, setSearchQuery] = useState("");
+
   // Contacts state - stores array of contact objects
   const [contacts, setContacts] = useState([]);
 
@@ -37,17 +44,19 @@ export default function Account() {
     setIsMobileMenuOpen(false);
   };
 
-  // Fetch accounts on component mount
+  // Fetch accounts when page, pageSize, or search changes
   useEffect(() => {
     loadAccounts();
-  }, []);
+  }, [page, pageSize, searchQuery]);
 
   const loadAccounts = async () => {
     try {
       setLoading(true);
       setError(null);
-      const data = await fetchAccounts();
-      setAccounts(data);
+      const result = await fetchAccounts(page, pageSize, searchQuery);
+      setAccounts(result.data || []);
+      setTotalCount(result.totalCount || 0);
+      setTotalPages(result.totalPages || 0);
     } catch (err) {
       console.error('Error fetching accounts:', err);
       setError(err.message || 'Failed to load accounts');
@@ -91,13 +100,21 @@ export default function Account() {
 
         {/* Main content area - scrollable */}
         <main className="flex-1 overflow-y-auto">
-          <AccountSec 
-            modalOpen={modalOpen} 
+          <AccountSec
+            modalOpen={modalOpen}
             setSelectedAccount={setSelectedAccount}
             loading={loading}
             error={error}
             accounts={accounts}
             loadAccounts={loadAccounts}
+            page={page}
+            setPage={setPage}
+            pageSize={pageSize}
+            setPageSize={setPageSize}
+            totalCount={totalCount}
+            totalPages={totalPages}
+            searchQuery={searchQuery}
+            setSearchQuery={setSearchQuery}
           />
         </main>
       </div>

@@ -28,9 +28,10 @@ import { AuthContext } from "../../context/AuthContext";
 
 
 export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
-  // Get permission from AuthContext - delete buttons only visible to admin
+  // Get permission from AuthContext - delete buttons visible to admin or users with RateManageView
   const { permission } = useContext(AuthContext);
   const isAdmin = permission?.IsAdmin;
+  const canManageRates = isAdmin || permission?.RateManageView;
   const [activeTab, setActiveTab] = useState('all');
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -315,6 +316,7 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
       const data = await response.json();
       const transformed = data.map(rate => ({
         id: rate.Id || rate.id,
+        country: rate.country || rate.Country,
         commodityType: rate.commodity_type || rate.CommodityType || rate.commodityType,
         airline: rate.airline || rate.Airline,
         rateM: rate.rate_m || rate.RateM || rate.rateM,
@@ -413,6 +415,7 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
         if (!airline) return null;
 
         return {
+          Country: row.COUNTRY || row.Country || row.country || null,
           CommodityType: row['Comodity Type'] || row['Commodity Type'] || row['COMMODITY TYPE'] || row['commodity_type'] || commodityType,
           Airline: airline,
           RateM: parseNum(row.M || row.m || row['MIN'] || row['Min']),
@@ -498,6 +501,7 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
     if (!editingAirExportRate) return;
     try {
       const payload = {
+        Country: editingAirExportRate.country || null,
         CommodityType: editingAirExportRate.commodityType || null,
         Airline: editingAirExportRate.airline || null,
         RateM: editingAirExportRate.rateM ? parseFloat(editingAirExportRate.rateM) : null,
@@ -1120,7 +1124,8 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
             Hq40Usd: hq40Usd ? parseFloat(hq40Usd) : null,
             TtRouting: ttRouting ? String(ttRouting) : null,
             Valid: valid,
-            Category: activeLiner
+            Category: activeLiner,
+            LinerType: 'LINEAR_HEADER'
           };
         });
 
@@ -1715,8 +1720,14 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
                       <div key={rate.id} className="p-4 hover:bg-slate-50 transition-colors">
                         {/* Desktop Grid View */}
                         <div className="hidden md:grid grid-cols-12 gap-4 items-center">
-                          {/* Airline Badge */}
+                          {/* Country & Airline Badge */}
                           <div className="col-span-2">
+                            {rate.country && (
+                              <div className="text-xs font-semibold text-slate-700 mb-1 flex items-center gap-1">
+                                <MapPin className="w-3 h-3 text-slate-400" />
+                                {rate.country}
+                              </div>
+                            )}
                             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium text-white bg-amber-600">
                               <Plane className="w-4 h-4" />
                               <span className="uppercase">{rate.airline || '—'}</span>
@@ -1828,9 +1839,17 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
                         {/* Mobile Card View */}
                         <div className="md:hidden space-y-3">
                           <div className="flex items-center justify-between">
-                            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium text-white bg-amber-600">
-                              <Plane className="w-4 h-4" />
-                              <span className="uppercase">{rate.airline || '—'}</span>
+                            <div>
+                              {rate.country && (
+                                <div className="text-xs font-semibold text-slate-700 mb-1 flex items-center gap-1">
+                                  <MapPin className="w-3 h-3 text-slate-400" />
+                                  {rate.country}
+                                </div>
+                              )}
+                              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium text-white bg-amber-600">
+                                <Plane className="w-4 h-4" />
+                                <span className="uppercase">{rate.airline || '—'}</span>
+                              </div>
                             </div>
                             <div className="flex items-center gap-1">
                               <button onClick={() => { setEditingAirExportRate({...rate}); setShowAirExportEditModal(true); }} className="p-2 hover:bg-amber-50 rounded-lg">
@@ -1895,7 +1914,7 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
                   <p className="text-sm text-slate-600">
                     Upload an Excel file with headers:<br/>
                     <code className="text-[10px] bg-slate-100 px-2 py-1 rounded mt-1 inline-block leading-relaxed">
-                      Commodity Type | AIRLINE | M | -45 | 45 | 100 | 300 | 500 | 1000 | SURCHARGES | T/T | FREQUENCY | ROUTINE | REMARKS | UPDATED DATE
+                      COUNTRY | Commodity Type | AIRLINE | M | -45 | 45 | 100 | 300 | 500 | 1000 | SURCHARGES | T/T | FREQUENCY | ROUTINE | REMARKS | UPDATED DATE
                     </code>
                   </p>
                   <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
@@ -1935,7 +1954,11 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
                   </button>
                 </div>
                 <div className="p-6 space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-xs font-medium text-slate-600 mb-1">Country</label>
+                      <input type="text" value={editingAirExportRate.country || ''} onChange={(e) => setEditingAirExportRate({...editingAirExportRate, country: e.target.value})} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500" />
+                    </div>
                     <div>
                       <label className="block text-xs font-medium text-slate-600 mb-1">Commodity Type</label>
                       <input type="text" value={editingAirExportRate.commodityType || ''} onChange={(e) => setEditingAirExportRate({...editingAirExportRate, commodityType: e.target.value})} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500" />
@@ -2114,9 +2137,9 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
                             </div>
                           </div>
 
-                          {/* Actions - Delete button only for admin */}
+                          {/* Actions - Delete button for admin or users with RateManageView */}
                           <div className="col-span-1 flex items-center justify-end gap-2">
-                            {isAdmin && (
+                            {canManageRates && (
                               <button
                                 onClick={() => handleDeleteDestinationRate(rate.id)}
                                 className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
@@ -2135,7 +2158,7 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
                               <MapPin className="w-4 h-4" />
                               <span className="uppercase">{activeLiner?.split(' ')[0]}</span>
                             </div>
-                            {isAdmin && (
+                            {canManageRates && (
                               <button
                                 onClick={() => handleDeleteDestinationRate(rate.id)}
                                 className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
@@ -2253,9 +2276,9 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
                             </div>
                           </div>
 
-                          {/* Actions - Delete button only for admin */}
+                          {/* Actions - Delete button for admin or users with RateManageView */}
                           <div className="col-span-1 flex items-center justify-end gap-2">
-                            {isAdmin && (
+                            {canManageRates && (
                               <button
                                 onClick={() => handleDelete(rate.id)}
                                 className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
@@ -2275,7 +2298,7 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
                               <Ship className="w-4 h-4" />
                               <span className="uppercase">{activeLiner}</span>
                             </div>
-                            {isAdmin && (
+                            {canManageRates && (
                               <button
                                 onClick={() => handleDelete(rate.id)}
                                 className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
