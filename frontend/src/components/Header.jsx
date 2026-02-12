@@ -1,7 +1,7 @@
 import { useContext } from 'react';
 import logo from '../assets/images/logo.png';
 import appLogo from '../assets/images/app_logo.png';
-import scanwellLogo from '../assets/images/logo_scanwell.jpeg';
+import scanwellLogo from '../assets/images/logo_scanwell.png';
 import { Bell, MessageSquareText, Menu, X, User, LogOut } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import { BASE_URL } from '../config/apiConfig';
@@ -95,7 +95,7 @@ function Header({ onMenuToggle, isMobileMenuOpen }) {
           <img 
             src={appLogo} 
             alt="Company Logo" 
-            className="h-12 w-auto transition-transform hover:scale-105" 
+            className="h-8 w-auto transition-transform hover:scale-105" 
           />
         </div>
       </div>

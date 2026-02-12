@@ -927,8 +927,16 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
           throw new Error('Cannot read Excel sheet');
         }
         
-        excelData = XLSX.utils.sheet_to_json(sheet);
-        
+        const rawData = XLSX.utils.sheet_to_json(sheet);
+        // Trim whitespace from column header keys (Excel often has trailing spaces)
+        excelData = rawData.map(row => {
+          const cleaned = {};
+          for (const key of Object.keys(row)) {
+            cleaned[key.trim()] = row[key];
+          }
+          return cleaned;
+        });
+
       } catch (parseError) {
         let errorMsg = '❌ Cannot read Excel file\n\n';
         errorMsg += '📋 Possible reasons:\n';
@@ -1425,6 +1433,20 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
             >
               <Plane className="w-4 h-4" /> Air Freight
             </button>
+
+            {/* Air Export Rates Button - next to Air Freight */}
+            <button
+              onClick={handleAirExportClick}
+              className={`px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 ${
+                showAirExport
+                  ? 'bg-amber-600 text-white shadow-md'
+                  : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'
+              }`}
+            >
+              <Plane className="w-4 h-4" /> Air Export Rates
+              <ChevronDown className={`w-4 h-4 transition-transform ${showAirExport ? 'rotate-180' : ''}`} />
+            </button>
+
             <button
               onClick={() => handleRegularTabClick('sea')}
               className={`px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 ${activeTab === 'sea' && !activeLiner ? 'bg-blue-500 text-white shadow-md' : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'}`}
@@ -1448,7 +1470,7 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
               <ChevronDown className={`w-4 h-4 transition-transform ${showSeaSpotRates ? 'rotate-180' : ''}`} />
             </button>
 
-            {/* Linear Header's Button */}
+            {/* Liner Header's Button */}
             <button
               onClick={handleLinearHeadersClick}
               className={`px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 ${
@@ -1457,7 +1479,7 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
                   : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'
               }`}
             >
-              <Ship className="w-4 h-4" /> Linear Header's
+              <Ship className="w-4 h-4" /> Liner Header's
               <ChevronDown className={`w-4 h-4 transition-transform ${showLinearHeaders || activeLinerCategory === 'linearheaders' ? 'rotate-180' : ''}`} />
             </button>
 
@@ -1472,19 +1494,6 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
             >
               <MapPin className="w-4 h-4" /> Destination Header's
               <ChevronDown className={`w-4 h-4 transition-transform ${showDestinationHeaders || activeLinerCategory === 'destinationheaders' ? 'rotate-180' : ''}`} />
-            </button>
-
-            {/* Air Export Rates Button */}
-            <button
-              onClick={handleAirExportClick}
-              className={`px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 ${
-                showAirExport
-                  ? 'bg-amber-600 text-white shadow-md'
-                  : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'
-              }`}
-            >
-              <Plane className="w-4 h-4" /> Air Export Rates
-              <ChevronDown className={`w-4 h-4 transition-transform ${showAirExport ? 'rotate-180' : ''}`} />
             </button>
 
             {/* Spacer to push search bar to right */}
@@ -1631,7 +1640,7 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
           {/* Linear Header's Sub-section - Shipping Line Buttons */}
           {(showLinearHeaders || activeLinerCategory === 'linearheaders') && (
             <div className="flex flex-wrap gap-2 mb-4 p-3 bg-emerald-50 rounded-lg border border-emerald-200">
-              <span className="text-xs text-emerald-600 font-medium w-full mb-2">Linear Header's</span>
+              <span className="text-xs text-emerald-600 font-medium w-full mb-2">Liner Header's</span>
               {linearHeaderLines.map((liner) => (
                 <button
                   key={liner.code}

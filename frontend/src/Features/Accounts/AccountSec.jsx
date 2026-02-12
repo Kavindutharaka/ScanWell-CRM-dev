@@ -119,49 +119,6 @@ export default function AccountSec({ modalOpen, setSelectedAccount, error, accou
               </span>
             </div>
           </div>
-
-          {/* Header Actions */}
-          <div className="flex flex-wrap items-center gap-2 lg:gap-3">
-            {/* Feedback Button */}
-            <button 
-              className="flex items-center gap-2 px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm font-medium hover:bg-slate-50 transition-all duration-200 shadow-sm group"
-              title="Provide feedback"
-            >
-              <MessageCircleHeart className="w-4 h-4 text-pink-500 group-hover:text-pink-600" />
-              <span className="hidden sm:inline">Feedback</span>
-            </button>
-
-            {/* Messages */}
-            <button 
-              className="p-2 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-all duration-200 shadow-sm group"
-              title="Messages"
-            >
-              <MessageCircle className="w-5 h-5 text-slate-600 group-hover:text-slate-800" />
-            </button>
-
-            {/* Profile */}
-            <div className="bg-gradient-to-br from-purple-500 to-purple-600 text-white rounded-full w-9 h-9 flex items-center justify-center shadow-sm">
-              <span className="text-sm font-semibold">K</span>
-            </div>
-
-            {/* Invite/Share Actions */}
-            <div className="flex items-center gap-1">
-              <button 
-                className="flex items-center gap-2 px-3 py-2 bg-white border border-slate-300 rounded-l-lg text-sm font-medium hover:bg-slate-50 transition-all duration-200 shadow-sm group"
-                title="Invite team members"
-              >
-                <Users className="w-4 h-4 text-purple-500 group-hover:text-purple-600" />
-                <span className="hidden sm:inline">Invite</span>
-                <span className="bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded text-xs font-medium">1</span>
-              </button>
-              <button 
-                className="p-2 bg-white border border-slate-300 border-l-0 rounded-r-lg hover:bg-slate-50 transition-all duration-200 shadow-sm group"
-                title="Share account"
-              >
-                <Share2 className="w-4 h-4 text-slate-600 group-hover:text-slate-800" />
-              </button>
-            </div>
-          </div>
         </div>
 
         {/* Action Bar */}
@@ -178,14 +135,14 @@ export default function AccountSec({ modalOpen, setSelectedAccount, error, accou
             </button>
 
             {/* Filter Button */}
-            <button 
+            {/* <button 
               className="flex items-center gap-2 px-3 py-2.5 bg-white border border-slate-300 rounded-lg text-sm font-medium hover:bg-slate-50 transition-all duration-200 shadow-sm"
               title="Filter accounts"
             >
               <Filter className="w-4 h-4 text-slate-600" />
               <span>Filter</span>
               <ChevronDown className="w-4 h-4 text-slate-400" />
-            </button>
+            </button> */}
           </div>
 
           {/* Search */}

@@ -20,8 +20,7 @@ import {
 } from "lucide-react";
 import { fetchActivities, deleteActivity, fetchActivityHistory } from "../../api/ActivityApi";
 
-export default function ActivitiesDetails({ onOpen, onEdit, loading: initialLoading = false, delay = 0, activities, loadActivities, setActivities }) {
-  const [loading, setLoading] = useState(initialLoading);
+export default function ActivitiesDetails({ onOpen, onEdit, loading = false, delay = 0, activities, loadActivities, setActivities }) {
   const [error, setError] = useState('');
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [expandedRows, setExpandedRows] = useState(new Set());
@@ -375,7 +374,7 @@ export default function ActivitiesDetails({ onOpen, onEdit, loading: initialLoad
       )}
 
       {/* Activities Table */}
-      <div className="overflow-x-auto max-h-[630px] overflow-y-auto">
+      <div className="overflow-x-auto">
         <div className="min-w-full">
           {/* Desktop Table View */}
           <div className="hidden lg:block">

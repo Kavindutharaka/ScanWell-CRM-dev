@@ -27,6 +27,13 @@ export default function Activities() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [openNoteModal, setOpenNoteModal] = useState(false);
+
+  // Pagination state
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+  const [totalCount, setTotalCount] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+  const [searchQuery, setSearchQuery] = useState("");
   const [isSuccesssNote, setIsSuccesssNote] = useState(false);
   const [currentStatus, setCurrentStatus] = useState({
     status: "",
@@ -113,26 +120,29 @@ export default function Activities() {
     if (userDetails) {
       loadActivities();
     }
-  }, [permission, userDetails]);  // Depend on permission and userDetails, but call only if userDetails
-  
+  }, [permission, userDetails, page, pageSize, searchQuery]);
+
   const loadActivities = async () => {
     setLoading(true);
     setError('');
-    console.log("check admin **** : ", permission);
-    let data;
+    let result;
     try {
       if (permission?.IsAdmin) {
-        data = await fetchActivities();
+        result = await fetchActivities(page, pageSize, searchQuery);
       } else {
         if (!userDetails?.emp_id) {
           throw new Error('Employee ID not available');
         }
-        data = await fetchbyEmpId(userDetails.emp_id);
+        result = await fetchbyEmpId(userDetails.emp_id, page, pageSize, searchQuery);
       }
-      
-      const transformedData = data.map((activity) => {
+
+      const rawData = result.data || [];
+      setTotalCount(result.totalCount || 0);
+      setTotalPages(result.totalPages || 0);
+
+      const transformedData = rawData.map((activity) => {
         const ownerFullName = activity.owner_name || 'Unassigned';
-        
+
         return {
           id: activity.id,
           title: activity.activity_name,
@@ -150,7 +160,7 @@ export default function Activities() {
           rawData: activity
         };
       });
-      
+
       setActivities(transformedData);
     } catch (err) {
       console.error('Error fetching activities:', err);
@@ -295,11 +305,20 @@ export default function Activities() {
             </div>
           ) : (
             <ActivitiesSec
-              modalOpen={modalOpen} 
+              modalOpen={modalOpen}
               onEdit={handleEdit}
               activities={activities}
               setActivities={setActivities}
               loadActivities={loadActivities}
+              loading={loading}
+              page={page}
+              setPage={setPage}
+              pageSize={pageSize}
+              setPageSize={setPageSize}
+              totalCount={totalCount}
+              totalPages={totalPages}
+              searchQuery={searchQuery}
+              setSearchQuery={setSearchQuery}
             />
           )}
         </main>

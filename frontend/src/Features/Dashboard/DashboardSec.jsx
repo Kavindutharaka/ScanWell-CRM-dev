@@ -80,6 +80,11 @@ export default function DashboardSec() {
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
 
+  // ===== SALES TARGET STATE =====
+  const [salesTarget, setSalesTarget] = useState({ monthlyTarget: 0, yearlyTarget: 0 });
+  const [editingTarget, setEditingTarget] = useState(false);
+  const [targetForm, setTargetForm] = useState({ monthlyTarget: "", yearlyTarget: "" });
+
   // ===== NEWS FEED STATE =====
   const [newsFeedImages, setNewsFeedImages] = useState([]);
   const [newsFeedLoading, setNewsFeedLoading] = useState(false);
@@ -113,6 +118,36 @@ export default function DashboardSec() {
   useEffect(() => {
     fetchDashboard();
   }, [fetchDashboard]);
+
+  // ===== SALES TARGET =====
+  const fetchSalesTarget = useCallback(async () => {
+    try {
+      const res = await api.get("/dashboard/sales-target", { params: { year: now.getFullYear(), month: now.getMonth() + 1 } });
+      setSalesTarget(res.data);
+    } catch (err) {
+      console.error("Sales target fetch error:", err);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchSalesTarget();
+  }, [fetchSalesTarget]);
+
+  const handleSaveTarget = async () => {
+    try {
+      await api.post("/dashboard/sales-target", {
+        year: now.getFullYear(),
+        month: now.getMonth() + 1,
+        monthlyTarget: parseFloat(targetForm.monthlyTarget) || 0,
+        yearlyTarget: parseFloat(targetForm.yearlyTarget) || 0,
+      });
+      setEditingTarget(false);
+      fetchSalesTarget();
+    } catch (err) {
+      console.error("Save target error:", err);
+      alert("Failed to save sales target.");
+    }
+  };
 
   // ===== NEWS FEED FUNCTIONS =====
   const loadNewsFeed = useCallback(async () => {
@@ -421,7 +456,7 @@ export default function DashboardSec() {
 
   const tabs = [
     { id: "dashboard", label: "Dashboard", icon: LayoutGrid },
-    { id: "newsfeed", label: "News Feed", icon: Newspaper },
+    { id: "newsfeed", label: "Market Place", icon: Newspaper },
   ];
 
   return (
@@ -503,9 +538,9 @@ export default function DashboardSec() {
               <div className="lg:col-span-2 bg-white rounded-xl border border-slate-100 shadow-sm p-6 fade-in fade-in-1">
                 <div className="flex items-center gap-2 mb-4">
                   <Award className="w-5 h-5 text-emerald-500" />
-                  <h3 className="text-sm font-semibold text-slate-700">Total Deals Won</h3>
+                  <h3 className="text-sm font-semibold text-slate-700">Total Sales Won</h3>
                 </div>
-                <GaugeMeter value={totalDealsWon} label="RFQ Revenue + Won Deals" />
+                <GaugeMeter value={totalDealsWon} label="RFQ Revenue + Won Sales" />
                 <div className="flex justify-around mt-4 pt-4 border-t border-slate-100">
                   <div className="text-center">
                     <p className="text-lg font-bold text-emerald-600">{fmtLKR(rfq.totalRevenue || 0)}</p>
@@ -514,7 +549,7 @@ export default function DashboardSec() {
                   <div className="w-px bg-slate-100" />
                   <div className="text-center">
                     <p className="text-lg font-bold text-blue-600">{fmtLKR((quoteOutcomes.totalWonAmount || 0) + (deals.wonDealValue || 0))}</p>
-                    <p className="text-[10px] text-slate-400 uppercase tracking-wider">Won Deals</p>
+                    <p className="text-[10px] text-slate-400 uppercase tracking-wider">Won Sales</p>
                   </div>
                 </div>
               </div>
@@ -537,7 +572,7 @@ export default function DashboardSec() {
                     color={COLORS.warning} bg={COLORS.warningLight} />
                 </div>
                 <div className="fade-in fade-in-1">
-                  <StatCard icon={Briefcase} label="Total Deals" value={totalDealsPieCount}
+                  <StatCard icon={Briefcase} label="Total Sales" value={totalDealsPieCount}
                     subValue={`${(deals.wonDeals || 0) + (quoteOutcomes.wonQuotes || 0)} won · ${(deals.lostDeals || 0) + (quoteOutcomes.lostQuotes || 0)} lost`}
                     color={COLORS.blue} bg={COLORS.blueLight} />
                 </div>
@@ -551,6 +586,82 @@ export default function DashboardSec() {
                     subValue={`${rfq.totalRfqs || 0} RFQs · ${rfq.totalEntries || 0} entries`}
                     color={COLORS.success} bg={COLORS.successLight} />
                 </div>
+              </div>
+            </div>
+
+            {/* --- SALES TARGET --- */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+              <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-5 fade-in fade-in-1">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <Award className="w-5 h-5 text-blue-500" />
+                    <h3 className="text-sm font-semibold text-slate-700">Monthly Sales Target</h3>
+                  </div>
+                  {isAdmin && !editingTarget && (
+                    <button onClick={() => { setTargetForm({ monthlyTarget: salesTarget.monthlyTarget || "", yearlyTarget: salesTarget.yearlyTarget || "" }); setEditingTarget(true); }}
+                      className="text-xs text-blue-600 hover:text-blue-700 font-medium">Edit</button>
+                  )}
+                </div>
+                {editingTarget ? (
+                  <div className="space-y-3">
+                    <div>
+                      <label className="text-xs text-slate-500 block mb-1">Monthly Target (LKR)</label>
+                      <input type="number" value={targetForm.monthlyTarget} onChange={(e) => setTargetForm({ ...targetForm, monthlyTarget: e.target.value })}
+                        className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" placeholder="e.g. 5000000" />
+                    </div>
+                    <div>
+                      <label className="text-xs text-slate-500 block mb-1">Yearly Target (LKR)</label>
+                      <input type="number" value={targetForm.yearlyTarget} onChange={(e) => setTargetForm({ ...targetForm, yearlyTarget: e.target.value })}
+                        className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" placeholder="e.g. 60000000" />
+                    </div>
+                    <div className="flex gap-2">
+                      <button onClick={handleSaveTarget} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors">Save</button>
+                      <button onClick={() => setEditingTarget(false)} className="px-4 py-2 bg-slate-100 text-slate-600 rounded-lg text-sm font-medium hover:bg-slate-200 transition-colors">Cancel</button>
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    <div className="flex items-baseline gap-2 mb-2">
+                      <span className="text-3xl font-bold text-slate-800">{fmtLKR(salesTarget.monthlyTarget || 0)}</span>
+                      <span className="text-xs text-slate-400">/ month</span>
+                    </div>
+                    {(salesTarget.monthlyTarget || 0) > 0 && (
+                      <div className="mb-3">
+                        <div className="flex justify-between text-xs text-slate-500 mb-1">
+                          <span>Progress</span>
+                          <span>{Math.min(((totalDealsWon / salesTarget.monthlyTarget) * 100), 100).toFixed(1)}%</span>
+                        </div>
+                        <div className="h-2.5 bg-slate-100 rounded-full overflow-hidden">
+                          <div className="h-full rounded-full transition-all duration-700 bg-gradient-to-r from-blue-500 to-emerald-500"
+                            style={{ width: `${Math.min(((totalDealsWon / salesTarget.monthlyTarget) * 100), 100)}%` }} />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-5 fade-in fade-in-2">
+                <div className="flex items-center gap-2 mb-4">
+                  <Award className="w-5 h-5 text-purple-500" />
+                  <h3 className="text-sm font-semibold text-slate-700">Yearly Sales Target ({now.getFullYear()})</h3>
+                </div>
+                <div className="flex items-baseline gap-2 mb-2">
+                  <span className="text-3xl font-bold text-slate-800">{fmtLKR(salesTarget.yearlyTarget || 0)}</span>
+                  <span className="text-xs text-slate-400">/ year</span>
+                </div>
+                {(salesTarget.yearlyTarget || 0) > 0 && (
+                  <div className="mb-3">
+                    <div className="flex justify-between text-xs text-slate-500 mb-1">
+                      <span>Progress</span>
+                      <span>{Math.min(((totalDealsWon / salesTarget.yearlyTarget) * 100), 100).toFixed(1)}%</span>
+                    </div>
+                    <div className="h-2.5 bg-slate-100 rounded-full overflow-hidden">
+                      <div className="h-full rounded-full transition-all duration-700 bg-gradient-to-r from-purple-500 to-pink-500"
+                        style={{ width: `${Math.min(((totalDealsWon / salesTarget.yearlyTarget) * 100), 100)}%` }} />
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -586,7 +697,7 @@ export default function DashboardSec() {
               </Widget>
 
               {/* Deal Status (Deals + Quote Outcomes combined) */}
-              <Widget title="Deal Status Distribution" icon={PieChart} className="fade-in fade-in-2">
+              <Widget title="Sales Status Distribution" icon={PieChart} className="fade-in fade-in-2">
                 <div className="flex flex-col items-center">
                   <div className="relative my-2">
                     <MiniPieChart segments={dealPieSegments} size={140} />
@@ -612,7 +723,7 @@ export default function DashboardSec() {
                   </div>
                   {(deals.totalDealValue > 0 || quoteOutcomes.totalWonAmount > 0) && (
                     <div className="mt-3 pt-3 border-t border-slate-100 w-full text-center">
-                      <span className="text-xs text-slate-400">Total Won Value: </span>
+                      <span className="text-xs text-slate-400">Total Won Sales: </span>
                       <span className="text-sm font-bold text-slate-700">{fmtLKR((deals.wonDealValue || 0) + (quoteOutcomes.totalWonAmount || 0))}</span>
                     </div>
                   )}
@@ -741,7 +852,7 @@ export default function DashboardSec() {
             {/* Header */}
             <div className="flex items-center justify-between mb-6">
               <div>
-                <h2 className="text-xl font-bold text-slate-800">Company News Feed</h2>
+                <h2 className="text-xl font-bold text-slate-800">Market Place</h2>
                 <p className="text-sm text-slate-400 mt-1">Latest news, announcements & updates</p>
               </div>
               {isAdmin && (
@@ -832,7 +943,7 @@ export default function DashboardSec() {
                 >
                   {/* Modal Header */}
                   <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
-                    <h3 className="text-lg font-bold text-slate-800">Upload News Image</h3>
+                    <h3 className="text-lg font-bold text-slate-800">Upload Market Place Image</h3>
                     <button
                       onClick={closeUploadModal}
                       className="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center transition-colors"

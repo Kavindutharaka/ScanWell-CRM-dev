@@ -712,5 +712,81 @@ namespace back_end.Controllers
             }
             return new { wonQuotes = 0, lostQuotes = 0, totalWonAmount = 0m };
         }
+
+        // ====================================================================
+        // SALES TARGETS
+        // ====================================================================
+        [HttpGet("sales-target")]
+        public ActionResult GetSalesTarget([FromQuery] int year, [FromQuery] int month)
+        {
+            try
+            {
+                using (var con = new SqlConnection(_dbConnectionString))
+                {
+                    con.Open();
+                    string query = "SELECT monthly_target, yearly_target FROM [dbo].[sales_targets] WHERE [year] = @year AND [month] = @month;";
+                    using (var cmd = new SqlCommand(query, con))
+                    {
+                        cmd.Parameters.AddWithValue("@year", year);
+                        cmd.Parameters.AddWithValue("@month", month);
+                        using (var reader = cmd.ExecuteReader())
+                        {
+                            if (reader.Read())
+                            {
+                                return Ok(new
+                                {
+                                    monthlyTarget = Convert.ToDecimal(reader["monthly_target"]),
+                                    yearlyTarget = Convert.ToDecimal(reader["yearly_target"])
+                                });
+                            }
+                        }
+                    }
+                }
+                return Ok(new { monthlyTarget = 0m, yearlyTarget = 0m });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, "Error: " + ex.Message);
+            }
+        }
+
+        [HttpPost("sales-target")]
+        public ActionResult SaveSalesTarget([FromBody] SalesTargetRequest req)
+        {
+            try
+            {
+                using (var con = new SqlConnection(_dbConnectionString))
+                {
+                    con.Open();
+                    // Upsert: update if exists, insert if not
+                    string query = @"
+                        IF EXISTS (SELECT 1 FROM [dbo].[sales_targets] WHERE [year] = @year AND [month] = @month)
+                            UPDATE [dbo].[sales_targets] SET monthly_target = @monthlyTarget, yearly_target = @yearlyTarget, updated_at = GETDATE() WHERE [year] = @year AND [month] = @month;
+                        ELSE
+                            INSERT INTO [dbo].[sales_targets] ([year], [month], monthly_target, yearly_target, created_at, updated_at) VALUES (@year, @month, @monthlyTarget, @yearlyTarget, GETDATE(), GETDATE());";
+                    using (var cmd = new SqlCommand(query, con))
+                    {
+                        cmd.Parameters.AddWithValue("@year", req.Year);
+                        cmd.Parameters.AddWithValue("@month", req.Month);
+                        cmd.Parameters.AddWithValue("@monthlyTarget", req.MonthlyTarget);
+                        cmd.Parameters.AddWithValue("@yearlyTarget", req.YearlyTarget);
+                        cmd.ExecuteNonQuery();
+                    }
+                }
+                return Ok(new { message = "Sales target saved successfully." });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, "Error: " + ex.Message);
+            }
+        }
+    }
+
+    public class SalesTargetRequest
+    {
+        public int Year { get; set; }
+        public int Month { get; set; }
+        public decimal MonthlyTarget { get; set; }
+        public decimal YearlyTarget { get; set; }
     }
 }

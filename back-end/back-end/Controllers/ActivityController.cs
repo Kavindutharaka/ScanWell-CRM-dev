@@ -23,75 +23,150 @@ namespace back_end.Controllers
         }
 
         [HttpGet]
-        public ActionResult getActivities()
+        public ActionResult getActivities([FromQuery] int page = 1, [FromQuery] int pageSize = 25, [FromQuery] string search = "")
         {
-            string query = @"
-        SELECT 
-            a.[id],
-            a.[activity_name],
-            a.[activity_type],
-            e.[fname] + ' ' + e.[lname] AS [owner_name],
-            a.[start_time],
-            a.[end_time],
-            a.[status],
-            a.[related_account]
-        FROM [dbo].[activity] AS a
-        LEFT JOIN [dbo].[emp_reg] AS e
-            ON a.[owner] = e.[SysID]
-        ORDER BY a.[id] DESC;";
+            int offset = (page - 1) * pageSize;
 
-            DataTable table = new DataTable();
-            using (SqlConnection myCon = new SqlConnection(_dbConnectionString))
+            string searchFilter = "";
+            if (!string.IsNullOrWhiteSpace(search))
             {
-                myCon.Open();
-                using (SqlCommand myCom = new SqlCommand(query, myCon))
-                {
-                    using (SqlDataReader myR = myCom.ExecuteReader())
-                    {
-                        table.Load(myR);
-                    }
-                }
-                myCon.Close();
+                searchFilter = @" WHERE (a.[activity_name] LIKE @search
+                    OR a.[activity_type] LIKE @search
+                    OR a.[status] LIKE @search
+                    OR a.[related_account] LIKE @search
+                    OR e.[fname] LIKE @search
+                    OR e.[lname] LIKE @search) ";
             }
 
-            return Ok(table);
+            string baseFrom = @"FROM [dbo].[activity] AS a
+                LEFT JOIN [dbo].[emp_reg] AS e ON a.[owner] = e.[SysID]";
+
+            string countQuery = $"SELECT COUNT(*) {baseFrom}{searchFilter};";
+            string dataQuery = $@"SELECT
+                a.[id], a.[activity_name], a.[activity_type],
+                e.[fname] + ' ' + e.[lname] AS [owner_name],
+                a.[start_time], a.[end_time], a.[status], a.[related_account]
+                {baseFrom}{searchFilter}
+                ORDER BY a.[id] DESC
+                OFFSET @offset ROWS FETCH NEXT @pageSize ROWS ONLY;";
+
+            try
+            {
+                int totalCount = 0;
+                DataTable table = new DataTable();
+
+                using (var con = new SqlConnection(_dbConnectionString))
+                {
+                    con.Open();
+
+                    using (var cmd = new SqlCommand(countQuery, con))
+                    {
+                        if (!string.IsNullOrWhiteSpace(search))
+                            cmd.Parameters.AddWithValue("@search", $"%{search}%");
+                        totalCount = (int)cmd.ExecuteScalar();
+                    }
+
+                    using (var cmd = new SqlCommand(dataQuery, con))
+                    {
+                        if (!string.IsNullOrWhiteSpace(search))
+                            cmd.Parameters.AddWithValue("@search", $"%{search}%");
+                        cmd.Parameters.AddWithValue("@offset", offset);
+                        cmd.Parameters.AddWithValue("@pageSize", pageSize);
+
+                        using (var reader = cmd.ExecuteReader())
+                        {
+                            table.Load(reader);
+                        }
+                    }
+                }
+
+                return Ok(new
+                {
+                    data = table,
+                    totalCount = totalCount,
+                    page = page,
+                    pageSize = pageSize,
+                    totalPages = (int)Math.Ceiling((double)totalCount / pageSize)
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, "Error: " + ex.Message);
+            }
         }
 
         [HttpGet("{id}")]
-        public ActionResult getActivitiesById(int id)
+        public ActionResult getActivitiesById(int id, [FromQuery] int page = 1, [FromQuery] int pageSize = 25, [FromQuery] string search = "")
         {
-            string query = @"
-                            SELECT
-                            a.[id],
-                            a.[activity_name],
-                            a.[activity_type],
-                            e.[fname] + ' ' + e.[lname] AS [owner_name],
-                            a.[start_time],
-                            a.[end_time],
-                            a.[status],
-                            a.[related_account]
-                            FROM [dbo].[activity] AS a
-                            LEFT JOIN [dbo].[emp_reg] AS e
-                            ON a.[owner] = e.[SysID]
-                            WHERE a.[owner] = @id
-                            ORDER BY a.[id] DESC;";
+            int offset = (page - 1) * pageSize;
 
-            DataTable table = new DataTable();
-            using (SqlConnection myCon = new SqlConnection(_dbConnectionString))
+            string searchFilter = "";
+            if (!string.IsNullOrWhiteSpace(search))
             {
-                myCon.Open();
-                using (SqlCommand myCom = new SqlCommand(query, myCon))
-                {
-                    myCom.Parameters.AddWithValue("@id", id);
-                    using (SqlDataReader myR = myCom.ExecuteReader())
-                    {
-                        table.Load(myR);
-                    }
-                }
-                myCon.Close();
+                searchFilter = @" AND (a.[activity_name] LIKE @search
+                    OR a.[activity_type] LIKE @search
+                    OR a.[status] LIKE @search
+                    OR a.[related_account] LIKE @search) ";
             }
 
-            return Ok(table);
+            string baseFrom = @"FROM [dbo].[activity] AS a
+                LEFT JOIN [dbo].[emp_reg] AS e ON a.[owner] = e.[SysID]
+                WHERE a.[owner] = @id";
+
+            string countQuery = $"SELECT COUNT(*) {baseFrom}{searchFilter};";
+            string dataQuery = $@"SELECT
+                a.[id], a.[activity_name], a.[activity_type],
+                e.[fname] + ' ' + e.[lname] AS [owner_name],
+                a.[start_time], a.[end_time], a.[status], a.[related_account]
+                {baseFrom}{searchFilter}
+                ORDER BY a.[id] DESC
+                OFFSET @offset ROWS FETCH NEXT @pageSize ROWS ONLY;";
+
+            try
+            {
+                int totalCount = 0;
+                DataTable table = new DataTable();
+
+                using (var con = new SqlConnection(_dbConnectionString))
+                {
+                    con.Open();
+
+                    using (var cmd = new SqlCommand(countQuery, con))
+                    {
+                        cmd.Parameters.AddWithValue("@id", id);
+                        if (!string.IsNullOrWhiteSpace(search))
+                            cmd.Parameters.AddWithValue("@search", $"%{search}%");
+                        totalCount = (int)cmd.ExecuteScalar();
+                    }
+
+                    using (var cmd = new SqlCommand(dataQuery, con))
+                    {
+                        cmd.Parameters.AddWithValue("@id", id);
+                        if (!string.IsNullOrWhiteSpace(search))
+                            cmd.Parameters.AddWithValue("@search", $"%{search}%");
+                        cmd.Parameters.AddWithValue("@offset", offset);
+                        cmd.Parameters.AddWithValue("@pageSize", pageSize);
+
+                        using (var reader = cmd.ExecuteReader())
+                        {
+                            table.Load(reader);
+                        }
+                    }
+                }
+
+                return Ok(new
+                {
+                    data = table,
+                    totalCount = totalCount,
+                    page = page,
+                    pageSize = pageSize,
+                    totalPages = (int)Math.Ceiling((double)totalCount / pageSize)
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, "Error: " + ex.Message);
+            }
         }
 
         [HttpGet("owner/{id}")]
