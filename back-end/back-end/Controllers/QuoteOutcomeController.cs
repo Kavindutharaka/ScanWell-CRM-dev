@@ -167,14 +167,17 @@ namespace back_end.Controllers
                     myCon.Open();
 
                     string query = @"
-                        SELECT 
+                        SELECT
                             outcome_id,
                             quote_id,
                             outcome_status,
                             won_amount,
                             lost_reason,
                             lost_note,
-                            created_date
+                            created_date,
+                            invoice_number,
+                            cost,
+                            sales_value
                         FROM quote_outcomes
                         WHERE quote_id = @QuoteId";
 
@@ -196,7 +199,10 @@ namespace back_end.Controllers
                                     lostNote = myR["lost_note"] != DBNull.Value ? myR["lost_note"] : null,
                                     createdDate = myR["created_date"] != DBNull.Value
                                         ? DateTime.SpecifyKind(Convert.ToDateTime(myR["created_date"]), DateTimeKind.Utc)
-                                        : (DateTime?)null
+                                        : (DateTime?)null,
+                                    invoiceNumber = myR["invoice_number"] != DBNull.Value ? myR["invoice_number"] : null,
+                                    cost = myR["cost"] != DBNull.Value ? myR["cost"] : null,
+                                    salesValue = myR["sales_value"] != DBNull.Value ? myR["sales_value"] : null
                                 });
                             }
                             else
@@ -257,6 +263,57 @@ namespace back_end.Controllers
                                 });
                             }
                         }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Server error: " + ex.Message });
+            }
+        }
+
+        // PUT: api/QuoteOutcome/won-details
+        // Update won quote details (Invoice Number, Cost, Sales Value) - Admin only
+        [HttpPut("won-details")]
+        public IActionResult UpdateWonDetails([FromBody] QuoteOutcome model)
+        {
+            try
+            {
+                if (model.QuoteId == null || model.QuoteId <= 0)
+                {
+                    return BadRequest(new { message = "Invalid quote ID" });
+                }
+
+                using (var con = new SqlConnection(dbcon))
+                {
+                    con.Open();
+
+                    string updateQuery = @"
+                        UPDATE quote_outcomes
+                        SET
+                            invoice_number = @InvoiceNumber,
+                            cost = @Cost,
+                            sales_value = @SalesValue
+                        WHERE quote_id = @QuoteId AND outcome_status = 'won'";
+
+                    using (SqlCommand cmd = new SqlCommand(updateQuery, con))
+                    {
+                        cmd.Parameters.AddWithValue("@QuoteId", model.QuoteId);
+                        cmd.Parameters.AddWithValue("@InvoiceNumber",
+                            !string.IsNullOrEmpty(model.InvoiceNumber) ? (object)model.InvoiceNumber : DBNull.Value);
+                        cmd.Parameters.AddWithValue("@Cost",
+                            model.Cost.HasValue ? (object)model.Cost.Value : DBNull.Value);
+                        cmd.Parameters.AddWithValue("@SalesValue",
+                            model.SalesValue.HasValue ? (object)model.SalesValue.Value : DBNull.Value);
+
+                        int rowsAffected = cmd.ExecuteNonQuery();
+
+                        if (rowsAffected == 0)
+                        {
+                            return NotFound(new { message = "No won outcome found for this quote" });
+                        }
+
+                        return Ok(new { message = "Won details updated successfully" });
                     }
                 }
             }

@@ -1,4 +1,4 @@
-// Models/Account.cs
+// Models/QuoteOutcome.cs
 namespace back_end.Models
 {
     public class QuoteOutcome
@@ -8,5 +8,8 @@ namespace back_end.Models
             public decimal? WonAmount { get; set; }
             public string? LostReason { get; set; }
             public string? LostNote { get; set; }
+            public string? InvoiceNumber { get; set; }
+            public decimal? Cost { get; set; }
+            public decimal? SalesValue { get; set; }
         }
 }

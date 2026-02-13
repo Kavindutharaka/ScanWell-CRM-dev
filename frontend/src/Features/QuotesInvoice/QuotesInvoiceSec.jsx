@@ -1,13 +1,16 @@
 // QuotesInvoiceSec.jsx - MINIMAL CHANGES - Only outcome fixes + Warehouse Quotes
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Search, Filter, Eye, Edit2, Trash2, Plane, Ship, Package, Container, Truck, Route as RouteIcon, Layers, MapPin, Calendar, User, DollarSign, ArrowRight, Award, CheckCircle, XCircle, AlertCircle, Warehouse, Send, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, Search, Filter, Eye, Edit2, Trash2, Plane, Ship, Package, Container, Truck, Route as RouteIcon, Layers, MapPin, Calendar, User, DollarSign, ArrowRight, Award, CheckCircle, XCircle, AlertCircle, Warehouse, Send, ChevronLeft, ChevronRight, FileText } from 'lucide-react';
 import { fetchQuotesPaged, fetchQuoteCounts, deleteQuote, fetchWareQuote, getSp, updateQuoteStatus } from '../../api/QuoteApi';
-import { fetchOutComeById, saveQuoteOutCome } from '../../api/QuotesOutComeApi';
+import { fetchOutComeById, saveQuoteOutCome, updateWonDetails } from '../../api/QuotesOutComeApi';
+import { AuthContext } from '../../context/AuthContext';
 import axios from 'axios';
 
 export default function QuotesInvoiceSec({ modalOpen }) {
   const navigate = useNavigate();
+  const { permission } = useContext(AuthContext);
+  const isAdmin = permission?.IsAdmin;
   const [quotes, setQuotes] = useState([]);
   const [warehouseQuotes, setWarehouseQuotes] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -35,6 +38,11 @@ export default function QuotesInvoiceSec({ modalOpen }) {
   const [quoteOutcomes, setQuoteOutcomes] = useState({});
   const [winForm, setWinForm] = useState({ wonAmount: '' });
   const [lostForm, setLostForm] = useState({ lostReason: '', lostNote: '' });
+
+  // Won details modal state (Admin only)
+  const [wonDetailsModalShow, setWonDetailsModalShow] = useState(false);
+  const [wonDetailsQuote, setWonDetailsQuote] = useState(null);
+  const [wonDetailsForm, setWonDetailsForm] = useState({ invoiceNumber: '', cost: '', salesValue: '' });
 
   const lostReasons = [
     'High Prices',
@@ -220,6 +228,40 @@ function SalesPerson({ customerName }) {
       console.error('Error saving lost outcome:', error);
       alert('Failed to save lost outcome');
     }
+  };
+
+  // Save won details handler (Admin only)
+  const handleSaveWonDetails = async () => {
+    try {
+      const payload = {
+        quoteId: wonDetailsQuote.quoteId,
+        invoiceNumber: wonDetailsForm.invoiceNumber || null,
+        cost: wonDetailsForm.cost ? parseFloat(wonDetailsForm.cost) : null,
+        salesValue: wonDetailsForm.salesValue ? parseFloat(wonDetailsForm.salesValue) : null
+      };
+
+      await updateWonDetails(payload);
+      await loadQuoteOutcome(wonDetailsQuote.quoteId);
+      setWonDetailsModalShow(false);
+      setWonDetailsQuote(null);
+      alert('Won details updated successfully!');
+    } catch (error) {
+      console.error('Error updating won details:', error);
+      alert('Failed to update won details');
+    }
+  };
+
+  // Open won details modal for a quote
+  const openWonDetailsModal = (quoteId) => {
+    const quote = allQuotes.find(q => q.quoteId === quoteId);
+    const outcome = quoteOutcomes[quoteId];
+    setWonDetailsQuote(quote);
+    setWonDetailsForm({
+      invoiceNumber: outcome?.invoiceNumber || '',
+      cost: outcome?.cost || '',
+      salesValue: outcome?.salesValue || ''
+    });
+    setWonDetailsModalShow(true);
   };
 
   // Debounce search input
@@ -757,13 +799,12 @@ function SalesPerson({ customerName }) {
                   <col className="w-[7%]" />
                   <col className="w-[10%]" />
                   <col className="w-[9%]" />
-                  <col className="w-[10%]" />
+                  <col className="w-[11%]" />
+                  <col className="w-[9%]" />
                   <col className="w-[8%]" />
-                  <col className="w-[7%]" />
-                  <col className="w-[7%]" />
                   <col className="w-[9%]" />
-                  <col className="w-[9%]" />
-                  <col className="w-[10%]" />
+                  <col className="w-[12%]" />
+                  <col className="w-[11%]" />
                 </colgroup>
                 <thead className="bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200">
                   <tr>
@@ -784,9 +825,6 @@ function SalesPerson({ customerName }) {
                     </th>
                     <th className="px-2 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
                       Dates
-                    </th>
-                    <th className="px-2 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
-                      Amount
                     </th>
                     <th className="px-2 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
                       Status
@@ -890,12 +928,6 @@ function SalesPerson({ customerName }) {
                           </div>
                         </td>
                         <td className="px-2 py-3">
-                          <div className="flex items-center gap-0.5 font-semibold text-gray-900 text-xs">
-                            <DollarSign size={14} className="text-green-600" />
-                            {calculateTotalAmount(quote)}
-                          </div>
-                        </td>
-                        <td className="px-2 py-3">
                           {getStatusBadge(quote.status)}
                         </td>
                         <td className="px-2 py-3">
@@ -905,7 +937,19 @@ function SalesPerson({ customerName }) {
                           </div>
                         </td>
                         <td className="px-2 py-3">
-                          {!quote.isWarehouse && getOutcomeBadge(quote.quoteId)}
+                          <div className="flex flex-col gap-1">
+                            {!quote.isWarehouse && getOutcomeBadge(quote.quoteId)}
+                            {isAdmin && !quote.isWarehouse && quoteOutcomes[quote.quoteId]?.outcomeStatus === 'won' && (
+                              <button
+                                onClick={() => openWonDetailsModal(quote.quoteId)}
+                                className="flex items-center gap-1 px-2 py-0.5 bg-blue-50 text-blue-700 rounded text-[10px] font-medium hover:bg-blue-100 transition-colors mt-1"
+                                title="Update Won Details"
+                              >
+                                <FileText size={10} />
+                                Update Details
+                              </button>
+                            )}
+                          </div>
                         </td>
                         <td className="px-2 py-3">
                           <div className="flex items-center justify-end gap-1">
@@ -1011,21 +1055,15 @@ function SalesPerson({ customerName }) {
                         </div>
                       </>
                     )}
-                    <div className="flex items-center justify-between text-sm">
-                      <div className="flex items-center gap-2">
-                        <Calendar size={14} className="text-gray-400" />
-                        <span className="text-gray-600">
-                          {new Date(quote.createdDate).toLocaleDateString('en-US', {
-                            month: 'short',
-                            day: 'numeric',
-                            year: 'numeric'
-                          })}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-1 font-semibold text-gray-900">
-                        <DollarSign size={16} className="text-green-600" />
-                        {calculateTotalAmount(quote)}
-                      </div>
+                    <div className="flex items-center gap-2 text-sm">
+                      <Calendar size={14} className="text-gray-400" />
+                      <span className="text-gray-600">
+                        {new Date(quote.createdDate).toLocaleDateString('en-US', {
+                          month: 'short',
+                          day: 'numeric',
+                          year: 'numeric'
+                        })}
+                      </span>
                     </div>
                   </div>
 
@@ -1246,6 +1284,90 @@ function SalesPerson({ customerName }) {
                 className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
               >
                 Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Won Details Modal (Admin Only) */}
+      {wonDetailsModalShow && wonDetailsQuote && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                <FileText className="text-blue-600" size={24} />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">Update Won Details</h3>
+                <p className="text-sm text-gray-500">Quote: {wonDetailsQuote.quoteNumber}</p>
+              </div>
+            </div>
+
+            <div className="space-y-4 mb-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Invoice Number
+                </label>
+                <input
+                  type="text"
+                  value={wonDetailsForm.invoiceNumber}
+                  onChange={(e) => setWonDetailsForm({ ...wonDetailsForm, invoiceNumber: e.target.value })}
+                  placeholder="Enter invoice number"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Cost (LKR)
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">LKR</span>
+                  <input
+                    type="number"
+                    value={wonDetailsForm.cost}
+                    onChange={(e) => setWonDetailsForm({ ...wonDetailsForm, cost: e.target.value })}
+                    placeholder="0.00"
+                    className="w-full pl-14 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    step="0.01"
+                    min="0"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Sales Value (LKR)
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">LKR</span>
+                  <input
+                    type="number"
+                    value={wonDetailsForm.salesValue}
+                    onChange={(e) => setWonDetailsForm({ ...wonDetailsForm, salesValue: e.target.value })}
+                    placeholder="0.00"
+                    className="w-full pl-14 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    step="0.01"
+                    min="0"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setWonDetailsModalShow(false);
+                  setWonDetailsQuote(null);
+                }}
+                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveWonDetails}
+                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              >
+                Save Details
               </button>
             </div>
           </div>

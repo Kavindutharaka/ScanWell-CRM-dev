@@ -763,7 +763,7 @@ export const generateDirectQuotePDF = (quoteData, userData = null, returnDoc = f
   doc.text('Equipment', 15, yPos);
   doc.text('Units', 70, yPos);
   doc.text('Gross Weight', 95, yPos);
-  doc.text('Volume (m³)', 135, yPos);
+  doc.text('Volume (m3)', 135, yPos);
   doc.text('Chargeable Weight', 165, yPos);
   
   yPos += 4;
@@ -1426,7 +1426,7 @@ export const generateTransitQuotePDF = (quoteData, userData = null, returnDoc = 
   
   doc.setFont('helvetica', 'normal');
   if (routesData.length > 0) {
-    const routeText = routesData.map(r => r.origin || 'N/A').concat([routesData[routesData.length - 1]?.destination || 'N/A']).join(' → ');
+    const routeText = routesData.map(r => r.origin || 'N/A').concat([routesData[routesData.length - 1]?.destination || 'N/A']).join(' -> ');
     const routeLines = doc.splitTextToSize(routeText, 170);
     routeLines.forEach(line => {
       doc.text(line, 15, yPos);
@@ -1442,7 +1442,7 @@ export const generateTransitQuotePDF = (quoteData, userData = null, returnDoc = 
   doc.text('Equipment', 15, yPos);
   doc.text('Units', 70, yPos);
   doc.text('Gross Weight', 95, yPos);
-  doc.text('Volume (m³)', 135, yPos);
+  doc.text('Volume (m3)', 135, yPos);
   doc.text('Chargeable Weight', 165, yPos);
 
   yPos += 4;
@@ -1468,7 +1468,7 @@ export const generateTransitQuotePDF = (quoteData, userData = null, returnDoc = 
     doc.setFontSize(10);
 
     const segmentMode = segment.mode?.toUpperCase() || 'N/A';
-    const segmentRoute = `${segment.origin || 'N/A'} → ${segment.destination || 'N/A'}`;
+    const segmentRoute = `${segment.origin || 'N/A'} -> ${segment.destination || 'N/A'}`;
     doc.text(`Segment ${index + 1}: ${segmentMode} (${segmentRoute})`, 18, yPos + 2);
     yPos += 10;
 
@@ -1640,7 +1640,7 @@ export const generateMultiModalQuotePDF = (quoteData, userData = null, returnDoc
   if (routesData.length > 0) {
     const routeText = routesData.map((r, idx) => {
       const mode = r.mode?.toUpperCase() || 'N/A';
-      const route = `${r.origin || 'N/A'} → ${r.destination || 'N/A'}`;
+      const route = `${r.origin || 'N/A'} -> ${r.destination || 'N/A'}`;
       return `Seg ${idx + 1}: ${mode} (${route})`;
     }).join('  |  ');
 
@@ -1659,7 +1659,7 @@ export const generateMultiModalQuotePDF = (quoteData, userData = null, returnDoc
   doc.text('Equipment', 15, yPos);
   doc.text('Units', 70, yPos);
   doc.text('Gross Weight', 95, yPos);
-  doc.text('Volume (m³)', 135, yPos);
+  doc.text('Volume (m3)', 135, yPos);
   doc.text('Chargeable Weight', 165, yPos);
 
   yPos += 4;
@@ -1685,7 +1685,7 @@ export const generateMultiModalQuotePDF = (quoteData, userData = null, returnDoc
     doc.setFontSize(10);
 
     const segmentMode = segment.mode?.toUpperCase() || 'N/A';
-    const segmentRoute = `${segment.origin || 'N/A'} → ${segment.destination || 'N/A'}`;
+    const segmentRoute = `${segment.origin || 'N/A'} -> ${segment.destination || 'N/A'}`;
     doc.text(`Segment ${index + 1}: ${segmentMode} (${segmentRoute})`, 18, yPos + 2);
     yPos += 10;
 

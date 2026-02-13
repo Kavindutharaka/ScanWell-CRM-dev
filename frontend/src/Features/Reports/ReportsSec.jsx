@@ -1,9 +1,12 @@
 import React, { useState, useEffect, useRef } from "react";
 import { BASE_URL } from "../../config/apiConfig";
+import * as XLSX from 'xlsx';
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
 import {
   FileText, Download, Printer, Filter, Calendar, ChevronDown,
   Users, Building2, Plane, Ship, BarChart3, RefreshCw, X,
-  CheckCircle2, XCircle, Clock, TrendingUp, Briefcase
+  CheckCircle2, XCircle, Clock, TrendingUp, Briefcase, FileSpreadsheet
 } from "lucide-react";
 
 export default function ReportsSec() {
@@ -164,27 +167,134 @@ export default function ReportsSec() {
     setTimeout(() => { win.print(); win.close(); }, 300);
   };
 
-  // ====== EXPORT CSV ======
-  const handleExportCSV = () => {
+  // ====== FORMAT DATE FOR EXPORT (match UI format dd/MM/yyyy) ======
+  const formatDateForExport = (d) => {
+    if (!d) return "—";
+    const dt = new Date(d);
+    if (isNaN(dt.getTime())) return d;
+    const dd = String(dt.getDate()).padStart(2, "0");
+    const mm = String(dt.getMonth() + 1).padStart(2, "0");
+    const yyyy = dt.getFullYear();
+    return `${dd}/${mm}/${yyyy}`;
+  };
+
+  const formatDateTimeForExport = (d) => {
+    if (!d) return "—";
+    const dt = new Date(d);
+    if (isNaN(dt.getTime())) return d;
+    const dd = String(dt.getDate()).padStart(2, "0");
+    const mm = String(dt.getMonth() + 1).padStart(2, "0");
+    const yyyy = dt.getFullYear();
+    const hh = String(dt.getHours()).padStart(2, "0");
+    const min = String(dt.getMinutes()).padStart(2, "0");
+    return `${dd}/${mm}/${yyyy} ${hh}:${min}`;
+  };
+
+  // Prepare export data with formatted dates matching UI
+  const getExportData = () => {
+    return reportData.map((row, i) => {
+      switch (activeReport) {
+        case "quotation":
+          return {
+            '#': i + 1,
+            'Quote No': row.QuoteNumber || row.quoteNumber || '—',
+            'Date': formatDateForExport(row.CreatedDate || row.createdDate),
+            'Customer': row.Customer || row.customer || '—',
+            'Category': (row.FreightCategory || row.freightCategory || '—').toUpperCase(),
+            'Mode': (row.FreightMode || row.freightMode || '—').toUpperCase(),
+            'POL': row.PortOfLoading || row.portOfLoading || '—',
+            'POD': row.PortOfDischarge || row.portOfDischarge || '—',
+            'Sales Person': row.SalesPerson || row.salesPerson || '—',
+            'Department': row.Department || row.department || '—',
+            'Status': (row.Status || row.status || 'draft').charAt(0).toUpperCase() + (row.Status || row.status || 'draft').slice(1)
+          };
+        case "sales-activity":
+          return {
+            '#': i + 1,
+            'Activity': row.ActivityName || row.activityName || row.activity_name || '—',
+            'Type': row.ActivityType || row.activityType || row.activity_type || '—',
+            'Sales Person': row.SalesPerson || row.salesPerson || row.owner_name || '—',
+            'Start': formatDateTimeForExport(row.StartTime || row.startTime || row.start_time),
+            'End': formatDateTimeForExport(row.EndTime || row.endTime || row.end_time),
+            'Status': (row.Status || row.status || '—').toUpperCase(),
+            'Account': row.RelatedAccount || row.relatedAccount || row.related_account || '—',
+            'Comment': row.LatestComment || row.latestComment || '—'
+          };
+        case "user-list":
+          return {
+            '#': i + 1,
+            'Name': row.FullName || row.fullName || `${row.FirstName || row.firstName || row.fname || ""} ${row.LastName || row.lastName || row.lname || ""}`.trim() || '—',
+            'Position': row.Position || row.position || '—',
+            'Department': row.Department || row.department || '—',
+            'Email': row.Email || row.email || '—',
+            'Phone': row.Phone || row.phone || row.tp || '—',
+            'Location': row.WorkLocation || row.workLocation || row.w_location || '—'
+          };
+        case "customer-list":
+          return {
+            '#': i + 1,
+            'Account Name': row.AccountName || row.accountName || '—',
+            'Type': (row.AccountType || row.accountType || '—').toUpperCase(),
+            'Industry': row.Industry || row.industry || '—',
+            'Location': row.Location || row.location || '—',
+            'Sales Person': row.SalesPerson || row.salesPerson || '—',
+            'Primary Contact': row.PrimaryContact || row.primaryContact || '—',
+            'Email': row.PrimaryEmail || row.primaryEmail || '—',
+            'Phone': row.Phone || row.phone || row.tp || '—'
+          };
+        default:
+          return row;
+      }
+    });
+  };
+
+  // ====== EXPORT EXCEL ======
+  const handleExportExcel = () => {
     if (reportData.length === 0) return;
-    const headers = Object.keys(reportData[0]);
-    const csvRows = [
-      headers.join(","),
-      ...reportData.map(row =>
-        headers.map(h => {
-          let val = row[h] ?? "";
-          val = String(val).replace(/"/g, '""');
-          return `"${val}"`;
-        }).join(",")
-      ),
-    ];
-    const blob = new Blob([csvRows.join("\n")], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${activeReport}_report_${new Date().toISOString().split("T")[0]}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+    const exportData = getExportData();
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, reportTitles[activeReport]);
+
+    // Auto-size columns
+    const colWidths = Object.keys(exportData[0]).map(key => ({
+      wch: Math.max(key.length, ...exportData.map(row => String(row[key] || '').length)) + 2
+    }));
+    ws['!cols'] = colWidths;
+
+    XLSX.writeFile(wb, `${activeReport}_report_${new Date().toISOString().split("T")[0]}.xlsx`);
+  };
+
+  // ====== EXPORT PDF ======
+  const handleExportPDF = () => {
+    if (reportData.length === 0) return;
+    const exportData = getExportData();
+    const doc = new jsPDF('l', 'mm', 'a4'); // landscape
+
+    // Title
+    doc.setFontSize(16);
+    doc.text(reportTitles[activeReport], 14, 15);
+
+    // Subtitle
+    doc.setFontSize(9);
+    doc.setTextColor(100);
+    doc.text(`${getFilterDescription()} | Generated ${new Date().toLocaleString()}`, 14, 22);
+
+    // Table
+    const headers = Object.keys(exportData[0]);
+    const rows = exportData.map(row => headers.map(h => row[h]));
+
+    doc.autoTable({
+      head: [headers],
+      body: rows,
+      startY: 28,
+      styles: { fontSize: 7, cellPadding: 2 },
+      headStyles: { fillColor: [100, 116, 139], textColor: 255, fontStyle: 'bold' },
+      alternateRowStyles: { fillColor: [248, 250, 252] },
+      margin: { left: 14, right: 14 }
+    });
+
+    doc.save(`${activeReport}_report_${new Date().toISOString().split("T")[0]}.pdf`);
   };
 
   const reportTitles = {
@@ -477,8 +587,11 @@ export default function ReportsSec() {
                 <button onClick={handlePrint} className="px-4 py-2.5 bg-white text-slate-700 border border-slate-300 rounded-lg font-medium hover:bg-slate-50 transition-colors flex items-center gap-2 text-sm">
                   <Printer className="w-4 h-4" /> Print
                 </button>
-                <button onClick={handleExportCSV} className="px-4 py-2.5 bg-white text-slate-700 border border-slate-300 rounded-lg font-medium hover:bg-slate-50 transition-colors flex items-center gap-2 text-sm">
-                  <Download className="w-4 h-4" /> Export CSV
+                <button onClick={handleExportExcel} className="px-4 py-2.5 bg-white text-slate-700 border border-slate-300 rounded-lg font-medium hover:bg-slate-50 transition-colors flex items-center gap-2 text-sm">
+                  <FileSpreadsheet className="w-4 h-4 text-green-600" /> Export Excel
+                </button>
+                <button onClick={handleExportPDF} className="px-4 py-2.5 bg-white text-slate-700 border border-slate-300 rounded-lg font-medium hover:bg-slate-50 transition-colors flex items-center gap-2 text-sm">
+                  <FileText className="w-4 h-4 text-red-600" /> Export PDF
                 </button>
               </>
             )}

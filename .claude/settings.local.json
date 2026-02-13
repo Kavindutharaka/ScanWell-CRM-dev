@@ -15,7 +15,8 @@
       "Bash(dir:*)",
       "Bash(netstat:*)",
       "Bash(findstr:*)",
-      "Bash(netsh interface ipv4 show excludedportrange:*)"
+      "Bash(netsh interface ipv4 show excludedportrange:*)",
+      "Bash(Select-String -Pattern \"error CS\" -NotMatch \"MSB3\")"
     ]
   }
 }

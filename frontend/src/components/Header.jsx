@@ -2,7 +2,7 @@ import { useContext } from 'react';
 import logo from '../assets/images/logo.png';
 import appLogo from '../assets/images/app_logo.png';
 import scanwellLogo from '../assets/images/logo_scanwell.png';
-import { Bell, MessageSquareText, Menu, X, User, LogOut } from 'lucide-react';
+import { Bell, MessageSquareText, Menu, X, User, LogOut, Bot, MessageCircle } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import { BASE_URL } from '../config/apiConfig';
 import axios from '../config/axios';
@@ -114,6 +114,34 @@ function Header({ onMenuToggle, isMobileMenuOpen }) {
           className="h-9 w-auto rounded object-contain"
         />
 
+        {/* AI Assistant */}
+        <div className="relative group">
+          <button
+            className="p-2 rounded-lg hover:bg-slate-100 transition-all duration-200 active:scale-95 relative"
+            aria-label="AI Assistant"
+          >
+            <Bot className="w-5 h-5 text-slate-600 group-hover:text-violet-600" />
+          </button>
+          {/* Tooltip */}
+          <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-slate-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
+            AI Assistant
+          </div>
+        </div>
+
+        {/* Chat */}
+        <div className="relative group">
+          <button
+            className="p-2 rounded-lg hover:bg-slate-100 transition-all duration-200 active:scale-95 relative"
+            aria-label="Chat"
+          >
+            <MessageCircle className="w-5 h-5 text-slate-600 group-hover:text-blue-600" />
+          </button>
+          {/* Tooltip */}
+          <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-slate-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
+            Chat
+          </div>
+        </div>
+
         {/* Notifications */}
         <div className="relative group">
           <button
@@ -127,7 +155,7 @@ function Header({ onMenuToggle, isMobileMenuOpen }) {
               <span className="text-[10px] text-white font-medium">3</span>
             </span> */}
           </button>
-          
+
           {/* Tooltip */}
           <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-slate-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
             Notifications

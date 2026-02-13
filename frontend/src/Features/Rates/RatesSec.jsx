@@ -802,31 +802,56 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
   const getFilteredRates = () => {
     let filtered = rates;
 
-    // Only filter regular rates (not liner rates)
-    if (activeTab !== 'liner') {
-      switch (activeTab) {
-        case 'air':
-          filtered = rates.filter(rate => rate.freightType?.toLowerCase().includes('air'));
-          break;
-        case 'sea':
-          filtered = rates.filter(rate => rate.freightType?.toLowerCase().includes('sea'));
-          break;
-        default:
-          filtered = rates;
-      }
+    switch (activeTab) {
+      case 'air':
+        filtered = rates.filter(rate => rate.freightType?.toLowerCase().includes('air'));
+        break;
+      case 'sea':
+        filtered = rates.filter(rate => rate.freightType?.toLowerCase().includes('sea'));
+        break;
+      case 'liner':
+        // Liner tab uses its own data, return empty for regular rates
+        return [];
+      default:
+        filtered = rates;
+    }
 
-      if (searchQuery.trim()) {
-        filtered = filtered.filter(rate =>
-          rate.origin?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          rate.destination?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          rate.airline?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          rate.liner?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          rate.route?.toLowerCase().includes(searchQuery.toLowerCase())
-        );
-      }
+    if (searchQuery.trim()) {
+      filtered = filtered.filter(rate =>
+        rate.origin?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        rate.destination?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        rate.airline?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        rate.liner?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        rate.route?.toLowerCase().includes(searchQuery.toLowerCase())
+      );
     }
 
     return filtered;
+  };
+
+  // Filter Air Export rates by search query
+  const getFilteredAirExportRates = () => {
+    if (!searchQuery.trim()) return airExportRates;
+    const q = searchQuery.toLowerCase();
+    return airExportRates.filter(rate =>
+      rate.country?.toLowerCase().includes(q) ||
+      rate.airline?.toLowerCase().includes(q) ||
+      rate.commodityType?.toLowerCase().includes(q) ||
+      rate.routing?.toLowerCase().includes(q)
+    );
+  };
+
+  // Filter Sea Spot rates by search query
+  const getFilteredSeaSpotRates = () => {
+    if (!searchQuery.trim()) return seaSpotRates;
+    const q = searchQuery.toLowerCase();
+    return seaSpotRates.filter(rate =>
+      rate.pol?.toLowerCase().includes(q) ||
+      rate.pod?.toLowerCase().includes(q) ||
+      rate.carrier?.toLowerCase().includes(q) ||
+      rate.liner?.toLowerCase().includes(q) ||
+      rate.route?.toLowerCase().includes(q)
+    );
   };
 
   const handleRefresh = () => {
@@ -1562,7 +1587,7 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
-                      {seaSpotRates.map((rate) => (
+                      {getFilteredSeaSpotRates().map((rate) => (
                         <tr key={rate.id} className="hover:bg-slate-50">
                           <td className="px-3 py-2 font-semibold text-indigo-700">{rate.liner || '—'}</td>
                           <td className="px-3 py-2 text-slate-700">{rate.pol || '—'}</td>
@@ -1725,16 +1750,16 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
                   </div>
                 ) : airExportRates.length > 0 ? (
                   <div className="divide-y divide-slate-100">
-                    {airExportRates.map((rate) => (
+                    {getFilteredAirExportRates().map((rate) => (
                       <div key={rate.id} className="p-4 hover:bg-slate-50 transition-colors">
                         {/* Desktop Grid View */}
                         <div className="hidden md:grid grid-cols-12 gap-4 items-center">
-                          {/* Country & Airline Badge */}
-                          <div className="col-span-2">
+                          {/* Country & Airline Badge - Left aligned */}
+                          <div className="col-span-2 text-left">
                             {rate.country && (
-                              <div className="text-xs font-semibold text-slate-700 mb-1 flex items-center gap-1">
-                                <MapPin className="w-3 h-3 text-slate-400" />
-                                {rate.country}
+                              <div className="text-xs font-semibold text-slate-700 mb-1 flex items-center gap-1 justify-start">
+                                <MapPin className="w-3 h-3 text-slate-400 flex-shrink-0" />
+                                <span className="truncate">{rate.country}</span>
                               </div>
                             )}
                             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium text-white bg-amber-600">

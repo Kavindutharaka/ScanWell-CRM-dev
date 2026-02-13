@@ -98,7 +98,8 @@ export default function TransitQuoteForm({ category, mode }) {
           unitTypePerLocation: {},
           unitsPerLocation: {},
           amountPerLocation: {},
-          currencyPerLocation: {}
+          currencyPerLocation: {},
+          remarkPerLocation: {}
         }
       ],
       originHandlingTables: [
@@ -108,7 +109,8 @@ export default function TransitQuoteForm({ category, mode }) {
           unitTypePerLocation: {},
           unitsPerLocation: {},
           amountPerLocation: {},
-          currencyPerLocation: {}
+          currencyPerLocation: {},
+          remarkPerLocation: {}
         }
       ],
       destinationHandlingTables: [
@@ -118,7 +120,8 @@ export default function TransitQuoteForm({ category, mode }) {
           unitTypePerLocation: {},
           unitsPerLocation: {},
           amountPerLocation: {},
-          currencyPerLocation: {}
+          currencyPerLocation: {},
+          remarkPerLocation: {}
         }
       ]
     }
@@ -218,7 +221,8 @@ export default function TransitQuoteForm({ category, mode }) {
             unitTypePerLocation: {},
             unitsPerLocation: {},
             amountPerLocation: {},
-            currencyPerLocation: {}
+            currencyPerLocation: {},
+            remarkPerLocation: {}
           }
         ],
         originHandlingTables: [
@@ -228,7 +232,8 @@ export default function TransitQuoteForm({ category, mode }) {
             unitTypePerLocation: {},
             unitsPerLocation: {},
             amountPerLocation: {},
-            currencyPerLocation: {}
+            currencyPerLocation: {},
+            remarkPerLocation: {}
           }
         ],
         destinationHandlingTables: [
@@ -238,7 +243,8 @@ export default function TransitQuoteForm({ category, mode }) {
             unitTypePerLocation: {},
             unitsPerLocation: {},
             amountPerLocation: {},
-            currencyPerLocation: {}
+            currencyPerLocation: {},
+            remarkPerLocation: {}
           }
         ]
       }
@@ -297,7 +303,8 @@ export default function TransitQuoteForm({ category, mode }) {
       unitTypePerLocation: {},
       unitsPerLocation: {},
       amountPerLocation: {},
-      currencyPerLocation: {}
+      currencyPerLocation: {},
+      remarkPerLocation: {}
     };
   }
   

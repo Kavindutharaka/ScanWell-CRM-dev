@@ -92,7 +92,8 @@ export default function DirectQuoteForm({ category, mode }) {
       numberOfUnits: '',
       amount: '',
       currency: '',
-      total: 0
+      total: 0,
+      remark: ''
     }],
     originHandling: [{
       chargeName: '',
@@ -100,7 +101,8 @@ export default function DirectQuoteForm({ category, mode }) {
       numberOfUnits: '',
       amount: '',
       currency: '',
-      total: 0
+      total: 0,
+      remark: ''
     }],
     destinationHandling: [{
       chargeName: '',
@@ -108,7 +110,8 @@ export default function DirectQuoteForm({ category, mode }) {
       numberOfUnits: '',
       amount: '',
       currency: '',
-      total: 0
+      total: 0,
+      remark: ''
     }]
   });
 
