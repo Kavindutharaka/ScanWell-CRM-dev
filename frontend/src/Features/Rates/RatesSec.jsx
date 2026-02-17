@@ -1492,7 +1492,7 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
               onClick={handleAirExportClick}
               className={`px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 ${
                 showAirExport
-                  ? 'bg-amber-600 text-white shadow-md'
+                  ? 'bg-sky-600 text-white shadow-md'
                   : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'
               }`}
             >
@@ -1734,7 +1734,7 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
           {showAirExport && (
             <div className="mb-4">
               {/* Header bar */}
-              <div className="bg-gradient-to-r from-amber-600 to-amber-700 text-white rounded-t-xl p-4 shadow-md">
+              <div className="bg-gradient-to-r from-sky-600 to-sky-700 text-white rounded-t-xl p-4 shadow-md">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <Plane className="w-6 h-6" />
@@ -1773,7 +1773,7 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
               <div className="bg-white rounded-b-xl border border-t-0 border-slate-200">
                 {airExportLoading ? (
                   <div className="text-center py-8">
-                    <RefreshCw className="w-8 h-8 text-amber-600 animate-spin mx-auto mb-2" />
+                    <RefreshCw className="w-8 h-8 text-sky-600 animate-spin mx-auto mb-2" />
                     <p className="text-sm text-slate-500">Loading air export rates...</p>
                   </div>
                 ) : airExportRates.length > 0 ? (
@@ -1790,7 +1790,7 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
                                 <span className="truncate">{rate.country}</span>
                               </div>
                             )}
-                            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium text-white bg-amber-600">
+                            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium text-white bg-sky-600">
                               <Plane className="w-4 h-4" />
                               <span className="uppercase">{rate.airline || '—'}</span>
                             </div>
@@ -1803,9 +1803,9 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
                           <div className="col-span-5">
                             <div className="flex items-center gap-2 flex-wrap">
                               {rate.rateM != null && (
-                                <div className="bg-amber-50 border border-amber-200 rounded px-2 py-1 text-center min-w-[60px]">
-                                  <div className="text-[10px] text-amber-600 font-semibold">M</div>
-                                  <div className="text-sm font-bold text-amber-800">${parseFloat(rate.rateM).toLocaleString()}</div>
+                                <div className="bg-sky-50 border border-sky-200 rounded px-2 py-1 text-center min-w-[60px]">
+                                  <div className="text-[10px] text-sky-600 font-semibold">M</div>
+                                  <div className="text-sm font-bold text-sky-800">${parseFloat(rate.rateM).toLocaleString()}</div>
                                 </div>
                               )}
                               {rate.rate45Minus != null && (
@@ -1881,10 +1881,10 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
                             )}
                             <button
                               onClick={() => { setEditingAirExportRate({...rate}); setShowAirExportEditModal(true); }}
-                              className="p-2 hover:bg-amber-50 rounded-lg transition-colors"
+                              className="p-2 hover:bg-sky-50 rounded-lg transition-colors"
                               title="Edit Rate"
                             >
-                              <Edit className="w-4 h-4 text-slate-600 hover:text-amber-600" />
+                              <Edit className="w-4 h-4 text-slate-600 hover:text-sky-600" />
                             </button>
                             {isAdmin && (
                               <button
@@ -1908,13 +1908,13 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
                                   {rate.country}
                                 </div>
                               )}
-                              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium text-white bg-amber-600">
+                              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium text-white bg-sky-600">
                                 <Plane className="w-4 h-4" />
                                 <span className="uppercase">{rate.airline || '—'}</span>
                               </div>
                             </div>
                             <div className="flex items-center gap-1">
-                              <button onClick={() => { setEditingAirExportRate({...rate}); setShowAirExportEditModal(true); }} className="p-2 hover:bg-amber-50 rounded-lg">
+                              <button onClick={() => { setEditingAirExportRate({...rate}); setShowAirExportEditModal(true); }} className="p-2 hover:bg-sky-50 rounded-lg">
                                 <Edit className="w-4 h-4 text-slate-600" />
                               </button>
                               {isAdmin && (
@@ -1925,7 +1925,7 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
                             </div>
                           </div>
                           <div className="flex flex-wrap gap-2">
-                            {rate.rateM != null && <div className="bg-amber-50 border border-amber-200 rounded px-2 py-1 text-center"><div className="text-[10px] text-amber-600">M</div><div className="text-sm font-bold">${parseFloat(rate.rateM).toLocaleString()}</div></div>}
+                            {rate.rateM != null && <div className="bg-sky-50 border border-sky-200 rounded px-2 py-1 text-center"><div className="text-[10px] text-sky-600">M</div><div className="text-sm font-bold">${parseFloat(rate.rateM).toLocaleString()}</div></div>}
                             {rate.rate45Minus != null && <div className="bg-slate-50 rounded px-2 py-1 text-center"><div className="text-[10px]">-45</div><div className="text-sm font-bold">${parseFloat(rate.rate45Minus).toLocaleString()}</div></div>}
                             {rate.rate45 != null && <div className="bg-indigo-50 rounded px-2 py-1 text-center"><div className="text-[10px] text-indigo-600">45</div><div className="text-sm font-bold">${parseFloat(rate.rate45).toLocaleString()}</div></div>}
                             {rate.rate100 != null && <div className="bg-slate-50 rounded px-2 py-1 text-center"><div className="text-[10px]">100</div><div className="text-sm font-bold">${parseFloat(rate.rate100).toLocaleString()}</div></div>}
@@ -1963,7 +1963,7 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
           {showAirExportUploadModal && (
             <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
               <div className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden">
-                <div className="bg-gradient-to-r from-amber-600 to-amber-700 px-6 py-4 flex items-center justify-between">
+                <div className="bg-gradient-to-r from-sky-600 to-sky-700 px-6 py-4 flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Upload className="w-5 h-5 text-white" />
                     <h3 className="text-lg font-bold text-white">Upload Air Export Rates</h3>
@@ -1979,8 +1979,8 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
                       COUNTRY | Commodity Type | AIRLINE | M | -45 | 45 | 100 | 300 | 500 | 1000 | SURCHARGES | T/T | FREQUENCY | ROUTINE | REMARKS | UPDATED DATE
                     </code>
                   </p>
-                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
-                    <p className="text-xs text-amber-700">
+                  <div className="bg-sky-50 border border-sky-200 rounded-lg p-3">
+                    <p className="text-xs text-sky-700">
                       <strong>Note:</strong> Commodity Type is shared across all rows. Blank cells will be stored as empty. Rows without AIRLINE will be skipped.
                     </p>
                   </div>
@@ -1993,7 +1993,7 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
                   </div>
                   <div className="flex justify-end gap-3">
                     <button onClick={() => { setShowAirExportUploadModal(false); setAirExportExcelFile(null); }} className="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 text-sm font-medium">Cancel</button>
-                    <button onClick={handleAirExportExcelUpload} disabled={!airExportExcelFile || airExportUploadProgress} className="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 text-sm font-medium disabled:opacity-50 flex items-center gap-2">
+                    <button onClick={handleAirExportExcelUpload} disabled={!airExportExcelFile || airExportUploadProgress} className="px-4 py-2 bg-sky-600 text-white rounded-lg hover:bg-sky-700 text-sm font-medium disabled:opacity-50 flex items-center gap-2">
                       {airExportUploadProgress ? <><RefreshCw className="w-4 h-4 animate-spin" /> Uploading...</> : <><Upload className="w-4 h-4" /> Upload</>}
                     </button>
                   </div>
@@ -2006,7 +2006,7 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
           {showAirExportEditModal && editingAirExportRate && (
             <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
               <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden max-h-[90vh] overflow-y-auto">
-                <div className="bg-gradient-to-r from-amber-600 to-amber-700 px-6 py-4 flex items-center justify-between">
+                <div className="bg-gradient-to-r from-sky-600 to-sky-700 px-6 py-4 flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Edit className="w-5 h-5 text-white" />
                     <h3 className="text-lg font-bold text-white">Edit Air Export Rate</h3>
@@ -2019,15 +2019,15 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
                   <div className="grid grid-cols-3 gap-4">
                     <div>
                       <label className="block text-xs font-medium text-slate-600 mb-1">Country</label>
-                      <input type="text" value={editingAirExportRate.country || ''} onChange={(e) => setEditingAirExportRate({...editingAirExportRate, country: e.target.value})} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500" />
+                      <input type="text" value={editingAirExportRate.country || ''} onChange={(e) => setEditingAirExportRate({...editingAirExportRate, country: e.target.value})} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-sky-500" />
                     </div>
                     <div>
                       <label className="block text-xs font-medium text-slate-600 mb-1">Commodity Type</label>
-                      <input type="text" value={editingAirExportRate.commodityType || ''} onChange={(e) => setEditingAirExportRate({...editingAirExportRate, commodityType: e.target.value})} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500" />
+                      <input type="text" value={editingAirExportRate.commodityType || ''} onChange={(e) => setEditingAirExportRate({...editingAirExportRate, commodityType: e.target.value})} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-sky-500" />
                     </div>
                     <div>
                       <label className="block text-xs font-medium text-slate-600 mb-1">Airline</label>
-                      <input type="text" value={editingAirExportRate.airline || ''} onChange={(e) => setEditingAirExportRate({...editingAirExportRate, airline: e.target.value})} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500" />
+                      <input type="text" value={editingAirExportRate.airline || ''} onChange={(e) => setEditingAirExportRate({...editingAirExportRate, airline: e.target.value})} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-sky-500" />
                     </div>
                   </div>
                   <div className="grid grid-cols-4 gap-3">
@@ -2042,37 +2042,37 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
                     ].map(({ key, label }) => (
                       <div key={key}>
                         <label className="block text-xs font-medium text-slate-600 mb-1">{label}</label>
-                        <input type="number" step="0.01" value={editingAirExportRate[key] ?? ''} onChange={(e) => setEditingAirExportRate({...editingAirExportRate, [key]: e.target.value})} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500" placeholder="—" />
+                        <input type="number" step="0.01" value={editingAirExportRate[key] ?? ''} onChange={(e) => setEditingAirExportRate({...editingAirExportRate, [key]: e.target.value})} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-sky-500" placeholder="—" />
                       </div>
                     ))}
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="block text-xs font-medium text-slate-600 mb-1">Surcharges</label>
-                      <input type="text" value={editingAirExportRate.surcharges || ''} onChange={(e) => setEditingAirExportRate({...editingAirExportRate, surcharges: e.target.value})} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500" />
+                      <input type="text" value={editingAirExportRate.surcharges || ''} onChange={(e) => setEditingAirExportRate({...editingAirExportRate, surcharges: e.target.value})} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-sky-500" />
                     </div>
                     <div>
                       <label className="block text-xs font-medium text-slate-600 mb-1">T/T</label>
-                      <input type="text" value={editingAirExportRate.transitTime || ''} onChange={(e) => setEditingAirExportRate({...editingAirExportRate, transitTime: e.target.value})} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500" />
+                      <input type="text" value={editingAirExportRate.transitTime || ''} onChange={(e) => setEditingAirExportRate({...editingAirExportRate, transitTime: e.target.value})} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-sky-500" />
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="block text-xs font-medium text-slate-600 mb-1">Frequency</label>
-                      <input type="text" value={editingAirExportRate.frequency || ''} onChange={(e) => setEditingAirExportRate({...editingAirExportRate, frequency: e.target.value})} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500" />
+                      <input type="text" value={editingAirExportRate.frequency || ''} onChange={(e) => setEditingAirExportRate({...editingAirExportRate, frequency: e.target.value})} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-sky-500" />
                     </div>
                     <div>
                       <label className="block text-xs font-medium text-slate-600 mb-1">Routing</label>
-                      <input type="text" value={editingAirExportRate.routing || ''} onChange={(e) => setEditingAirExportRate({...editingAirExportRate, routing: e.target.value})} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500" />
+                      <input type="text" value={editingAirExportRate.routing || ''} onChange={(e) => setEditingAirExportRate({...editingAirExportRate, routing: e.target.value})} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-sky-500" />
                     </div>
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-slate-600 mb-1">Remarks</label>
-                    <input type="text" value={editingAirExportRate.remarks || ''} onChange={(e) => setEditingAirExportRate({...editingAirExportRate, remarks: e.target.value})} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500" />
+                    <input type="text" value={editingAirExportRate.remarks || ''} onChange={(e) => setEditingAirExportRate({...editingAirExportRate, remarks: e.target.value})} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-sky-500" />
                   </div>
                   <div className="flex justify-end gap-3 pt-2">
                     <button onClick={() => { setShowAirExportEditModal(false); setEditingAirExportRate(null); }} className="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 text-sm font-medium">Cancel</button>
-                    <button onClick={handleSaveAirExportEdit} className="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 text-sm font-medium flex items-center gap-2">
+                    <button onClick={handleSaveAirExportEdit} className="px-4 py-2 bg-sky-600 text-white rounded-lg hover:bg-sky-700 text-sm font-medium flex items-center gap-2">
                       Save Changes
                     </button>
                   </div>
