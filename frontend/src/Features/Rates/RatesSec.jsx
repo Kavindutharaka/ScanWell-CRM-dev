@@ -775,18 +775,46 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
 
   // Handle Linear Header's button click
   const handleLinearHeadersClick = () => {
-    setShowLinearHeaders(!showLinearHeaders);
+    const willShow = !showLinearHeaders;
+    setShowLinearHeaders(willShow);
     setShowSeaSpotRates(false);
     setShowDestinationHeaders(false);
     setShowAirExport(false);
+    // Reset active liner if closing, or if switching from destination headers
+    if (!willShow) {
+      if (activeLinerCategory === 'linearheaders') {
+        setActiveLiner(null);
+        setActiveLinerCategory(null);
+      }
+    } else {
+      // Opening liner headers - clear destination active state
+      if (activeLinerCategory === 'destinationheaders') {
+        setActiveLiner(null);
+        setActiveLinerCategory(null);
+      }
+    }
   };
 
   // Handle Destination Header's button click
   const handleDestinationHeadersClick = () => {
-    setShowDestinationHeaders(!showDestinationHeaders);
+    const willShow = !showDestinationHeaders;
+    setShowDestinationHeaders(willShow);
     setShowSeaSpotRates(false);
     setShowLinearHeaders(false);
     setShowAirExport(false);
+    // Reset active liner if closing, or if switching from liner headers
+    if (!willShow) {
+      if (activeLinerCategory === 'destinationheaders') {
+        setActiveLiner(null);
+        setActiveLinerCategory(null);
+      }
+    } else {
+      // Opening destination headers - clear liner active state
+      if (activeLinerCategory === 'linearheaders') {
+        setActiveLiner(null);
+        setActiveLinerCategory(null);
+      }
+    }
   };
 
   const toggleRow = (rateId) => {
