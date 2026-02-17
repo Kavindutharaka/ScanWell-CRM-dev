@@ -632,9 +632,15 @@ function SalesPerson({ customerName }) {
     return matchesSearch && matchesTypeFilter && matchesCategoryFilter;
   });
 
-  // Show freight quotes (server-paginated) on page 1 along with matching warehouse quotes
-  // On subsequent pages, only show freight quotes (warehouse is small enough to show on page 1)
-  const filteredQuotes = currentPage === 1 ? [...quotes, ...filteredWarehouse] : [...quotes];
+  // Combine freight quotes with warehouse quotes and sort by date descending
+  // On page 1, merge warehouse quotes in date order. On other pages, only freight quotes.
+  const filteredQuotes = currentPage === 1
+    ? [...quotes, ...filteredWarehouse].sort((a, b) => {
+        const dateA = new Date(a.createdDate || 0);
+        const dateB = new Date(b.createdDate || 0);
+        return dateB - dateA; // Newest first
+      })
+    : [...quotes];
 
   // Total pages based on freight quote count from server (warehouse added to page 1)
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
