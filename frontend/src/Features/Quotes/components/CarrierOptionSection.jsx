@@ -125,120 +125,96 @@ export default function CarrierOptionSection({
             </div>
           </div>
 
-          {/* Mutual exclusivity for Air category: Freight Charges vs Ratio Charges */}
-          {(() => {
-            // Check if ratio charges have actual data (any row with at least an amount filled)
-            const ratioCharges = option.seaFreightRatioCharges || [];
-            const hasRatioData = category === 'air' && ratioCharges.length > 0 && ratioCharges.some(c => c.amount || c.unitType || c.chargeName);
+          {/* Freight Charges - Support Multiple Tables */}
+          <div className="mb-4">
+            <div className="flex justify-between items-center mb-3">
+              <h3 className="text-lg font-medium text-gray-700">Freight Charges</h3>
+              {!disabled && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (window.addFreightChargesTable) {
+                      window.addFreightChargesTable(index);
+                    }
+                  }}
+                  className="flex items-center gap-1 px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700"
+                >
+                  <Plus size={16} />
+                  Add Table
+                </button>
+              )}
+            </div>
 
-            // Check if freight charges have actual data
-            const freightTables = option.freightChargesTables || [];
-            const freightCharges = option.freightCharges || [];
-            const hasFreightTableData = freightTables.length > 0 && freightTables.some(t => (t.charges || []).some(c => c.amount || c.unitType || c.carrier));
-            const hasFreightChargeData = freightCharges.length > 0 && freightCharges.some(c => c.amount || c.unitType || c.carrier);
-            const hasFreightData = category === 'air' && (hasFreightTableData || hasFreightChargeData);
-
-            // For non-air categories, always show freight charges
-            const showFreight = category !== 'air' || !hasRatioData;
-            const showRatio = category === 'air' && !hasFreightData;
-
-            return (
-              <>
-                {/* Freight Charges - Support Multiple Tables */}
-                {showFreight && (
-                  <div className="mb-4">
-                    <div className="flex justify-between items-center mb-3">
-                      <h3 className="text-lg font-medium text-gray-700">Freight Charges</h3>
-                      {!disabled && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (window.addFreightChargesTable) {
-                              window.addFreightChargesTable(index);
-                            }
-                          }}
-                          className="flex items-center gap-1 px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700"
-                        >
-                          <Plus size={16} />
-                          Add Table
-                        </button>
-                      )}
-                    </div>
-
-                    {option.freightChargesTables && option.freightChargesTables.length > 0 ? (
-                      option.freightChargesTables.map((table, tableIdx) => (
-                        <div key={tableIdx} className="bg-white rounded-lg p-4 mb-4 shadow-sm border border-gray-200">
-                          <div className="flex justify-between items-center mb-2">
-                            <h4 className="font-medium text-gray-600">
-                              {table.tableName || `Table ${tableIdx + 1}`}
-                            </h4>
-                            {tableIdx > 0 && !disabled && (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  if (window.removeFreightChargesTable) {
-                                    window.removeFreightChargesTable(index, tableIdx);
-                                  }
-                                }}
-                                className="text-red-600 hover:text-red-800 text-sm"
-                              >
-                                <Trash2 size={16} />
-                              </button>
-                            )}
-                          </div>
-                          <FreightChargesSection
-                            formData={{ freightCharges: table.charges }}
-                            setFormData={(updater) => {
-                              const updated = [...formData.carrierOptions];
-                              if (typeof updater === 'function') {
-                                const result = updater({ freightCharges: table.charges });
-                                updated[index].freightChargesTables[tableIdx].charges = result.freightCharges;
-                              } else {
-                                updated[index].freightChargesTables[tableIdx].charges = updater.freightCharges;
-                              }
-                              setFormData(prev => ({ ...prev, carrierOptions: updated }));
-                            }}
-                            category={category}
-                            disabled={disabled}
-                            carrierName={option.carrier}
-                          />
-                        </div>
-                      ))
-                    ) : (
-                      <div className="bg-white rounded-lg p-4 mb-4 shadow-sm">
-                        <FreightChargesSection
-                          formData={createChargeFormData('freightCharges')}
-                          setFormData={createChargeSetFormData('freightCharges')}
-                          category={category}
-                          disabled={disabled}
-                          carrierName={option.carrier}
-                        />
-                      </div>
+            {option.freightChargesTables && option.freightChargesTables.length > 0 ? (
+              option.freightChargesTables.map((table, tableIdx) => (
+                <div key={tableIdx} className="bg-white rounded-lg p-4 mb-4 shadow-sm border border-gray-200">
+                  <div className="flex justify-between items-center mb-2">
+                    <h4 className="font-medium text-gray-600">
+                      {table.tableName || `Table ${tableIdx + 1}`}
+                    </h4>
+                    {tableIdx > 0 && !disabled && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (window.removeFreightChargesTable) {
+                            window.removeFreightChargesTable(index, tableIdx);
+                          }
+                        }}
+                        className="text-red-600 hover:text-red-800 text-sm"
+                      >
+                        <Trash2 size={16} />
+                      </button>
                     )}
                   </div>
-                )}
+                  <FreightChargesSection
+                    formData={{ freightCharges: table.charges }}
+                    setFormData={(updater) => {
+                      const updated = [...formData.carrierOptions];
+                      if (typeof updater === 'function') {
+                        const result = updater({ freightCharges: table.charges });
+                        updated[index].freightChargesTables[tableIdx].charges = result.freightCharges;
+                      } else {
+                        updated[index].freightChargesTables[tableIdx].charges = updater.freightCharges;
+                      }
+                      setFormData(prev => ({ ...prev, carrierOptions: updated }));
+                    }}
+                    category={category}
+                    disabled={disabled}
+                    carrierName={option.carrier}
+                  />
+                </div>
+              ))
+            ) : (
+              <div className="bg-white rounded-lg p-4 mb-4 shadow-sm">
+                <FreightChargesSection
+                  formData={createChargeFormData('freightCharges')}
+                  setFormData={createChargeSetFormData('freightCharges')}
+                  category={category}
+                  disabled={disabled}
+                  carrierName={option.carrier}
+                />
+              </div>
+            )}
+          </div>
 
-                {/* Air Freight Ratio Charges - only for air category, hidden if freight charges have data */}
-                {category === 'air' && showRatio && (
-                  <div className="bg-white rounded-lg p-4 mb-4 shadow-sm">
-                    <SeaFreightRatioTable
-                      formData={{ seaFreightRatioCharges: option.seaFreightRatioCharges || [] }}
-                      setFormData={(updater) => {
-                        if (typeof updater === 'function') {
-                          const currentData = { seaFreightRatioCharges: option.seaFreightRatioCharges || [] };
-                          const updated = updater(currentData);
-                          updateCarrierOption('seaFreightRatioCharges', updated.seaFreightRatioCharges);
-                        } else {
-                          updateCarrierOption('seaFreightRatioCharges', updater.seaFreightRatioCharges);
-                        }
-                      }}
-                      disabled={disabled}
-                    />
-                  </div>
-                )}
-              </>
-            );
-          })()}
+          {/* Air Freight Ratio Charges - always visible for air category, user fills one or the other */}
+          {category === 'air' && (
+            <div className="bg-white rounded-lg p-4 mb-4 shadow-sm">
+              <SeaFreightRatioTable
+                formData={{ seaFreightRatioCharges: option.seaFreightRatioCharges || [] }}
+                setFormData={(updater) => {
+                  if (typeof updater === 'function') {
+                    const currentData = { seaFreightRatioCharges: option.seaFreightRatioCharges || [] };
+                    const updated = updater(currentData);
+                    updateCarrierOption('seaFreightRatioCharges', updated.seaFreightRatioCharges);
+                  } else {
+                    updateCarrierOption('seaFreightRatioCharges', updater.seaFreightRatioCharges);
+                  }
+                }}
+                disabled={disabled}
+              />
+            </div>
+          )}
 
           {/* Destination Charges */}
           <div className="bg-white rounded-lg p-4 mb-4 shadow-sm">
