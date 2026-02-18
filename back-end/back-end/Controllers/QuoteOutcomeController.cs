@@ -44,109 +44,56 @@ namespace back_end.Controllers
                     return BadRequest(new { message = "Invalid outcome status. Must be 'won' or 'lost'" });
                 }
 
-                if (model.OutcomeStatus == "won" && (model.WonAmount == null || model.WonAmount <= 0))
-                {
-                    return BadRequest(new { message = "Won amount is required and must be greater than 0" });
-                }
-
-                if (model.OutcomeStatus == "lost" && string.IsNullOrEmpty(model.LostReason))
-                {
-                    return BadRequest(new { message = "Lost reason is required" });
-                }
+                // WonAmount and LostReason are now optional - outcome saved directly without modal
 
                 using (myCon)
                 {
                     myCon.Open();
 
-                    // Check if quote exists and doesn't already have an outcome
-                    // FIXED: Changed quote_id to QuoteId to match your table schema
+                    // Check if outcome already exists in quote_outcomes table
                     string checkQuery = @"
-                        SELECT outcome_status 
-                        FROM quotes 
-                        WHERE QuoteId = @QuoteId";
+                        SELECT outcome_status
+                        FROM quote_outcomes
+                        WHERE quote_id = @QuoteId";
 
                     using (SqlCommand checkCmd = new SqlCommand(checkQuery, myCon))
                     {
                         checkCmd.Parameters.AddWithValue("@QuoteId", model.QuoteId);
-                        
+
                         var existingStatus = checkCmd.ExecuteScalar();
-                        
-                        if (existingStatus == DBNull.Value || existingStatus == null)
-                        {
-                            // No existing outcome, proceed
-                        }
-                        else
+
+                        if (existingStatus != null && existingStatus != DBNull.Value)
                         {
                             return BadRequest(new { message = "Quote already has an outcome status set and cannot be changed" });
                         }
                     }
 
-                    // Begin transaction
-                    using (SqlTransaction transaction = myCon.BeginTransaction())
+                    // Insert into quote_outcomes table
+                    string insertOutcomeQuery = @"
+                        INSERT INTO quote_outcomes
+                        (quote_id, outcome_status, won_amount, lost_reason, lost_note, created_date)
+                        VALUES
+                        (@QuoteId, @OutcomeStatus, @WonAmount, @LostReason, @LostNote, GETUTCDATE())";
+
+                    using (SqlCommand insertCmd = new SqlCommand(insertOutcomeQuery, myCon))
                     {
-                        try
-                        {
-                            // Insert into quote_outcomes table
-                            string insertOutcomeQuery = @"
-                                INSERT INTO quote_outcomes 
-                                (quote_id, outcome_status, won_amount, lost_reason, lost_note, created_date)
-                                VALUES
-                                (@QuoteId, @OutcomeStatus, @WonAmount, @LostReason, @LostNote, GETUTCDATE())";
+                        insertCmd.Parameters.AddWithValue("@QuoteId", model.QuoteId);
+                        insertCmd.Parameters.AddWithValue("@OutcomeStatus", model.OutcomeStatus);
+                        insertCmd.Parameters.AddWithValue("@WonAmount",
+                            model.WonAmount.HasValue ? (object)model.WonAmount.Value : DBNull.Value);
+                        insertCmd.Parameters.AddWithValue("@LostReason",
+                            !string.IsNullOrEmpty(model.LostReason) ? (object)model.LostReason : DBNull.Value);
+                        insertCmd.Parameters.AddWithValue("@LostNote",
+                            !string.IsNullOrEmpty(model.LostNote) ? (object)model.LostNote : DBNull.Value);
 
-                            using (SqlCommand insertCmd = new SqlCommand(insertOutcomeQuery, myCon, transaction))
-                            {
-                                insertCmd.Parameters.AddWithValue("@QuoteId", model.QuoteId);
-                                insertCmd.Parameters.AddWithValue("@OutcomeStatus", model.OutcomeStatus);
-                                insertCmd.Parameters.AddWithValue("@WonAmount", 
-                                    model.WonAmount.HasValue ? (object)model.WonAmount.Value : DBNull.Value);
-                                insertCmd.Parameters.AddWithValue("@LostReason", 
-                                    !string.IsNullOrEmpty(model.LostReason) ? (object)model.LostReason : DBNull.Value);
-                                insertCmd.Parameters.AddWithValue("@LostNote", 
-                                    !string.IsNullOrEmpty(model.LostNote) ? (object)model.LostNote : DBNull.Value);
-
-                                insertCmd.ExecuteNonQuery();
-                            }
-
-                            // Update quotes table
-                            // FIXED: Changed quote_id to QuoteId to match your table schema
-                            string updateQuoteQuery = @"
-                                UPDATE quotes 
-                                SET 
-                                    outcome_status = @OutcomeStatus,
-                                    won_amount = @WonAmount,
-                                    lost_reason = @LostReason,
-                                    lost_note = @LostNote
-                                WHERE QuoteId = @QuoteId";
-
-                            using (SqlCommand updateCmd = new SqlCommand(updateQuoteQuery, myCon, transaction))
-                            {
-                                updateCmd.Parameters.AddWithValue("@QuoteId", model.QuoteId);
-                                updateCmd.Parameters.AddWithValue("@OutcomeStatus", model.OutcomeStatus);
-                                updateCmd.Parameters.AddWithValue("@WonAmount", 
-                                    model.WonAmount.HasValue ? (object)model.WonAmount.Value : DBNull.Value);
-                                updateCmd.Parameters.AddWithValue("@LostReason", 
-                                    !string.IsNullOrEmpty(model.LostReason) ? (object)model.LostReason : DBNull.Value);
-                                updateCmd.Parameters.AddWithValue("@LostNote", 
-                                    !string.IsNullOrEmpty(model.LostNote) ? (object)model.LostNote : DBNull.Value);
-
-                                updateCmd.ExecuteNonQuery();
-                            }
-
-                            // Commit transaction
-                            transaction.Commit();
-
-                            return Ok(new { 
-                                message = $"Quote outcome saved successfully as {model.OutcomeStatus}",
-                                quoteId = model.QuoteId,
-                                outcomeStatus = model.OutcomeStatus
-                            });
-                        }
-                        catch (Exception ex)
-                        {
-                            transaction.Rollback();
-                            return StatusCode(500, new { message = "Error saving outcome: " + ex.Message });
-                        }
+                        insertCmd.ExecuteNonQuery();
                     }
+
+                    return Ok(new {
+                        message = $"Quote outcome saved successfully as {model.OutcomeStatus}",
+                        quoteId = model.QuoteId,
+                        outcomeStatus = model.OutcomeStatus
+                    });
                 }
             }
             catch (Exception ex)

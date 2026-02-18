@@ -94,28 +94,40 @@ function SalesPerson({ customerName }) {
   const getOutcomeBadge = (quoteId) => {
     const outcome = quoteOutcomes[quoteId];
 
-    // No outcome yet - show Win/Lost buttons
+    // No outcome yet - show Win/Lost buttons (direct save, no modal)
     if (!outcome) {
       return (
         <div className="flex items-center gap-2">
           <button
-            onClick={() => {
+            onClick={async () => {
               const quote = allQuotes.find(q => q.quoteId === quoteId);
-              setCurrentQuote(quote);
-              setWinForm({ wonAmount: '' });
-              setWinModalShow(true);
+              try {
+                await saveQuoteOutCome({
+                  quoteId: quote.quoteId,
+                  outcomeStatus: 'won'
+                });
+                await loadQuoteOutcome(quote.quoteId);
+              } catch (error) {
+                console.error('Error saving win outcome:', error);
+              }
             }}
             className="flex items-center gap-1 px-3 py-1 bg-green-50 text-green-700 rounded-lg text-xs font-medium hover:bg-green-100 transition-colors"
           >
             <CheckCircle size={14} />
-            Win
+            Won
           </button>
           <button
-            onClick={() => {
+            onClick={async () => {
               const quote = allQuotes.find(q => q.quoteId === quoteId);
-              setCurrentQuote(quote);
-              setLostForm({ lostReason: '', lostNote: '' });
-              setLostModalShow(true);
+              try {
+                await saveQuoteOutCome({
+                  quoteId: quote.quoteId,
+                  outcomeStatus: 'lost'
+                });
+                await loadQuoteOutcome(quote.quoteId);
+              } catch (error) {
+                console.error('Error saving lost outcome:', error);
+              }
             }}
             className="flex items-center gap-1 px-3 py-1 bg-red-50 text-red-700 rounded-lg text-xs font-medium hover:bg-red-100 transition-colors"
           >
@@ -128,43 +140,19 @@ function SalesPerson({ customerName }) {
 
     if (outcome.outcomeStatus === 'won') {
       return (
-        <div className="flex flex-col gap-1">
-          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-            <Award size={14} />
-            Won
-          </span>
-          {outcome.wonAmount > 0 && (
-            <span className="text-xs text-gray-600 font-semibold">
-              LKR {parseFloat(outcome.wonAmount).toLocaleString()}
-            </span>
-          )}
-          {outcome.createdDate && (
-            <span className="text-[10px] text-gray-400">
-              {new Date(outcome.createdDate).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })}
-            </span>
-          )}
-        </div>
+        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+          <Award size={14} />
+          Won
+        </span>
       );
     }
 
     if (outcome.outcomeStatus === 'lost') {
       return (
-        <div className="flex flex-col gap-1">
-          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
-            <AlertCircle size={14} />
-            Lost
-          </span>
-          {outcome.lostReason && (
-            <span className="text-xs text-gray-600">
-              {outcome.lostReason}
-            </span>
-          )}
-          {outcome.createdDate && (
-            <span className="text-[10px] text-gray-400">
-              {new Date(outcome.createdDate).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })}
-            </span>
-          )}
-        </div>
+        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+          <AlertCircle size={14} />
+          Lost
+        </span>
       );
     }
 
@@ -852,9 +840,11 @@ function SalesPerson({ customerName }) {
                     const typeIcon = getTypeIcon(quote.freightType);
                     const FreightIconComponent = freightIcon.icon;
                     const TypeIconComponent = typeIcon.icon;
+                    const outcomeStatus = quoteOutcomes[quote.quoteId]?.outcomeStatus;
+                    const rowBg = outcomeStatus === 'won' ? 'bg-green-50 hover:bg-green-100' : outcomeStatus === 'lost' ? 'bg-red-50 hover:bg-red-100' : 'hover:bg-gray-50';
 
                     return (
-                      <tr key={quote.quoteId} className="hover:bg-gray-50 transition-colors">
+                      <tr key={quote.quoteId} className={`${rowBg} transition-colors`}>
                         <td className="px-3 py-3">
                           <div className="flex items-center gap-2">
                             <div className={`w-8 h-8 rounded-lg ${freightIcon.bg} ${freightIcon.color} flex items-center justify-center flex-shrink-0`}>
@@ -1006,9 +996,11 @@ function SalesPerson({ customerName }) {
               const typeIcon = getTypeIcon(quote.freightType);
               const FreightIconComponent = freightIcon.icon;
               const TypeIconComponent = typeIcon.icon;
+              const mobileOutcomeStatus = quoteOutcomes[quote.quoteId]?.outcomeStatus;
+              const mobileBg = mobileOutcomeStatus === 'won' ? 'bg-green-50 border-green-200' : mobileOutcomeStatus === 'lost' ? 'bg-red-50 border-red-200' : 'bg-white border-gray-200';
 
               return (
-                <div key={quote.quoteId} className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 hover:shadow-md transition-shadow">
+                <div key={quote.quoteId} className={`rounded-lg shadow-sm border p-4 hover:shadow-md transition-shadow ${mobileBg}`}>
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex items-center gap-3">
                       <div className={`w-12 h-12 rounded-lg ${freightIcon.bg} ${freightIcon.color} flex items-center justify-center flex-shrink-0`}>
@@ -1241,60 +1233,7 @@ function SalesPerson({ customerName }) {
         </div>
       )}
 
-      {/* Win Modal */}
-      {winModalShow && currentQuote && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
-                <Award className="text-green-600" size={24} />
-              </div>
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900">Quote Won!</h3>
-                <p className="text-sm text-gray-500">Quote: {currentQuote.quoteNumber}</p>
-              </div>
-            </div>
-            
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Won Amount (LKR) <span className="text-red-500">*</span>
-              </label>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">
-                  LKR
-                </span>
-                <input
-                  type="number"
-                  value={winForm.wonAmount}
-                  onChange={(e) => setWinForm({ ...winForm, wonAmount: e.target.value })}
-                  placeholder="0.00"
-                  className="w-full pl-14 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                  step="0.01"
-                  min="0"
-                />
-              </div>
-            </div>
-
-            <div className="flex gap-3">
-              <button
-                onClick={() => {
-                  setWinModalShow(false);
-                  setCurrentQuote(null);
-                }}
-                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSaveWin}
-                className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
-              >
-                Save
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Win Modal removed - now saves directly on button click */}
 
       {/* Won Details Modal (Admin Only) */}
       {wonDetailsModalShow && wonDetailsQuote && (
@@ -1380,73 +1319,7 @@ function SalesPerson({ customerName }) {
         </div>
       )}
 
-      {/* Lost Modal */}
-      {lostModalShow && currentQuote && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
-                <AlertCircle className="text-red-600" size={24} />
-              </div>
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900">Quote Lost</h3>
-                <p className="text-sm text-gray-500">Quote: {currentQuote.quoteNumber}</p>
-              </div>
-            </div>
-            
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Reason <span className="text-red-500">*</span>
-              </label>
-              <select
-                value={lostForm.lostReason}
-                onChange={(e) => setLostForm({ ...lostForm, lostReason: e.target.value })}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
-              >
-                <option value="">Select reason...</option>
-                {lostReasons.map((reason) => (
-                  <option key={reason} value={reason}>
-                    {reason}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {lostForm.lostReason === 'Others' && (
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Note <span className="text-red-500">*</span>
-                </label>
-                <textarea
-                  value={lostForm.lostNote}
-                  onChange={(e) => setLostForm({ ...lostForm, lostNote: e.target.value })}
-                  placeholder="Please provide details..."
-                  rows="3"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent resize-none"
-                />
-              </div>
-            )}
-
-            <div className="flex gap-3">
-              <button
-                onClick={() => {
-                  setLostModalShow(false);
-                  setCurrentQuote(null);
-                }}
-                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSaveLost}
-                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
-              >
-                Save
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Lost Modal removed - outcome saved directly on button click */}
     </div>
   );
 }
