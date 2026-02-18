@@ -32,7 +32,22 @@ export default function InvoicesSec() {
     setLoading(true);
     try {
       const data = await fetchWonQuotes();
-      setWonQuotes(Array.isArray(data) ? data : []);
+      const quotes = Array.isArray(data) ? data : [];
+      setWonQuotes(quotes);
+
+      // Pre-load invoice entries for all won quotes so totals show immediately
+      const entriesMap = {};
+      await Promise.all(
+        quotes.map(async (q) => {
+          try {
+            const entries = await fetchInvoiceEntries(q.quoteId);
+            entriesMap[q.quoteId] = entries || [];
+          } catch {
+            entriesMap[q.quoteId] = [];
+          }
+        })
+      );
+      setInvoiceEntries(entriesMap);
     } catch (err) {
       console.error('Error loading won quotes:', err);
     } finally {
@@ -311,7 +326,7 @@ export default function InvoicesSec() {
                     <div className="truncate hidden lg:block">
                       <span className="text-xs text-slate-500">Invoice Total</span>
                       <p className="text-sm font-semibold text-emerald-700">
-                        {isExpanded && entries.length > 0 ? formatCurrency(total) : '—'}
+                        {total > 0 ? formatCurrency(total) : '—'}
                       </p>
                     </div>
                   </div>
