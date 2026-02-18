@@ -258,15 +258,15 @@ export default function DirectQuoteForm({ category, mode }) {
     }
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    
+  const handleSubmit = async (e, afterSave = 'none') => {
+    if (e) e.preventDefault();
+
     // Validate customer
     if (!formData.customer || formData.customer.trim() === '') {
       alert('Customer is required. Please enter a customer name.');
       return;
     }
-    
+
     const payload = {
       quoteId: formData.quoteId,
       quoteNumber: formData.quoteNumber,
@@ -295,11 +295,22 @@ export default function DirectQuoteForm({ category, mode }) {
         await updateQuote(payload);
         alert('Quote updated successfully!');
       } else {
-        const { quoteId, ...createPayload } = payload;
-        await createNewQuote(createPayload);
+        const { quoteId: _qId, ...createPayload } = payload;
+        const result = await createNewQuote(createPayload);
+        // Capture the new quoteId from the response
+        if (result?.quoteId) {
+          setFormData(prev => ({ ...prev, quoteId: result.quoteId }));
+        }
         alert('Quote created successfully!');
       }
-      navigate(-1);
+
+      if (afterSave === 'print') {
+        await handlePrintPDF();
+      } else if (afterSave === 'download') {
+        await handleDownloadPDF();
+      } else {
+        navigate(-1);
+      }
     } catch (error) {
       console.error('Error saving quote:', error);
       alert('Failed to save quote');
@@ -552,15 +563,31 @@ export default function DirectQuoteForm({ category, mode }) {
         {/* Terms & Conditions */}
         <TermsConditionsSection formData={formData} setFormData={setFormData} disabled={disabled} />
 
-        {/* Save Button */}
+        {/* Save Buttons */}
         {!disabled && (
-          <div className="flex justify-end mt-6">
+          <div className="flex justify-end gap-2 mt-6 flex-wrap">
             <button
               type="submit"
-              className="flex items-center gap-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              className="flex items-center gap-2 px-5 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 text-sm"
             >
-              <Save size={18} />
-              {quoteId ? 'Update Quote' : 'Save Quote'}
+              <Save size={16} />
+              {quoteId ? 'Update' : 'Save'}
+            </button>
+            <button
+              type="button"
+              onClick={() => handleSubmit(null, 'print')}
+              className="flex items-center gap-2 px-5 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
+            >
+              <Printer size={16} />
+              {quoteId ? 'Update & Print' : 'Save & Print'}
+            </button>
+            <button
+              type="button"
+              onClick={() => handleSubmit(null, 'download')}
+              className="flex items-center gap-2 px-5 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm"
+            >
+              <FileDown size={16} />
+              {quoteId ? 'Update & Download' : 'Save & Download'}
             </button>
           </div>
         )}

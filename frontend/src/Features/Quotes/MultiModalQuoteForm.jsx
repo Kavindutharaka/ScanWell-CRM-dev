@@ -216,15 +216,15 @@ export default function MultiModalQuoteForm() {
     }, 0);
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    
+  const handleSubmit = async (e, afterSave = 'none') => {
+    if (e) e.preventDefault();
+
     // Validate customer
     if (!formData.customer || formData.customer.trim() === '') {
       alert('Customer is required. Please enter a customer name.');
       return;
     }
-    
+
     const payload = {
       quoteNumber: formData.quoteNumber,
       freightCategory: 'multimodal',
@@ -253,10 +253,20 @@ export default function MultiModalQuoteForm() {
         await updateQuote(payload);
         alert('Quote updated successfully!');
       } else {
-        await createNewQuote(payload);
+        const result = await createNewQuote(payload);
+        if (result?.quoteId) {
+          setFormData(prev => ({ ...prev, quoteId: result.quoteId }));
+        }
         alert('Quote created successfully!');
       }
-      navigate(-1);
+
+      if (afterSave === 'print') {
+        await handlePrintPDF();
+      } else if (afterSave === 'download') {
+        await handleDownloadPDF();
+      } else {
+        navigate(-1);
+      }
     } catch (error) {
       console.error('Error saving quote:', error);
       alert('Failed to save quote');
@@ -455,13 +465,30 @@ export default function MultiModalQuoteForm() {
         <TermsConditionsSection formData={formData} setFormData={setFormData} disabled={isViewMode} />
 
         {!isViewMode && (
-          <div className="flex justify-end mt-6">
+          <div className="flex justify-end gap-3 mt-6">
             <button
-              type="submit"
-              className="flex items-center gap-2 px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+              type="button"
+              onClick={(e) => handleSubmit(e, 'none')}
+              className="flex items-center gap-2 px-6 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700"
             >
               <Save size={18} />
               {quoteId ? 'Update Quote' : 'Save Quote'}
+            </button>
+            <button
+              type="button"
+              onClick={(e) => handleSubmit(e, 'print')}
+              className="flex items-center gap-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            >
+              <Printer size={18} />
+              {quoteId ? 'Update & Print' : 'Save & Print'}
+            </button>
+            <button
+              type="button"
+              onClick={(e) => handleSubmit(e, 'download')}
+              className="flex items-center gap-2 px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+            >
+              <FileDown size={18} />
+              {quoteId ? 'Update & Download' : 'Save & Download'}
             </button>
           </div>
         )}

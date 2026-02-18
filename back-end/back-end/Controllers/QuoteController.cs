@@ -210,7 +210,8 @@ namespace back_end.Controllers
                     @Carriers, @Equipment, @CarrierOptions, @FreightCharges, @OtherCharges, @DestinationCharges,
                     @OriginHandling, @DestinationHandling, @TransitRoutes, @Routes,
                     @TotalTransitTime, @TermsConditions, @Status, @CreatedBy
-                );";
+                );
+                SELECT SCOPE_IDENTITY();";
 
             try
             {
@@ -247,8 +248,9 @@ namespace back_end.Controllers
                 cmd.Parameters.AddWithValue("@Status", quote.Status ?? "draft");
                 cmd.Parameters.AddWithValue("@CreatedBy", quote.CreatedBy);
 
-                cmd.ExecuteNonQuery();
-                return Ok("Quote created successfully.");
+                var newId = cmd.ExecuteScalar();
+                int newQuoteId = Convert.ToInt32(newId);
+                return Ok(new { message = "Quote created successfully.", quoteId = newQuoteId });
             }
             catch (Exception ex)
             {
