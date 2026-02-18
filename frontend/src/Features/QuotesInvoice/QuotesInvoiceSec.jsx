@@ -1,7 +1,7 @@
 // QuotesInvoiceSec.jsx - MINIMAL CHANGES - Only outcome fixes + Warehouse Quotes
 import { useState, useEffect, useCallback, useRef, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Search, Filter, Eye, Edit2, Trash2, Plane, Ship, Package, Container, Truck, Route as RouteIcon, Layers, MapPin, Calendar, User, DollarSign, ArrowRight, Award, CheckCircle, XCircle, AlertCircle, Warehouse, Send, ChevronLeft, ChevronRight, FileText } from 'lucide-react';
+import { Plus, Search, Filter, Eye, Edit2, Trash2, Plane, Ship, Package, Container, Truck, Route as RouteIcon, Layers, MapPin, Calendar, User, DollarSign, ArrowRight, Award, CheckCircle, XCircle, AlertCircle, Warehouse, Send, ChevronLeft, ChevronRight, FileText, ChevronDown, Check } from 'lucide-react';
 import { fetchQuotesPaged, fetchQuoteCounts, deleteQuote, fetchWareQuote, getSp, updateQuoteStatus } from '../../api/QuoteApi';
 import { fetchOutComeById, saveQuoteOutCome, updateWonDetails } from '../../api/QuotesOutComeApi';
 import { AuthContext } from '../../context/AuthContext';
@@ -15,8 +15,12 @@ export default function QuotesInvoiceSec({ modalOpen }) {
   const [warehouseQuotes, setWarehouseQuotes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterType, setFilterType] = useState('all');
-  const [filterCategory, setFilterCategory] = useState('all');
+  const [filterType, setFilterType] = useState([]);
+  const [filterCategory, setFilterCategory] = useState([]);
+  const [categoryDropdownOpen, setCategoryDropdownOpen] = useState(false);
+  const [typeDropdownOpen, setTypeDropdownOpen] = useState(false);
+  const categoryDropdownRef = useRef(null);
+  const typeDropdownRef = useRef(null);
   const [deleteModal, setDeleteModal] = useState({ show: false, quoteId: null, quoteNumber: '' });
   const [submitModal, setSubmitModal] = useState({ show: false, quoteId: null, quoteNumber: '' });
 
@@ -272,6 +276,42 @@ function SalesPerson({ customerName }) {
     loadQuotes();
   }, [currentPage, pageSize, debouncedSearch, filterCategory, filterType]);
 
+  // Close dropdowns when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (categoryDropdownRef.current && !categoryDropdownRef.current.contains(e.target)) {
+        setCategoryDropdownOpen(false);
+      }
+      if (typeDropdownRef.current && !typeDropdownRef.current.contains(e.target)) {
+        setTypeDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const toggleFilter = (setter, current, value) => {
+    if (current.includes(value)) {
+      setter(current.filter(v => v !== value));
+    } else {
+      setter([...current, value]);
+    }
+  };
+
+  const categoryOptions = [
+    { value: 'air', label: 'Air' },
+    { value: 'sea', label: 'Sea' },
+    { value: 'multimodal', label: 'MultiModal' },
+    { value: 'warehouse', label: 'Warehouse' }
+  ];
+
+  const typeOptions = [
+    { value: 'direct', label: 'Direct' },
+    { value: 'transit', label: 'Transit' },
+    { value: 'multimodal', label: 'MultiModal' },
+    { value: 'warehouse', label: 'Warehouse' }
+  ];
+
   // Load warehouse quotes and stats counts once on mount
   useEffect(() => {
     loadWarehouseQuotes();
@@ -281,7 +321,9 @@ function SalesPerson({ customerName }) {
   const loadQuotes = async () => {
     try {
       setLoading(true);
-      const result = await fetchQuotesPaged(currentPage, pageSize, debouncedSearch, filterCategory, filterType);
+      const categoryParam = filterCategory.length === 0 ? 'all' : filterCategory.join(',');
+      const typeParam = filterType.length === 0 ? 'all' : filterType.join(',');
+      const result = await fetchQuotesPaged(currentPage, pageSize, debouncedSearch, categoryParam, typeParam);
       setQuotes(result.data || []);
       setTotalCount(result.totalCount || 0);
 
@@ -665,28 +707,92 @@ function SalesPerson({ customerName }) {
           </div>
           <div className="flex items-center gap-2">
             <Filter className="text-gray-400" size={20} />
-            <select
-              value={filterCategory}
-              onChange={(e) => setFilterCategory(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-            >
-              <option value="all">All Categories</option>
-              <option value="air">Air</option>
-              <option value="sea">Sea</option>
-              <option value="multimodal">MultiModal</option>
-              <option value="warehouse">Warehouse</option>
-            </select>
-            <select
-              value={filterType}
-              onChange={(e) => setFilterType(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-            >
-              <option value="all">All Types</option>
-              <option value="direct">Direct</option>
-              <option value="transit">Transit</option>
-              <option value="multimodal">MultiModal</option>
-              <option value="warehouse">Warehouse</option>
-            </select>
+
+            {/* Category Multi-Select Dropdown */}
+            <div className="relative" ref={categoryDropdownRef}>
+              <button
+                type="button"
+                onClick={() => { setCategoryDropdownOpen(!categoryDropdownOpen); setTypeDropdownOpen(false); }}
+                className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:border-teal-400 focus:ring-2 focus:ring-teal-500 focus:border-transparent bg-white min-w-[160px] text-left"
+              >
+                <span className="text-sm text-gray-700 truncate flex-1">
+                  {filterCategory.length === 0
+                    ? 'All Categories'
+                    : filterCategory.length === categoryOptions.length
+                    ? 'All Categories'
+                    : `${filterCategory.length} Selected`}
+                </span>
+                <ChevronDown size={16} className={`text-gray-400 transition-transform ${categoryDropdownOpen ? 'rotate-180' : ''}`} />
+              </button>
+              {categoryDropdownOpen && (
+                <div className="absolute top-full left-0 mt-1 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-50">
+                  <div
+                    className="flex items-center gap-2 px-3 py-2 hover:bg-gray-50 cursor-pointer border-b border-gray-100"
+                    onClick={() => setFilterCategory([])}
+                  >
+                    <div className={`w-4 h-4 rounded border flex items-center justify-center ${filterCategory.length === 0 ? 'bg-teal-600 border-teal-600' : 'border-gray-300'}`}>
+                      {filterCategory.length === 0 && <Check size={12} className="text-white" />}
+                    </div>
+                    <span className="text-sm text-gray-700">All Categories</span>
+                  </div>
+                  {categoryOptions.map(opt => (
+                    <div
+                      key={opt.value}
+                      className="flex items-center gap-2 px-3 py-2 hover:bg-gray-50 cursor-pointer"
+                      onClick={() => toggleFilter(setFilterCategory, filterCategory, opt.value)}
+                    >
+                      <div className={`w-4 h-4 rounded border flex items-center justify-center ${filterCategory.includes(opt.value) ? 'bg-teal-600 border-teal-600' : 'border-gray-300'}`}>
+                        {filterCategory.includes(opt.value) && <Check size={12} className="text-white" />}
+                      </div>
+                      <span className="text-sm text-gray-700">{opt.label}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Type Multi-Select Dropdown */}
+            <div className="relative" ref={typeDropdownRef}>
+              <button
+                type="button"
+                onClick={() => { setTypeDropdownOpen(!typeDropdownOpen); setCategoryDropdownOpen(false); }}
+                className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:border-teal-400 focus:ring-2 focus:ring-teal-500 focus:border-transparent bg-white min-w-[140px] text-left"
+              >
+                <span className="text-sm text-gray-700 truncate flex-1">
+                  {filterType.length === 0
+                    ? 'All Types'
+                    : filterType.length === typeOptions.length
+                    ? 'All Types'
+                    : `${filterType.length} Selected`}
+                </span>
+                <ChevronDown size={16} className={`text-gray-400 transition-transform ${typeDropdownOpen ? 'rotate-180' : ''}`} />
+              </button>
+              {typeDropdownOpen && (
+                <div className="absolute top-full left-0 mt-1 w-44 bg-white border border-gray-200 rounded-lg shadow-lg z-50">
+                  <div
+                    className="flex items-center gap-2 px-3 py-2 hover:bg-gray-50 cursor-pointer border-b border-gray-100"
+                    onClick={() => setFilterType([])}
+                  >
+                    <div className={`w-4 h-4 rounded border flex items-center justify-center ${filterType.length === 0 ? 'bg-teal-600 border-teal-600' : 'border-gray-300'}`}>
+                      {filterType.length === 0 && <Check size={12} className="text-white" />}
+                    </div>
+                    <span className="text-sm text-gray-700">All Types</span>
+                  </div>
+                  {typeOptions.map(opt => (
+                    <div
+                      key={opt.value}
+                      className="flex items-center gap-2 px-3 py-2 hover:bg-gray-50 cursor-pointer"
+                      onClick={() => toggleFilter(setFilterType, filterType, opt.value)}
+                    >
+                      <div className={`w-4 h-4 rounded border flex items-center justify-center ${filterType.includes(opt.value) ? 'bg-teal-600 border-teal-600' : 'border-gray-300'}`}>
+                        {filterType.includes(opt.value) && <Check size={12} className="text-white" />}
+                      </div>
+                      <span className="text-sm text-gray-700">{opt.label}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>

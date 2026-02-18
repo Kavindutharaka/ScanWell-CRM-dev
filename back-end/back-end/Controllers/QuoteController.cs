@@ -72,14 +72,42 @@ namespace back_end.Controllers
 
                 if (!string.IsNullOrEmpty(category) && category != "all")
                 {
-                    conditions.Add("q.FreightCategory = @Category");
-                    parameters.Add(new SqlParameter("@Category", category));
+                    var categoryValues = category.Split(',', StringSplitOptions.RemoveEmptyEntries);
+                    if (categoryValues.Length == 1)
+                    {
+                        conditions.Add("q.FreightCategory = @Category");
+                        parameters.Add(new SqlParameter("@Category", categoryValues[0]));
+                    }
+                    else
+                    {
+                        var catParams = new List<string>();
+                        for (int i = 0; i < categoryValues.Length; i++)
+                        {
+                            catParams.Add($"@Cat{i}");
+                            parameters.Add(new SqlParameter($"@Cat{i}", categoryValues[i].Trim()));
+                        }
+                        conditions.Add($"q.FreightCategory IN ({string.Join(",", catParams)})");
+                    }
                 }
 
                 if (!string.IsNullOrEmpty(type) && type != "all")
                 {
-                    conditions.Add("q.FreightType = @Type");
-                    parameters.Add(new SqlParameter("@Type", type));
+                    var typeValues = type.Split(',', StringSplitOptions.RemoveEmptyEntries);
+                    if (typeValues.Length == 1)
+                    {
+                        conditions.Add("q.FreightType = @Type");
+                        parameters.Add(new SqlParameter("@Type", typeValues[0]));
+                    }
+                    else
+                    {
+                        var typeParams = new List<string>();
+                        for (int i = 0; i < typeValues.Length; i++)
+                        {
+                            typeParams.Add($"@Typ{i}");
+                            parameters.Add(new SqlParameter($"@Typ{i}", typeValues[i].Trim()));
+                        }
+                        conditions.Add($"q.FreightType IN ({string.Join(",", typeParams)})");
+                    }
                 }
 
                 string whereClause = conditions.Count > 0 ? "WHERE " + string.Join(" AND ", conditions) : "";
