@@ -668,18 +668,28 @@ namespace back_end.Controllers
 
         // ====================================================================
         // 10. QUOTE OUTCOMES (won/lost from quote_outcomes table)
+        //     totalWonAmount now comes from invoice_entries (not won_amount)
+        //     totalInvoiceAmount = sum of all invoice entries for won quotes
+        //     Combined with RFQ revenue = total deals amount
         // ====================================================================
         private object GetQuoteOutcomes(DateTime dtFrom, DateTime dtTo, long? empId, bool isAdmin)
         {
-            // quote_outcomes links to Quotes via quote_id
-            // Filter by quote's CreatedDate within date range
             string ownerFilter = (!isAdmin && empId.HasValue) ? " AND q.CreatedBy = @EmpId" : "";
 
             string query = $@"
                 SELECT
                     COUNT(CASE WHEN qo.outcome_status = 'won' THEN 1 END) AS wonQuotes,
                     COUNT(CASE WHEN qo.outcome_status = 'lost' THEN 1 END) AS lostQuotes,
-                    ISNULL(SUM(CASE WHEN qo.outcome_status = 'won' THEN qo.won_amount ELSE 0 END), 0) AS totalWonAmount
+                    ISNULL((
+                        SELECT SUM(ie.amount)
+                        FROM invoice_entries ie
+                        INNER JOIN quote_outcomes qo2 ON ie.quote_id = qo2.quote_id
+                        INNER JOIN [dbo].[Quotes] q2 ON qo2.quote_id = q2.QuoteId
+                        WHERE qo2.outcome_status = 'won'
+                          AND CAST(ie.created_at AS DATE) >= @DateFrom
+                          AND CAST(ie.created_at AS DATE) <= @DateTo
+                          {ownerFilter.Replace("q.", "q2.")}
+                    ), 0) AS totalInvoiceAmount
                 FROM quote_outcomes qo
                 INNER JOIN [dbo].[Quotes] q ON qo.quote_id = q.QuoteId
                 WHERE CAST(qo.created_date AS DATE) >= @DateFrom
@@ -704,7 +714,7 @@ namespace back_end.Controllers
                             {
                                 wonQuotes = Convert.ToInt32(reader["wonQuotes"]),
                                 lostQuotes = Convert.ToInt32(reader["lostQuotes"]),
-                                totalWonAmount = Convert.ToDecimal(reader["totalWonAmount"])
+                                totalWonAmount = Convert.ToDecimal(reader["totalInvoiceAmount"])
                             };
                         }
                     }

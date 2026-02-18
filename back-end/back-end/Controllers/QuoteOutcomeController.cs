@@ -98,15 +98,7 @@ namespace back_end.Controllers
             }
             catch (Exception ex)
             {
-                Console.WriteLine("===== DEBUG QuoteOutcome Error =====");
-                Console.WriteLine($"QuoteId: {model.QuoteId}");
-                Console.WriteLine($"OutcomeStatus: {model.OutcomeStatus}");
-                Console.WriteLine($"Exception: {ex.Message}");
-                Console.WriteLine($"StackTrace: {ex.StackTrace}");
-                if (ex.InnerException != null)
-                    Console.WriteLine($"InnerException: {ex.InnerException.Message}");
-                Console.WriteLine("===== END DEBUG =====");
-                return StatusCode(500, new { message = "Server error: " + ex.Message, detail = ex.InnerException?.Message, stack = ex.StackTrace });
+                return StatusCode(500, new { message = "Server error: " + ex.Message });
             }
         }
 

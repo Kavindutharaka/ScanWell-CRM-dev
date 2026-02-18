@@ -22,6 +22,7 @@ import Profile from './Features/Profile/Profile';
 import Quotes from './Features/Quotes/Quotes';
 import WarehouseQuoteView from './Features/Quotes/WarehouseQuoteView';
 import Reports from './Features/Reports/Reports';
+import Invoices from './Features/Invoices/Invoices';
 
 function App() {
   return (
@@ -40,6 +41,7 @@ function App() {
             <Route path="/quotes" element={<Quotes/>} />
             <Route path="/rates" element={<Rates />} />
             <Route path="/rfq" element={<RFQ />} />
+            <Route path="/invoices" element={<Invoices />} />
             <Route path="/leads" element={<LeadPage />} />
             <Route path="/accounts" element={<Account />} />
             <Route path="/sales-plans" element={<Activities />} />

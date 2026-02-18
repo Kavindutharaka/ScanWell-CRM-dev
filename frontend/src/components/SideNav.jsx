@@ -21,7 +21,8 @@ import {
   Info,
   ChartLine,
   Shield,
-  Globe
+  Globe,
+  ClipboardCheck
 } from "lucide-react";
 import { AuthContext } from "../context/AuthContext";
 
@@ -84,6 +85,12 @@ export default function SideNav({ isOpen, onClose, scrollBottom = false }) {
       path: "/quotes-invoices",
       icon: Receipt,
       label: "Quotes",
+      permissionKey: "QuotesView"
+    },
+    {
+      path: "/invoices",
+      icon: ClipboardCheck,
+      label: "Invoices",
       permissionKey: "QuotesView"
     },
     {
