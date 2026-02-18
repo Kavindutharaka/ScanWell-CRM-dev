@@ -15,9 +15,11 @@ export const fetchOutComeById = async (quoteId) => {
 
 export const saveQuoteOutCome = async (payload) => {
   try {
+    console.log('DEBUG: Sending payload:', JSON.stringify(payload));
     const response = await axios.post(`${BASE_URL}/QuoteOutcome`, payload);
     return response.data;
   } catch (error) {
+    console.error('DEBUG: Server response:', error.response?.data);
     throw new Error('Failed to save quote outcome');
   }
 };
