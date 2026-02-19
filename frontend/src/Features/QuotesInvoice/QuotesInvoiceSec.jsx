@@ -1,10 +1,12 @@
 // QuotesInvoiceSec.jsx - MINIMAL CHANGES - Only outcome fixes + Warehouse Quotes
 import { useState, useEffect, useCallback, useRef, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Search, Filter, Eye, Edit2, Trash2, Plane, Ship, Package, Container, Truck, Route as RouteIcon, Layers, MapPin, Calendar, User, DollarSign, ArrowRight, Award, CheckCircle, XCircle, AlertCircle, Warehouse, Send, ChevronLeft, ChevronRight, FileText, ChevronDown, Check } from 'lucide-react';
+import { Plus, Search, Eye, Edit2, Trash2, Plane, Ship, Package, Container, Truck, Route as RouteIcon, Layers, MapPin, Calendar, User, DollarSign, ArrowRight, Award, CheckCircle, XCircle, AlertCircle, Warehouse, Send, ChevronLeft, ChevronRight, FileText } from 'lucide-react';
 import { fetchQuotesPaged, fetchQuoteCounts, deleteQuote, fetchWareQuote, getSp, updateQuoteStatus } from '../../api/QuoteApi';
 import { fetchOutComeById, saveQuoteOutCome, updateWonDetails } from '../../api/QuotesOutComeApi';
 import { AuthContext } from '../../context/AuthContext';
+import FilterPanel from '../../components/filters/FilterPanel';
+import useFilters from '../../components/filters/useFilters';
 import axios from 'axios';
 
 export default function QuotesInvoiceSec({ modalOpen }) {
@@ -15,12 +17,7 @@ export default function QuotesInvoiceSec({ modalOpen }) {
   const [warehouseQuotes, setWarehouseQuotes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterType, setFilterType] = useState([]);
-  const [filterCategory, setFilterCategory] = useState([]);
-  const [categoryDropdownOpen, setCategoryDropdownOpen] = useState(false);
-  const [typeDropdownOpen, setTypeDropdownOpen] = useState(false);
-  const categoryDropdownRef = useRef(null);
-  const typeDropdownRef = useRef(null);
+  const { filters, setFilter, clearAllFilters, getApiParams, hasActiveFilters } = useFilters(['category', 'type', 'status']);
   const [deleteModal, setDeleteModal] = useState({ show: false, quoteId: null, quoteNumber: '' });
   const [submitModal, setSubmitModal] = useState({ show: false, quoteId: null, quoteNumber: '' });
 
@@ -269,47 +266,35 @@ function SalesPerson({ customerName }) {
   // Reset page when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [filterType, filterCategory]);
+  }, [filters]);
 
   // Load quotes when page, filters, or debounced search changes
   useEffect(() => {
     loadQuotes();
-  }, [currentPage, pageSize, debouncedSearch, filterCategory, filterType]);
+  }, [currentPage, pageSize, debouncedSearch, filters]);
 
-  // Close dropdowns when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (e) => {
-      if (categoryDropdownRef.current && !categoryDropdownRef.current.contains(e.target)) {
-        setCategoryDropdownOpen(false);
-      }
-      if (typeDropdownRef.current && !typeDropdownRef.current.contains(e.target)) {
-        setTypeDropdownOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  const toggleFilter = (setter, current, value) => {
-    if (current.includes(value)) {
-      setter(current.filter(v => v !== value));
-    } else {
-      setter([...current, value]);
-    }
-  };
-
-  const categoryOptions = [
-    { value: 'air', label: 'Air' },
-    { value: 'sea', label: 'Sea' },
-    { value: 'multimodal', label: 'MultiModal' },
-    { value: 'warehouse', label: 'Warehouse' }
-  ];
-
-  const typeOptions = [
-    { value: 'direct', label: 'Direct' },
-    { value: 'transit', label: 'Transit' },
-    { value: 'multimodal', label: 'MultiModal' },
-    { value: 'warehouse', label: 'Warehouse' }
+  // Filter configuration for Quotes
+  const quoteFilterConfig = [
+    { key: 'category', label: 'Category', allLabel: 'All Categories', minWidth: '160px', options: [
+      { value: 'air', label: 'Air' },
+      { value: 'sea', label: 'Sea' },
+      { value: 'multimodal', label: 'MultiModal' },
+      { value: 'warehouse', label: 'Warehouse' }
+    ]},
+    { key: 'type', label: 'Type', allLabel: 'All Types', minWidth: '140px', options: [
+      { value: 'direct', label: 'Direct' },
+      { value: 'transit', label: 'Transit' },
+      { value: 'multimodal', label: 'MultiModal' },
+      { value: 'warehouse', label: 'Warehouse' }
+    ]},
+    { key: 'status', label: 'Status', allLabel: 'All Statuses', minWidth: '150px', options: [
+      { value: 'draft', label: 'Draft' },
+      { value: 'submitted', label: 'Submitted' },
+      { value: 'pending', label: 'Pending' },
+      { value: 'approved', label: 'Approved' },
+      { value: 'rejected', label: 'Rejected' },
+      { value: 'active', label: 'Active' }
+    ]}
   ];
 
   // Load warehouse quotes and stats counts once on mount
@@ -321,9 +306,10 @@ function SalesPerson({ customerName }) {
   const loadQuotes = async () => {
     try {
       setLoading(true);
-      const categoryParam = filterCategory.length === 0 ? 'all' : filterCategory.join(',');
-      const typeParam = filterType.length === 0 ? 'all' : filterType.join(',');
-      const result = await fetchQuotesPaged(currentPage, pageSize, debouncedSearch, categoryParam, typeParam);
+      const apiFilters = getApiParams();
+      const categoryParam = apiFilters.category || 'all';
+      const typeParam = apiFilters.type || 'all';
+      const result = await fetchQuotesPaged(currentPage, pageSize, debouncedSearch, categoryParam, typeParam, apiFilters);
       setQuotes(result.data || []);
       setTotalCount(result.totalCount || 0);
 
@@ -657,8 +643,8 @@ function SalesPerson({ customerName }) {
     const matchesSearch = !debouncedSearch ||
       quote.quoteNumber?.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
       quote.customer?.toLowerCase().includes(debouncedSearch.toLowerCase());
-    const matchesTypeFilter = filterType === 'all' || quote.freightType === filterType;
-    const matchesCategoryFilter = filterCategory === 'all' || quote.freightCategory === filterCategory;
+    const matchesTypeFilter = filters.type.length === 0 || filters.type.includes(quote.freightType);
+    const matchesCategoryFilter = filters.category.length === 0 || filters.category.includes(quote.freightCategory);
     return matchesSearch && matchesTypeFilter && matchesCategoryFilter;
   });
 
@@ -705,95 +691,13 @@ function SalesPerson({ customerName }) {
               className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
             />
           </div>
-          <div className="flex items-center gap-2">
-            <Filter className="text-gray-400" size={20} />
-
-            {/* Category Multi-Select Dropdown */}
-            <div className="relative" ref={categoryDropdownRef}>
-              <button
-                type="button"
-                onClick={() => { setCategoryDropdownOpen(!categoryDropdownOpen); setTypeDropdownOpen(false); }}
-                className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:border-teal-400 focus:ring-2 focus:ring-teal-500 focus:border-transparent bg-white min-w-[160px] text-left"
-              >
-                <span className="text-sm text-gray-700 truncate flex-1">
-                  {filterCategory.length === 0
-                    ? 'All Categories'
-                    : filterCategory.length === categoryOptions.length
-                    ? 'All Categories'
-                    : `${filterCategory.length} Selected`}
-                </span>
-                <ChevronDown size={16} className={`text-gray-400 transition-transform ${categoryDropdownOpen ? 'rotate-180' : ''}`} />
-              </button>
-              {categoryDropdownOpen && (
-                <div className="absolute top-full left-0 mt-1 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-50">
-                  <div
-                    className="flex items-center gap-2 px-3 py-2 hover:bg-gray-50 cursor-pointer border-b border-gray-100"
-                    onClick={() => setFilterCategory([])}
-                  >
-                    <div className={`w-4 h-4 rounded border flex items-center justify-center ${filterCategory.length === 0 ? 'bg-teal-600 border-teal-600' : 'border-gray-300'}`}>
-                      {filterCategory.length === 0 && <Check size={12} className="text-white" />}
-                    </div>
-                    <span className="text-sm text-gray-700">All Categories</span>
-                  </div>
-                  {categoryOptions.map(opt => (
-                    <div
-                      key={opt.value}
-                      className="flex items-center gap-2 px-3 py-2 hover:bg-gray-50 cursor-pointer"
-                      onClick={() => toggleFilter(setFilterCategory, filterCategory, opt.value)}
-                    >
-                      <div className={`w-4 h-4 rounded border flex items-center justify-center ${filterCategory.includes(opt.value) ? 'bg-teal-600 border-teal-600' : 'border-gray-300'}`}>
-                        {filterCategory.includes(opt.value) && <Check size={12} className="text-white" />}
-                      </div>
-                      <span className="text-sm text-gray-700">{opt.label}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Type Multi-Select Dropdown */}
-            <div className="relative" ref={typeDropdownRef}>
-              <button
-                type="button"
-                onClick={() => { setTypeDropdownOpen(!typeDropdownOpen); setCategoryDropdownOpen(false); }}
-                className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:border-teal-400 focus:ring-2 focus:ring-teal-500 focus:border-transparent bg-white min-w-[140px] text-left"
-              >
-                <span className="text-sm text-gray-700 truncate flex-1">
-                  {filterType.length === 0
-                    ? 'All Types'
-                    : filterType.length === typeOptions.length
-                    ? 'All Types'
-                    : `${filterType.length} Selected`}
-                </span>
-                <ChevronDown size={16} className={`text-gray-400 transition-transform ${typeDropdownOpen ? 'rotate-180' : ''}`} />
-              </button>
-              {typeDropdownOpen && (
-                <div className="absolute top-full left-0 mt-1 w-44 bg-white border border-gray-200 rounded-lg shadow-lg z-50">
-                  <div
-                    className="flex items-center gap-2 px-3 py-2 hover:bg-gray-50 cursor-pointer border-b border-gray-100"
-                    onClick={() => setFilterType([])}
-                  >
-                    <div className={`w-4 h-4 rounded border flex items-center justify-center ${filterType.length === 0 ? 'bg-teal-600 border-teal-600' : 'border-gray-300'}`}>
-                      {filterType.length === 0 && <Check size={12} className="text-white" />}
-                    </div>
-                    <span className="text-sm text-gray-700">All Types</span>
-                  </div>
-                  {typeOptions.map(opt => (
-                    <div
-                      key={opt.value}
-                      className="flex items-center gap-2 px-3 py-2 hover:bg-gray-50 cursor-pointer"
-                      onClick={() => toggleFilter(setFilterType, filterType, opt.value)}
-                    >
-                      <div className={`w-4 h-4 rounded border flex items-center justify-center ${filterType.includes(opt.value) ? 'bg-teal-600 border-teal-600' : 'border-gray-300'}`}>
-                        {filterType.includes(opt.value) && <Check size={12} className="text-white" />}
-                      </div>
-                      <span className="text-sm text-gray-700">{opt.label}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
+          <FilterPanel
+            filterConfig={quoteFilterConfig}
+            filters={filters}
+            onFilterChange={setFilter}
+            onClearAll={clearAllFilters}
+            accentColor="teal"
+          />
         </div>
       </div>
 
@@ -874,11 +778,11 @@ function SalesPerson({ customerName }) {
           <Package className="w-16 h-16 text-gray-300 mx-auto mb-4" />
           <h3 className="text-lg font-semibold text-gray-700 mb-2">No quotes found</h3>
           <p className="text-gray-500 mb-4">
-            {searchTerm || filterType !== 'all' || filterCategory !== 'all'
+            {searchTerm || hasActiveFilters
               ? 'Try adjusting your search or filters'
               : 'Create your first quote to get started'}
           </p>
-          {!searchTerm && filterType === 'all' && filterCategory === 'all' && (
+          {!searchTerm && !hasActiveFilters && (
             <button
               onClick={() => modalOpen('quote')}
               className="inline-flex items-center gap-2 px-6 py-2.5 bg-teal-600 text-white rounded-lg hover:bg-teal-700"

@@ -18,8 +18,9 @@ import {
 } from "lucide-react";
 import ActivitiesDetails from "./ActivitiesDetails";
 import ActivityView from "./ActivityView";
+import FilterPanel from "../../components/filters/FilterPanel";
 
-export default function ActivitiesSec({ modalOpen, onEdit, activities, setActivities, loadActivities, loading, isAdmin, page, setPage, pageSize, setPageSize, totalCount, totalPages, searchQuery, setSearchQuery }) {
+export default function ActivitiesSec({ modalOpen, onEdit, activities, setActivities, loadActivities, loading, isAdmin, page, setPage, pageSize, setPageSize, totalCount, totalPages, searchQuery, setSearchQuery, filters, setFilter, clearAllFilters, filterConfig }) {
   const [localSearch, setLocalSearch] = useState(searchQuery || "");
   const [viewCalendar, setViewCalender] = useState(false);
   const debounceRef = useRef(null);
@@ -121,7 +122,7 @@ export default function ActivitiesSec({ modalOpen, onEdit, activities, setActivi
         </div>
 
         {/* Action Bar */}
-        <div className={`flex flex-col sm:flex-row gap-4 py-4 border-t border-slate-200 mb-6 ${!loading ? 'animate-fadeInUp' : 'opacity-0'}`} style={{ animationDelay: '200ms', animationFillMode: 'both' }}>
+        <div className={`flex flex-col sm:flex-row gap-4 py-4 border-t border-slate-200 mb-6 relative z-10 ${!loading ? 'animate-fadeInUp' : 'opacity-0'}`} style={{ animationDelay: '200ms', animationFillMode: 'both' }}>
           <div className="flex flex-wrap items-center gap-3">
             {/* New Activity Button */}
             <button 
@@ -132,7 +133,16 @@ export default function ActivitiesSec({ modalOpen, onEdit, activities, setActivi
               <span>New Activity</span>
             </button>
 
-            {/* Filter Button - hidden */}
+            {/* Multi-Select Filters */}
+            {filterConfig && (
+              <FilterPanel
+                filterConfig={filterConfig}
+                filters={filters}
+                onFilterChange={setFilter}
+                onClearAll={clearAllFilters}
+                accentColor="blue"
+              />
+            )}
           </div>
 
           {/* View Activity Button */}

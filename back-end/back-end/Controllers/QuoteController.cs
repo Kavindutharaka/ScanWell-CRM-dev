@@ -53,7 +53,7 @@ namespace back_end.Controllers
 
         // GET: api/quote/quote/paged?page=1&pageSize=10&search=&category=all&type=all
         [HttpGet, Route("quote/paged")]
-        public ActionResult GetPagedQuotes(int page = 1, int pageSize = 10, string search = "", string category = "all", string type = "all")
+        public ActionResult GetPagedQuotes(int page = 1, int pageSize = 10, string search = "", string category = "all", string type = "all", string status = "all")
         {
             try
             {
@@ -107,6 +107,26 @@ namespace back_end.Controllers
                             parameters.Add(new SqlParameter($"@Typ{i}", typeValues[i].Trim()));
                         }
                         conditions.Add($"q.FreightType IN ({string.Join(",", typeParams)})");
+                    }
+                }
+
+                if (!string.IsNullOrEmpty(status) && status != "all")
+                {
+                    var statusValues = status.Split(',', StringSplitOptions.RemoveEmptyEntries);
+                    if (statusValues.Length == 1)
+                    {
+                        conditions.Add("q.Status = @Status");
+                        parameters.Add(new SqlParameter("@Status", statusValues[0]));
+                    }
+                    else
+                    {
+                        var statusParams = new List<string>();
+                        for (int i = 0; i < statusValues.Length; i++)
+                        {
+                            statusParams.Add($"@Stat{i}");
+                            parameters.Add(new SqlParameter($"@Stat{i}", statusValues[i].Trim()));
+                        }
+                        conditions.Add($"q.Status IN ({string.Join(",", statusParams)})");
                     }
                 }
 

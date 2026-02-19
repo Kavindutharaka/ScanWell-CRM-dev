@@ -5,6 +5,7 @@ import ActivitiesSec from "./ActivitiesSec";
 import ActivitiesForm from "./ActivitiesForm";
 import { fetchActivities, fetchbyEmpId, fetchFullName } from "../../api/ActivityApi";
 import { AuthContext } from "../../context/AuthContext";
+import useFilters from "../../components/filters/useFilters";
 
 import {
   Phone,
@@ -40,6 +41,29 @@ export default function Activities() {
     activity_id: 0
   });
   const [userDetails, setUserDetails] = useState(null);
+
+  // Filters
+  const { filters, setFilter, clearAllFilters, getApiParams } = useFilters(['activityType', 'status']);
+
+  const activityFilterConfig = [
+    { key: 'activityType', label: 'Type', allLabel: 'All Types', minWidth: '150px', options: [
+      { value: 'call', label: 'Phone Call' },
+      { value: 'email', label: 'Email' },
+      { value: 'meeting', label: 'Meeting' },
+      { value: 'follow-up', label: 'Follow-up' },
+      { value: 'presentation', label: 'Presentation' },
+      { value: 'site-visit', label: 'Site Visit' },
+      { value: 'other', label: 'Other' }
+    ]},
+    { key: 'status', label: 'Status', allLabel: 'All Statuses', minWidth: '150px', options: [
+      { value: 'planned', label: 'Planned' },
+      { value: 'in-progress', label: 'In Progress' },
+      { value: 'completed', label: 'Completed' },
+      { value: 'cancelled', label: 'Cancelled' },
+      { value: 'rescheduled', label: 'Rescheduled' },
+      { value: 'overdue', label: 'Overdue' }
+    ]}
+  ];
 
   useEffect(() => {
     if (user) {
@@ -120,20 +144,21 @@ export default function Activities() {
     if (userDetails) {
       loadActivities();
     }
-  }, [permission, userDetails, page, pageSize, searchQuery]);
+  }, [permission, userDetails, page, pageSize, searchQuery, filters]);
 
   const loadActivities = async () => {
     setLoading(true);
     setError('');
     let result;
     try {
+      const apiFilters = getApiParams();
       if (permission?.IsAdmin) {
-        result = await fetchActivities(page, pageSize, searchQuery);
+        result = await fetchActivities(page, pageSize, searchQuery, apiFilters);
       } else {
         if (!userDetails?.emp_id) {
           throw new Error('Employee ID not available');
         }
-        result = await fetchbyEmpId(userDetails.emp_id, page, pageSize, searchQuery);
+        result = await fetchbyEmpId(userDetails.emp_id, page, pageSize, searchQuery, apiFilters);
       }
 
       const rawData = result.data || [];
@@ -319,6 +344,10 @@ export default function Activities() {
               totalPages={totalPages}
               searchQuery={searchQuery}
               setSearchQuery={setSearchQuery}
+              filters={filters}
+              setFilter={setFilter}
+              clearAllFilters={clearAllFilters}
+              filterConfig={activityFilterConfig}
             />
           )}
         </main>

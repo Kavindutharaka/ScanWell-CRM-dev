@@ -17,8 +17,9 @@ import {
   Building
 } from "lucide-react";
 import AccountsDetails from "./AccountsDetails";
+import FilterPanel from "../../components/filters/FilterPanel";
 
-export default function AccountSec({ modalOpen, setSelectedAccount, error, accounts, loadAccounts, page, setPage, pageSize, setPageSize, totalCount, totalPages, searchQuery, setSearchQuery }) {
+export default function AccountSec({ modalOpen, setSelectedAccount, error, accounts, loadAccounts, page, setPage, pageSize, setPageSize, totalCount, totalPages, searchQuery, setSearchQuery, filters, setFilter, clearAllFilters, filterConfig }) {
   const [loading, setLoading] = useState(true);
   const [localSearch, setLocalSearch] = useState(searchQuery || "");
   const debounceRef = useRef(null);
@@ -134,15 +135,16 @@ export default function AccountSec({ modalOpen, setSelectedAccount, error, accou
               <span>New Account</span>
             </button>
 
-            {/* Filter Button */}
-            {/* <button 
-              className="flex items-center gap-2 px-3 py-2.5 bg-white border border-slate-300 rounded-lg text-sm font-medium hover:bg-slate-50 transition-all duration-200 shadow-sm"
-              title="Filter accounts"
-            >
-              <Filter className="w-4 h-4 text-slate-600" />
-              <span>Filter</span>
-              <ChevronDown className="w-4 h-4 text-slate-400" />
-            </button> */}
+            {/* Multi-Select Filters */}
+            {filterConfig && (
+              <FilterPanel
+                filterConfig={filterConfig}
+                filters={filters}
+                onFilterChange={setFilter}
+                onClearAll={clearAllFilters}
+                accentColor="purple"
+              />
+            )}
           </div>
 
           {/* Search */}

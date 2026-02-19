@@ -23,30 +23,74 @@ namespace back_end.Controllers
         }
 
         [HttpGet]
-        public ActionResult getActivities([FromQuery] int page = 1, [FromQuery] int pageSize = 25, [FromQuery] string search = "")
+        public ActionResult getActivities([FromQuery] int page = 1, [FromQuery] int pageSize = 25, [FromQuery] string search = "", [FromQuery] string activityType = "all", [FromQuery] string status = "all")
         {
             int offset = (page - 1) * pageSize;
 
-            string searchFilter = "";
+            var conditions = new List<string>();
+            var parameters = new List<SqlParameter>();
+
             if (!string.IsNullOrWhiteSpace(search))
             {
-                searchFilter = @" WHERE (a.[activity_name] LIKE @search
+                conditions.Add(@"(a.[activity_name] LIKE @search
                     OR a.[activity_type] LIKE @search
                     OR a.[status] LIKE @search
                     OR a.[related_account] LIKE @search
                     OR e.[fname] LIKE @search
-                    OR e.[lname] LIKE @search) ";
+                    OR e.[lname] LIKE @search)");
+                parameters.Add(new SqlParameter("@search", $"%{search}%"));
+            }
+
+            if (!string.IsNullOrEmpty(activityType) && activityType != "all")
+            {
+                var values = activityType.Split(',', StringSplitOptions.RemoveEmptyEntries);
+                if (values.Length == 1)
+                {
+                    conditions.Add("a.[activity_type] = @activityType");
+                    parameters.Add(new SqlParameter("@activityType", values[0].Trim()));
+                }
+                else
+                {
+                    var paramNames = new List<string>();
+                    for (int i = 0; i < values.Length; i++)
+                    {
+                        paramNames.Add($"@at{i}");
+                        parameters.Add(new SqlParameter($"@at{i}", values[i].Trim()));
+                    }
+                    conditions.Add($"a.[activity_type] IN ({string.Join(",", paramNames)})");
+                }
+            }
+
+            if (!string.IsNullOrEmpty(status) && status != "all")
+            {
+                var values = status.Split(',', StringSplitOptions.RemoveEmptyEntries);
+                if (values.Length == 1)
+                {
+                    conditions.Add("a.[status] = @status");
+                    parameters.Add(new SqlParameter("@status", values[0].Trim()));
+                }
+                else
+                {
+                    var paramNames = new List<string>();
+                    for (int i = 0; i < values.Length; i++)
+                    {
+                        paramNames.Add($"@st{i}");
+                        parameters.Add(new SqlParameter($"@st{i}", values[i].Trim()));
+                    }
+                    conditions.Add($"a.[status] IN ({string.Join(",", paramNames)})");
+                }
             }
 
             string baseFrom = @"FROM [dbo].[activity] AS a
                 LEFT JOIN [dbo].[emp_reg] AS e ON a.[owner] = e.[SysID]";
+            string whereClause = conditions.Count > 0 ? " WHERE " + string.Join(" AND ", conditions) : "";
 
-            string countQuery = $"SELECT COUNT(*) {baseFrom}{searchFilter};";
+            string countQuery = $"SELECT COUNT(*) {baseFrom}{whereClause};";
             string dataQuery = $@"SELECT
                 a.[id], a.[activity_name], a.[activity_type],
                 e.[fname] + ' ' + e.[lname] AS [owner_name],
                 a.[start_time], a.[end_time], a.[status], a.[related_account]
-                {baseFrom}{searchFilter}
+                {baseFrom}{whereClause}
                 ORDER BY a.[id] DESC
                 OFFSET @offset ROWS FETCH NEXT @pageSize ROWS ONLY;";
 
@@ -61,15 +105,13 @@ namespace back_end.Controllers
 
                     using (var cmd = new SqlCommand(countQuery, con))
                     {
-                        if (!string.IsNullOrWhiteSpace(search))
-                            cmd.Parameters.AddWithValue("@search", $"%{search}%");
+                        foreach (var p in parameters) cmd.Parameters.Add(new SqlParameter(p.ParameterName, p.Value));
                         totalCount = (int)cmd.ExecuteScalar();
                     }
 
                     using (var cmd = new SqlCommand(dataQuery, con))
                     {
-                        if (!string.IsNullOrWhiteSpace(search))
-                            cmd.Parameters.AddWithValue("@search", $"%{search}%");
+                        foreach (var p in parameters) cmd.Parameters.Add(new SqlParameter(p.ParameterName, p.Value));
                         cmd.Parameters.AddWithValue("@offset", offset);
                         cmd.Parameters.AddWithValue("@pageSize", pageSize);
 
@@ -96,29 +138,75 @@ namespace back_end.Controllers
         }
 
         [HttpGet("{id}")]
-        public ActionResult getActivitiesById(int id, [FromQuery] int page = 1, [FromQuery] int pageSize = 25, [FromQuery] string search = "")
+        public ActionResult getActivitiesById(int id, [FromQuery] int page = 1, [FromQuery] int pageSize = 25, [FromQuery] string search = "", [FromQuery] string activityType = "all", [FromQuery] string status = "all")
         {
             int offset = (page - 1) * pageSize;
 
-            string searchFilter = "";
+            var conditions = new List<string>();
+            var parameters = new List<SqlParameter>();
+
+            conditions.Add("a.[owner] = @id");
+            parameters.Add(new SqlParameter("@id", id));
+
             if (!string.IsNullOrWhiteSpace(search))
             {
-                searchFilter = @" AND (a.[activity_name] LIKE @search
+                conditions.Add(@"(a.[activity_name] LIKE @search
                     OR a.[activity_type] LIKE @search
                     OR a.[status] LIKE @search
-                    OR a.[related_account] LIKE @search) ";
+                    OR a.[related_account] LIKE @search)");
+                parameters.Add(new SqlParameter("@search", $"%{search}%"));
+            }
+
+            if (!string.IsNullOrEmpty(activityType) && activityType != "all")
+            {
+                var values = activityType.Split(',', StringSplitOptions.RemoveEmptyEntries);
+                if (values.Length == 1)
+                {
+                    conditions.Add("a.[activity_type] = @activityType");
+                    parameters.Add(new SqlParameter("@activityType", values[0].Trim()));
+                }
+                else
+                {
+                    var paramNames = new List<string>();
+                    for (int i = 0; i < values.Length; i++)
+                    {
+                        paramNames.Add($"@at{i}");
+                        parameters.Add(new SqlParameter($"@at{i}", values[i].Trim()));
+                    }
+                    conditions.Add($"a.[activity_type] IN ({string.Join(",", paramNames)})");
+                }
+            }
+
+            if (!string.IsNullOrEmpty(status) && status != "all")
+            {
+                var values = status.Split(',', StringSplitOptions.RemoveEmptyEntries);
+                if (values.Length == 1)
+                {
+                    conditions.Add("a.[status] = @status");
+                    parameters.Add(new SqlParameter("@status", values[0].Trim()));
+                }
+                else
+                {
+                    var paramNames = new List<string>();
+                    for (int i = 0; i < values.Length; i++)
+                    {
+                        paramNames.Add($"@st{i}");
+                        parameters.Add(new SqlParameter($"@st{i}", values[i].Trim()));
+                    }
+                    conditions.Add($"a.[status] IN ({string.Join(",", paramNames)})");
+                }
             }
 
             string baseFrom = @"FROM [dbo].[activity] AS a
-                LEFT JOIN [dbo].[emp_reg] AS e ON a.[owner] = e.[SysID]
-                WHERE a.[owner] = @id";
+                LEFT JOIN [dbo].[emp_reg] AS e ON a.[owner] = e.[SysID]";
+            string whereClause = " WHERE " + string.Join(" AND ", conditions);
 
-            string countQuery = $"SELECT COUNT(*) {baseFrom}{searchFilter};";
+            string countQuery = $"SELECT COUNT(*) {baseFrom}{whereClause};";
             string dataQuery = $@"SELECT
                 a.[id], a.[activity_name], a.[activity_type],
                 e.[fname] + ' ' + e.[lname] AS [owner_name],
                 a.[start_time], a.[end_time], a.[status], a.[related_account]
-                {baseFrom}{searchFilter}
+                {baseFrom}{whereClause}
                 ORDER BY a.[id] DESC
                 OFFSET @offset ROWS FETCH NEXT @pageSize ROWS ONLY;";
 
@@ -133,17 +221,13 @@ namespace back_end.Controllers
 
                     using (var cmd = new SqlCommand(countQuery, con))
                     {
-                        cmd.Parameters.AddWithValue("@id", id);
-                        if (!string.IsNullOrWhiteSpace(search))
-                            cmd.Parameters.AddWithValue("@search", $"%{search}%");
+                        foreach (var p in parameters) cmd.Parameters.Add(new SqlParameter(p.ParameterName, p.Value));
                         totalCount = (int)cmd.ExecuteScalar();
                     }
 
                     using (var cmd = new SqlCommand(dataQuery, con))
                     {
-                        cmd.Parameters.AddWithValue("@id", id);
-                        if (!string.IsNullOrWhiteSpace(search))
-                            cmd.Parameters.AddWithValue("@search", $"%{search}%");
+                        foreach (var p in parameters) cmd.Parameters.Add(new SqlParameter(p.ParameterName, p.Value));
                         cmd.Parameters.AddWithValue("@offset", offset);
                         cmd.Parameters.AddWithValue("@pageSize", pageSize);
 

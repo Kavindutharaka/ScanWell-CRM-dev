@@ -4,10 +4,18 @@ import { BASE_URL } from '../config/apiConfig';
 // const BASE_URL = 'http://localhost:5054/api/Account';
 // const BASE_URL = './api/Account';
 
-export const fetchAccounts = async (page = 1, pageSize = 25, search = '') => {
+export const fetchAccounts = async (page = 1, pageSize = 25, search = '', filters = {}) => {
   const params = { page, pageSize };
   if (search.trim()) params.search = search.trim();
+  Object.entries(filters).forEach(([key, value]) => {
+    if (value) params[key] = value;
+  });
   const response = await axios.get(`${BASE_URL}/Account/account`, { params });
+  return response.data;
+};
+
+export const fetchAccountFilterOptions = async () => {
+  const response = await axios.get(`${BASE_URL}/Account/account/filter-options`);
   return response.data;
 };
 
