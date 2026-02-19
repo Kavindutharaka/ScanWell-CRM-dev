@@ -187,7 +187,9 @@ export default function TransitRouteConfiguration({ routeOption, routeIdx, formD
           <table className="w-full border-collapse border border-gray-300">
             <thead className="bg-gray-50">
               <tr>
-                <th className="border border-gray-300 px-4 py-2 text-left">{category == 'air' ? 'AirLine' : 'Carrier'}</th>
+                {category !== 'air' && (
+                  <th className="border border-gray-300 px-4 py-2 text-left">Carrier</th>
+                )}
                 <th className="border border-gray-300 px-4 py-2 text-left">Incoterm</th>
                 <th className="border border-gray-300 px-4 py-2 text-left">Currency</th>
                 <th className="border border-gray-300 px-4 py-2 text-left">Cargo Type</th>
@@ -197,15 +199,17 @@ export default function TransitRouteConfiguration({ routeOption, routeIdx, formD
             <tbody>
               {routeOption.carriers.map((carrier, carrierIdx) => (
                 <tr key={carrierIdx}>
-                  <td className="border border-gray-300 p-2">
-                    <AutocompleteInput
-                      value={carrier.carrier}
-                      onChange={(value) => updateCarrier(carrierIdx, 'carrier', value)}
-                      suggestions={carrierList}
-                      showLabel={false}
-                      disabled={disabled}
-                    />
-                  </td>
+                  {category !== 'air' && (
+                    <td className="border border-gray-300 p-2">
+                      <AutocompleteInput
+                        value={carrier.carrier}
+                        onChange={(value) => updateCarrier(carrierIdx, 'carrier', value)}
+                        suggestions={carrierList}
+                        showLabel={false}
+                        disabled={disabled}
+                      />
+                    </td>
+                  )}
                   <td className="border border-gray-300 p-2">
                     <AutocompleteInput
                       value={carrier.incoterm}

@@ -850,7 +850,7 @@ export const generateDirectQuotePDF = (quoteData, userData = null, returnDoc = f
         
         doc.setFont('helvetica', 'normal');
         let detailsText = [];
-        if (option.carrier) detailsText.push(`${isAir ? 'Airline' : 'Carrier'}: ${option.carrier}`);
+        if (!isAir && option.carrier) detailsText.push(`Carrier: ${option.carrier}`);
         if (option.incoterm) detailsText.push(`Incoterm: ${option.incoterm}`);
         if (option.currency) detailsText.push(`Currency: ${option.currency}`);
         if (option.cargoType) detailsText.push(`Cargo Type: ${option.cargoType}`);

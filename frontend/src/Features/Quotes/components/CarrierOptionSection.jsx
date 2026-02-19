@@ -90,14 +90,16 @@ export default function CarrierOptionSection({
             <h4 className="text-md font-semibold text-gray-700 mb-4">
               {category === 'air' ? 'Airline' : 'Carrier'} Details
             </h4>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <AutocompleteInput
-                label={category === 'air' ? 'Airline' : 'Carrier'}
-                value={option.carrier || ''}
-                onChange={(value) => updateCarrierOption('carrier', value)}
-                suggestions={carrierList}
-                disabled={disabled}
-              />
+            <div className={`grid grid-cols-1 ${category === 'air' ? 'md:grid-cols-3' : 'md:grid-cols-4'} gap-4`}>
+              {category !== 'air' && (
+                <AutocompleteInput
+                  label="Carrier"
+                  value={option.carrier || ''}
+                  onChange={(value) => updateCarrierOption('carrier', value)}
+                  suggestions={carrierList}
+                  disabled={disabled}
+                />
+              )}
 
               <AutocompleteInput
                 label="Incoterm"
@@ -180,7 +182,7 @@ export default function CarrierOptionSection({
                     }}
                     category={category}
                     disabled={disabled}
-                    carrierName={option.carrier}
+                    carrierName={category === 'air' ? null : option.carrier}
                   />
                 </div>
               ))
@@ -191,7 +193,7 @@ export default function CarrierOptionSection({
                   setFormData={createChargeSetFormData('freightCharges')}
                   category={category}
                   disabled={disabled}
-                  carrierName={option.carrier}
+                  carrierName={category === 'air' ? null : option.carrier}
                 />
               </div>
             )}
