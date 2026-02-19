@@ -244,11 +244,13 @@ namespace back_end.Controllers
 
         // ====================================================================
         // 4. CUSTOMER LIST (ACCOUNT) REPORT
-        // Filters: salesPerson (or all)
+        // Filters: salesPerson, country (location), accountType
         // ====================================================================
         [HttpGet, Route("customer-list")]
         public ActionResult GetCustomerListReport(
-            [FromQuery] string? salesPerson)
+            [FromQuery] string? salesPerson,
+            [FromQuery] string? country,
+            [FromQuery] string? accountType)
         {
             var conditions = new List<string>();
             var parameters = new List<SqlParameter>();
@@ -257,6 +259,16 @@ namespace back_end.Controllers
             {
                 conditions.Add("salesPerson = @SalesPerson");
                 parameters.Add(new SqlParameter("@SalesPerson", salesPerson));
+            }
+            if (!string.IsNullOrEmpty(country) && country != "all")
+            {
+                conditions.Add("location = @Country");
+                parameters.Add(new SqlParameter("@Country", country));
+            }
+            if (!string.IsNullOrEmpty(accountType) && accountType != "all")
+            {
+                conditions.Add("accountType = @AccountType");
+                parameters.Add(new SqlParameter("@AccountType", accountType));
             }
 
             string whereClause = conditions.Count > 0 ? "WHERE " + string.Join(" AND ", conditions) : "";
@@ -332,6 +344,56 @@ namespace back_end.Controllers
         public ActionResult GetDepartments()
         {
             string query = @"SELECT SysID, d_name FROM [dbo].[department] ORDER BY d_name;";
+
+            DataTable tb = new DataTable();
+            using (SqlConnection con = new SqlConnection(_dbConnectionString))
+            {
+                con.Open();
+                using (SqlCommand cmd = new SqlCommand(query, con))
+                {
+                    using (SqlDataReader reader = cmd.ExecuteReader())
+                    {
+                        tb.Load(reader);
+                    }
+                }
+            }
+            return Ok(tb);
+        }
+
+        // Get distinct customer locations (from account_reg)
+        [HttpGet, Route("filter/customer-locations")]
+        public ActionResult GetCustomerLocations()
+        {
+            string query = @"
+                SELECT DISTINCT location AS country
+                FROM [dbo].[account_reg]
+                WHERE location IS NOT NULL AND location <> ''
+                ORDER BY country;";
+
+            DataTable tb = new DataTable();
+            using (SqlConnection con = new SqlConnection(_dbConnectionString))
+            {
+                con.Open();
+                using (SqlCommand cmd = new SqlCommand(query, con))
+                {
+                    using (SqlDataReader reader = cmd.ExecuteReader())
+                    {
+                        tb.Load(reader);
+                    }
+                }
+            }
+            return Ok(tb);
+        }
+
+        // Get distinct account types (from account_reg)
+        [HttpGet, Route("filter/account-types")]
+        public ActionResult GetAccountTypes()
+        {
+            string query = @"
+                SELECT DISTINCT accountType AS type
+                FROM [dbo].[account_reg]
+                WHERE accountType IS NOT NULL AND accountType <> ''
+                ORDER BY type;";
 
             DataTable tb = new DataTable();
             using (SqlConnection con = new SqlConnection(_dbConnectionString))

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { BASE_URL } from "../../config/apiConfig";
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
 import {
   FileText, Download, Printer, Filter, Calendar, ChevronDown,
   Users, Building2, Plane, Ship, BarChart3, RefreshCw, X,
@@ -20,6 +20,8 @@ export default function ReportsSec() {
   const [salespersons, setSalespersons] = useState([]);
   const [departments, setDepartments] = useState([]);
   const [countries, setCountries] = useState([]);
+  const [customerLocations, setCustomerLocations] = useState([]);
+  const [accountTypes, setAccountTypes] = useState([]);
 
   // Quotation filters
   const [qDateFrom, setQDateFrom] = useState("");
@@ -35,8 +37,10 @@ export default function ReportsSec() {
   const [saDateTo, setSaDateTo] = useState("");
   const [saSalesPerson, setSaSalesPerson] = useState("all");
 
-  // Customer List filter
+  // Customer List filters
   const [clSalesPerson, setClSalesPerson] = useState("all");
+  const [clCountry, setClCountry] = useState("all");
+  const [clAccountType, setClAccountType] = useState("all");
 
   // Freight mode options
   const freightModeOptions = [
@@ -53,17 +57,23 @@ export default function ReportsSec() {
   useEffect(() => {
     const loadFilters = async () => {
       try {
-        const [spRes, deptRes, countryRes] = await Promise.all([
+        const [spRes, deptRes, countryRes, custLocRes, accTypeRes] = await Promise.all([
           fetch(`${BASE_URL}/report/filter/salespersons`),
           fetch(`${BASE_URL}/report/filter/departments`),
           fetch(`${BASE_URL}/report/filter/countries`),
+          fetch(`${BASE_URL}/report/filter/customer-locations`),
+          fetch(`${BASE_URL}/report/filter/account-types`),
         ]);
         const spData = await spRes.json();
         const deptData = await deptRes.json();
         const countryData = await countryRes.json();
+        const custLocData = await custLocRes.json();
+        const accTypeData = await accTypeRes.json();
         setSalespersons(spData.map(s => s.name || s.Name).filter(Boolean));
         setDepartments(deptData.map(d => d.d_name || d.dName || d.DName || d.dname).filter(Boolean));
         setCountries(countryData.map(c => c.country || c.Country).filter(Boolean));
+        setCustomerLocations(custLocData.map(c => c.country || c.Country).filter(Boolean));
+        setAccountTypes(accTypeData.map(t => t.type || t.Type).filter(Boolean));
       } catch (err) {
         console.error("Failed to load filter data:", err);
       }
@@ -114,6 +124,8 @@ export default function ReportsSec() {
         case "customer-list":
           url = `${BASE_URL}/report/customer-list`;
           if (clSalesPerson !== "all") params.append("salesPerson", clSalesPerson);
+          if (clCountry !== "all") params.append("country", clCountry);
+          if (clAccountType !== "all") params.append("accountType", clAccountType);
           break;
       }
 
@@ -284,7 +296,7 @@ export default function ReportsSec() {
     const headers = Object.keys(exportData[0]);
     const rows = exportData.map(row => headers.map(h => row[h]));
 
-    doc.autoTable({
+    autoTable(doc, {
       head: [headers],
       body: rows,
       startY: 28,
@@ -394,6 +406,8 @@ export default function ReportsSec() {
         break;
       case "customer-list":
         if (clSalesPerson !== "all") parts.push(`Sales Person: ${clSalesPerson}`);
+        if (clCountry !== "all") parts.push(`Country: ${clCountry}`);
+        if (clAccountType !== "all") parts.push(`Type: ${clAccountType.charAt(0).toUpperCase() + clAccountType.slice(1)}`);
         break;
     }
     return parts.length > 0 ? parts.join(" | ") : "All records (no filters applied)";
@@ -560,12 +574,26 @@ export default function ReportsSec() {
 
           {/* Customer List Filters */}
           {activeReport === "customer-list" && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
                 <label className="block text-xs font-medium text-slate-600 mb-1">Sales Person</label>
                 <select value={clSalesPerson} onChange={e => setClSalesPerson(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white">
                   <option value="all">All</option>
                   {salespersons.map(sp => <option key={sp} value={sp}>{sp}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1">Country / Location</label>
+                <select value={clCountry} onChange={e => setClCountry(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white">
+                  <option value="all">All</option>
+                  {customerLocations.map(loc => <option key={loc} value={loc}>{loc}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1">Type (Import / Export)</label>
+                <select value={clAccountType} onChange={e => setClAccountType(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white">
+                  <option value="all">All</option>
+                  {accountTypes.map(t => <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>)}
                 </select>
               </div>
             </div>
