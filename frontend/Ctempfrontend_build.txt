@@ -1,0 +1,421 @@
+
+> scanwell_crm@0.1.0 build
+> react-scripts build
+
+Creating an optimized production build...
+Compiled with warnings.
+
+[eslint] 
+src\AirExport.jsx
+  Line 147:6:  React Hook useMemo has missing dependencies: 'addHeader', 'addRows', 'caiHeader', 'caiRows', 'nboHeader', 'nboRows', 'otherChargesHeader', and 'otherChargesRows'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+  Line 190:6:  React Hook useEffect has a missing dependency: 'copyToClipboard'. Either include it or remove the dependency array                                                                                                     react-hooks/exhaustive-deps
+
+src\AirImport.jsx
+  Line 81:6:   React Hook useMemo has unnecessary dependencies: 'rateData' and 'totalExWorks'. Either exclude them or remove the dependency array  react-hooks/exhaustive-deps
+  Line 125:6:  React Hook useEffect has a missing dependency: 'copyToClipboard'. Either include it or remove the dependency array                  react-hooks/exhaustive-deps
+
+src\App.js
+  Line 2:15:  'useEffect' is defined but never used     no-unused-vars
+  Line 2:26:  'useContext' is defined but never used    no-unused-vars
+  Line 8:8:   'ContactBoard' is defined but never used  no-unused-vars
+
+src\Features\Accounts\Account.jsx
+  Line 68:6:  React Hook useEffect has a missing dependency: 'loadAccounts'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+src\Features\Accounts\AccountForm.jsx
+  Line 1:23:   'Globe' is defined but never used                     no-unused-vars
+  Line 228:9:  'industryOptions' is assigned a value but never used  no-unused-vars
+
+src\Features\Accounts\AccountSec.jsx
+  Line 3:3:   'MessageCircleHeart' is defined but never used  no-unused-vars
+  Line 4:3:   'MessageCircle' is defined but never used       no-unused-vars
+  Line 5:3:   'Link' is defined but never used                no-unused-vars
+  Line 7:3:   'Filter' is defined but never used              no-unused-vars
+  Line 8:3:   'ChevronDown' is defined but never used         no-unused-vars
+  Line 12:3:  'Calendar' is defined but never used            no-unused-vars
+  Line 13:3:  'Users' is defined but never used               no-unused-vars
+  Line 14:3:  'Share2' is defined but never used              no-unused-vars
+  Line 15:3:  'Sparkles' is defined but never used            no-unused-vars
+  Line 16:3:  'MoreHorizontal' is defined but never used      no-unused-vars
+
+src\Features\Accounts\AccountsDetails.jsx
+  Line 1:27:    'useEffect' is defined but never used          no-unused-vars
+  Line 7:3:     'Globe' is defined but never used              no-unused-vars
+  Line 10:3:    'BarChart3' is defined but never used          no-unused-vars
+  Line 11:3:    'Clock' is defined but never used              no-unused-vars
+  Line 13:3:    'Briefcase' is defined but never used          no-unused-vars
+  Line 14:3:    'MoreHorizontal' is defined but never used     no-unused-vars
+  Line 15:3:    'ExternalLink' is defined but never used       no-unused-vars
+  Line 220:11:  'contacts' is assigned a value but never used  no-unused-vars
+
+src\Features\Accounts\ContactForm.jsx
+  Line 1:13:  'Building' is defined but never used   no-unused-vars
+  Line 1:23:  'Globe' is defined but never used      no-unused-vars
+  Line 1:35:  'FileText' is defined but never used   no-unused-vars
+  Line 1:52:  'MapPin' is defined but never used     no-unused-vars
+  Line 1:66:  'BarChart3' is defined but never used  no-unused-vars
+
+src\Features\Activities\Activities.jsx
+  Line 6:41:   'fetchFullName' is defined but never used                                                                          no-unused-vars
+  Line 147:6:  React Hook useEffect has a missing dependency: 'loadActivities'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+src\Features\Activities\ActivitiesDetails.jsx
+  Line 1:27:    'useEffect' is defined but never used                 no-unused-vars
+  Line 7:3:     'Phone' is defined but never used                     no-unused-vars
+  Line 8:3:     'Mail' is defined but never used                      no-unused-vars
+  Line 10:3:    'Users' is defined but never used                     no-unused-vars
+  Line 11:3:    'MoreHorizontal' is defined but never used            no-unused-vars
+  Line 19:3:    'X' is defined but never used                         no-unused-vars
+  Line 21:10:   'fetchActivities' is defined but never used           no-unused-vars
+  Line 67:9:    'clearSort' is assigned a value but never used        no-unused-vars
+  Line 119:9:   'handleSelectAll' is assigned a value but never used  no-unused-vars
+  Line 127:9:   'handleSelectRow' is assigned a value but never used  no-unused-vars
+  Line 433:50:  Expected '===' and instead saw '=='                   eqeqeq
+
+src\Features\Activities\ActivitiesForm.jsx
+  Line 1:23:   'User' is defined but never used                                                                                    no-unused-vars
+  Line 28:21:  'setIsCanEdit' is assigned a value but never used                                                                   no-unused-vars
+  Line 92:5:   React Hook useEffect has a missing dependency: 'autoTriggerEdit'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+src\Features\Activities\ActivitiesNotes.jsx
+  Line 2:23:  'User' is defined but never used  no-unused-vars
+  Line 2:36:  'Tag' is defined but never used   no-unused-vars
+
+src\Features\Activities\ActivitiesSec.jsx
+  Line 3:3:   'MessageCircleHeart' is defined but never used  no-unused-vars
+  Line 4:3:   'MessageCircle' is defined but never used       no-unused-vars
+  Line 5:3:   'Link' is defined but never used                no-unused-vars
+  Line 7:3:   'Filter' is defined but never used              no-unused-vars
+  Line 8:3:   'ChevronDown' is defined but never used         no-unused-vars
+  Line 13:3:  'Users' is defined but never used               no-unused-vars
+  Line 14:3:  'Share2' is defined but never used              no-unused-vars
+  Line 15:3:  'Sparkles' is defined but never used            no-unused-vars
+  Line 16:3:  'MoreHorizontal' is defined but never used      no-unused-vars
+
+src\Features\ClientProject\ProjectDetails.jsx
+  Line 1:27:   'useEffect' is defined but never used        no-unused-vars
+  Line 17:3:   'Trash2' is defined but never used           no-unused-vars
+  Line 19:10:  'fetchProjects' is defined but never used    no-unused-vars
+  Line 193:9:  'Avatar' is assigned a value but never used  no-unused-vars
+
+src\Features\ClientProject\ProjectSec.jsx
+  Line 5:3:   'Link' is defined but never used            no-unused-vars
+  Line 10:3:  'Calendar' is defined but never used        no-unused-vars
+  Line 13:3:  'Sparkles' is defined but never used        no-unused-vars
+  Line 14:3:  'MoreHorizontal' is defined but never used  no-unused-vars
+
+src\Features\ContactBoard\ContactBoard.jsx
+  Line 6:25:  'deleteContact' is defined but never used  no-unused-vars
+
+src\Features\ContactBoard\ContactBoardSec.jsx
+  Line 1:27:   'useEffect' is defined but never used                  no-unused-vars
+  Line 15:3:   'MoreVertical' is defined but never used               no-unused-vars
+  Line 17:3:   'Trash2' is defined but never used                     no-unused-vars
+  Line 20:10:  'fetchContacts' is defined but never used              no-unused-vars
+  Line 20:25:  'deleteContact' is defined but never used              no-unused-vars
+  Line 26:10:  'deleteConfirm' is assigned a value but never used     no-unused-vars
+  Line 26:25:  'setDeleteConfirm' is assigned a value but never used  no-unused-vars
+
+src\Features\ContactBoard\ContactForm.jsx
+  Line 73:31:  Unnecessary escape character: \+  no-useless-escape
+  Line 73:87:  Unnecessary escape character: \(  no-useless-escape
+  Line 73:89:  Unnecessary escape character: \)  no-useless-escape
+
+src\Features\Dashboard\DashboardSec.jsx
+  Line 84:10:  'salesTarget' is assigned a value but never used                                                          no-unused-vars
+  Line 85:10:  'editingTarget' is assigned a value but never used                                                        no-unused-vars
+  Line 86:22:  'setTargetForm' is assigned a value but never used                                                        no-unused-vars
+  Line 130:6:  React Hook useCallback has a missing dependency: 'now'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  Line 136:9:  'handleSaveTarget' is assigned a value but never used                                                     no-unused-vars
+
+src\Features\Deals\DealPage.jsx
+  Line 33:6:  React Hook useEffect has a missing dependency: 'loadDeals'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+src\Features\Deals\DealSec.jsx
+  Line 5:3:   'Link' is defined but never used            no-unused-vars
+  Line 10:3:  'Calendar' is defined but never used        no-unused-vars
+  Line 13:3:  'Sparkles' is defined but never used        no-unused-vars
+  Line 14:3:  'MoreHorizontal' is defined but never used  no-unused-vars
+
+src\Features\Deals\Deals.jsx
+  Line 1:17:  'useState' is defined but never used        no-unused-vars
+  Line 1:27:  'useEffect' is defined but never used       no-unused-vars
+  Line 3:3:   'ChevronDown' is defined but never used     no-unused-vars
+  Line 10:3:  'MoreHorizontal' is defined but never used  no-unused-vars
+  Line 16:3:  'Phone' is defined but never used           no-unused-vars
+  Line 17:3:  'Mail' is defined but never used            no-unused-vars
+
+src\Features\HRManagement\HRSystemForm.jsx
+  Line 18:11:  'response' is assigned a value but never used                                                                 no-unused-vars
+  Line 27:11:  'response' is assigned a value but never used                                                                 no-unused-vars
+  Line 32:11:  'response' is assigned a value but never used                                                                 no-unused-vars
+  Line 41:11:  'response' is assigned a value but never used                                                                 no-unused-vars
+  Line 58:6:   React Hook useEffect has a missing dependency: 'activeTab'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+src\Features\InfoUpdates\InfoAndUpdatesForm.jsx
+  Line 3:31:  'Image' is defined but never used  no-unused-vars
+
+src\Features\InfoUpdates\InfoAndUpdatesSec.jsx
+  Line 11:3:  'MoreHorizontal' is defined but never used  no-unused-vars
+
+src\Features\Invoices\InvoicesSec.jsx
+  Line 3:39:  'MapPin' is defined but never used      no-unused-vars
+  Line 3:47:  'Calendar' is defined but never used    no-unused-vars
+  Line 3:57:  'User' is defined but never used        no-unused-vars
+  Line 5:25:  'DollarSign' is defined but never used  no-unused-vars
+
+src\Features\Leads\LeadSec.jsx
+  Line 6:3:   'FileSpreadsheet' is defined but never used               no-unused-vars
+  Line 28:9:  'handleImportSuccess' is assigned a value but never used  no-unused-vars
+
+src\Features\Login\Login.jsx
+  Line 9:9:  'navigate' is assigned a value but never used  no-unused-vars
+
+src\Features\PeopleHRManagement\EmployeeForm.jsx
+  Line 105:28:  Unnecessary escape character: \+  no-useless-escape
+  Line 105:40:  Unnecessary escape character: \(  no-useless-escape
+  Line 105:42:  Unnecessary escape character: \)  no-useless-escape
+
+src\Features\PeopleHRManagement\EmployeeSec.jsx
+  Line 5:3:   'Link' is defined but never used            no-unused-vars
+  Line 10:3:  'Calendar' is defined but never used        no-unused-vars
+  Line 13:3:  'MoreHorizontal' is defined but never used  no-unused-vars
+
+src\Features\Profile\Profile.jsx
+  Line 7:10:  'openModal' is assigned a value but never used        no-unused-vars
+  Line 9:10:  'editingItem' is assigned a value but never used      no-unused-vars
+  Line 11:9:  'modalOpen' is assigned a value but never used        no-unused-vars
+  Line 21:9:  'handleEdit' is assigned a value but never used       no-unused-vars
+  Line 26:9:  'handleFormClose' is assigned a value but never used  no-unused-vars
+
+src\Features\QuotesInvoice\QuotesInvoiceSec.jsx
+  Line 2:31:   'useCallback' is defined but never used                                                                             no-unused-vars
+  Line 4:136:  'DollarSign' is defined but never used                                                                              no-unused-vars
+  Line 34:10:  'winModalShow' is assigned a value but never used                                                                   no-unused-vars
+  Line 35:10:  'lostModalShow' is assigned a value but never used                                                                  no-unused-vars
+  Line 40:19:  'setWinForm' is assigned a value but never used                                                                     no-unused-vars
+  Line 41:20:  'setLostForm' is assigned a value but never used                                                                    no-unused-vars
+  Line 48:9:   'lostReasons' is assigned a value but never used                                                                    no-unused-vars
+  Line 164:9:  'handleSaveWin' is assigned a value but never used                                                                  no-unused-vars
+  Line 191:9:  'handleSaveLost' is assigned a value but never used                                                                 no-unused-vars
+  Line 274:6:  React Hook useEffect has a missing dependency: 'loadQuotes'. Either include it or remove the dependency array       react-hooks/exhaustive-deps
+  Line 304:6:  React Hook useEffect has a missing dependency: 'loadStatsCounts'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  Line 558:9:  'calculateTotalAmount' is assigned a value but never used                                                           no-unused-vars
+
+src\Features\QuotesInvoice\RateManage.jsx
+  Line 18:3:   'Building' is defined but never used                                                                                   no-unused-vars
+  Line 19:3:   'User' is defined but never used                                                                                       no-unused-vars
+  Line 20:3:   'Copy' is defined but never used                                                                                       no-unused-vars
+  Line 22:13:  'QuotesInvoiceAPI' is defined but never used                                                                           no-unused-vars
+  Line 24:8:   'AirImport' is defined but never used                                                                                  no-unused-vars
+  Line 25:8:   'AirExport' is defined but never used                                                                                  no-unused-vars
+  Line 26:8:   'SeaImportFcl' is defined but never used                                                                               no-unused-vars
+  Line 27:8:   'SeaImportLcl' is defined but never used                                                                               no-unused-vars
+  Line 28:8:   'SeaExportFclTemplate' is defined but never used                                                                       no-unused-vars
+  Line 29:8:   'SeaExportLcl' is defined but never used                                                                               no-unused-vars
+  Line 46:10:  'matchingRates' is assigned a value but never used                                                                     no-unused-vars
+  Line 46:25:  'setMatchingRates' is assigned a value but never used                                                                  no-unused-vars
+  Line 49:27:  'setCalculatedTotal' is assigned a value but never used                                                                no-unused-vars
+  Line 92:10:  'additionalCharges' is assigned a value but never used                                                                 no-unused-vars
+  Line 92:29:  'setAdditionalCharges' is assigned a value but never used                                                              no-unused-vars
+  Line 93:10:  'remarksList' is assigned a value but never used                                                                       no-unused-vars
+  Line 93:23:  'setRemarksList' is assigned a value but never used                                                                    no-unused-vars
+  Line 95:24:  'setIsSubmitting' is assigned a value but never used                                                                   no-unused-vars
+  Line 96:10:  'saveAsTemplate' is assigned a value but never used                                                                    no-unused-vars
+  Line 96:26:  'setSaveAsTemplate' is assigned a value but never used                                                                 no-unused-vars
+  Line 108:9:  'chargeTypes' is assigned a value but never used                                                                       no-unused-vars
+  Line 118:9:  'defaultRemarks' is assigned a value but never used                                                                    no-unused-vars
+  Line 126:9:  'applyRate' is assigned a value but never used                                                                         no-unused-vars
+  Line 164:6:  React Hook useEffect has a missing dependency: 'fetchExistingRates'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  Line 374:9:  'handleInputChange' is assigned a value but never used                                                                 no-unused-vars
+
+src\Features\Quotes\DirectQuoteForm.jsx
+  Line 142:6:  React Hook useEffect has a missing dependency: 'loadQuoteData'. Either include it or remove the dependency array                                             react-hooks/exhaustive-deps
+  Line 392:6:  React Hook useEffect has missing dependencies: 'addFreightChargesTable' and 'removeFreightChargesTable'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+
+src\Features\Quotes\MultiModalQuoteForm.jsx
+  Line 115:6:  React Hook useEffect has a missing dependency: 'loadQuoteData'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+src\Features\Quotes\TransitQuoteForm.jsx
+  Line 142:6:  React Hook useEffect has a missing dependency: 'loadQuoteData'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+src\Features\Quotes\WarehouseQuoteForm.jsx
+  Line 11:3:   'User' is defined but never used                           no-unused-vars
+  Line 14:8:   'axios' is defined but never used                          no-unused-vars
+  Line 29:10:  'showCustomerDropdown' is assigned a value but never used  no-unused-vars
+  Line 135:9:  'filteredCustomers' is assigned a value but never used     no-unused-vars
+  Line 140:9:  'handleCustomerSelect' is assigned a value but never used  no-unused-vars
+
+src\Features\Quotes\WarehouseQuoteView.jsx
+  Line 68:6:   React Hook useEffect has a missing dependency: 'loadQuoteData'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  Line 182:9:  'handleDelete' is assigned a value but never used                                                                 no-unused-vars
+  Line 281:9:  'calculateTotal' is assigned a value but never used                                                               no-unused-vars
+
+src\Features\Quotes\components\AirFreightChargesSection.jsx
+  Line 85:6:  React Hook useEffect has missing dependencies: 'setFormData' and 'transformToVertical'. Either include them or remove the dependency array. If 'setFormData' changes too often, find the parent component that defines it and wrap that definition in useCallback  react-hooks/exhaustive-deps
+  Line 96:6:  React Hook useEffect has missing dependencies: 'horizontalData', 'transformToHorizontal', and 'transformToVertical'. Either include them or remove the dependency array                                                                                            react-hooks/exhaustive-deps
+
+src\Features\Quotes\components\AirTransitFreightChargesSection.jsx
+  Line 97:6:   React Hook useEffect has missing dependencies: 'formData.routeOptions', 'routeIdx', 'setFormData', 'tableIdx', and 'transformToVertical'. Either include them or remove the dependency array. If 'setFormData' changes too often, find the parent component that defines it and wrap that definition in useCallback  react-hooks/exhaustive-deps
+  Line 111:6:  React Hook useEffect has missing dependencies: 'horizontalData' and 'transformToVertical'. Either include them or remove the dependency array                                                                                                                                                                        react-hooks/exhaustive-deps
+
+src\Features\Quotes\components\BasicInfoSection.jsx
+  Line 3:10:  'customerSuggestions' is defined but never used                                                                 no-unused-vars
+  Line 42:6:  React Hook useEffect has a missing dependency: 'updateField'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+src\Features\Quotes\components\DestinationChargesSection.jsx
+  Line 37:9:  'calculateGrandTotal' is assigned a value but never used  no-unused-vars
+
+src\Features\Quotes\components\FreightChargesSection.jsx
+  Line 4:33:   'unitTypeSuggestions' is defined but never used           no-unused-vars
+  Line 5:10:   'useEffect' is defined but never used                     no-unused-vars
+  Line 5:21:   'useState' is defined but never used                      no-unused-vars
+  Line 64:9:   'calculateGrandTotal' is assigned a value but never used  no-unused-vars
+  Line 93:84:  Expected '===' and instead saw '=='                       eqeqeq
+
+src\Features\Quotes\components\HandlingChargesSection.jsx
+  Line 40:9:  'calculateGrandTotal' is assigned a value but never used  no-unused-vars
+
+src\Features\Quotes\components\MultiModalFreightChargesTable.jsx
+  Line 6:7:  'weightBreakerSuggestions' is assigned a value but never used  no-unused-vars
+
+src\Features\Quotes\components\MultiModalSegmentDetails.jsx
+  Line 129:9:   'calculateHandlingTotal' is assigned a value but never used  no-unused-vars
+  Line 145:25:  Expected '===' and instead saw '=='                          eqeqeq
+
+src\Features\Quotes\components\SeaFreightRatioTable.jsx
+  Line 77:6:  React Hook useEffect has missing dependencies: 'fieldName', 'setFormData', and 'transformToVertical'. Either include them or remove the dependency array. If 'setFormData' changes too often, find the parent component that defines it and wrap that definition in useCallback  react-hooks/exhaustive-deps
+  Line 89:6:  React Hook useEffect has missing dependencies: 'fieldName', 'formData', 'horizontalData', and 'transformToVertical'. Either include them or remove the dependency array                                                                                                          react-hooks/exhaustive-deps
+  Line 89:7:  React Hook useEffect has a complex expression in the dependency array. Extract it to a separate variable so it can be statically checked                                                                                                                                         react-hooks/exhaustive-deps
+
+src\Features\Quotes\components\SeaMultiModalFreightRatioTable.jsx
+  Line 88:6:   React Hook useEffect has missing dependencies: 'formData.routeOptions', 'routeIdx', 'routeSegmentIdx', 'setFormData', 'tableIdx', and 'transformToVertical'. Either include them or remove the dependency array. If 'setFormData' changes too often, find the parent component that defines it and wrap that definition in useCallback  react-hooks/exhaustive-deps
+  Line 100:6:  React Hook useEffect has missing dependencies: 'horizontalData' and 'transformToVertical'. Either include them or remove the dependency array                                                                                                                                                                                           react-hooks/exhaustive-deps
+
+src\Features\Quotes\components\SeaTransitFreightRatioTable.jsx
+  Line 87:6:  React Hook useEffect has missing dependencies: 'formData.routeOptions', 'routeIdx', 'setFormData', 'tableIdx', and 'transformToVertical'. Either include them or remove the dependency array. If 'setFormData' changes too often, find the parent component that defines it and wrap that definition in useCallback  react-hooks/exhaustive-deps
+  Line 99:6:  React Hook useEffect has missing dependencies: 'horizontalData' and 'transformToVertical'. Either include them or remove the dependency array                                                                                                                                                                        react-hooks/exhaustive-deps
+
+src\Features\Quotes\components\TermsConditionsSection.jsx
+  Line 26:39:  Unnecessary escape character: \.  no-useless-escape
+  Line 26:41:  Unnecessary escape character: \)  no-useless-escape
+  Line 26:45:  Unnecessary escape character: \:  no-useless-escape
+
+src\Features\Quotes\components\TransitChargesTable.jsx
+  Line 57:9:  'calculateLocationTotal' is assigned a value but never used  no-unused-vars
+  Line 61:9:  'calculateGrandTotal' is assigned a value but never used     no-unused-vars
+
+src\Features\Quotes\components\TransitFreightChargesSection.jsx
+  Line 4:33:    'unitTypeSuggestions' is defined but never used           no-unused-vars
+  Line 82:9:    'calculateGrandTotal' is assigned a value but never used  no-unused-vars
+  Line 126:84:  Expected '===' and instead saw '=='                       eqeqeq
+
+src\Features\Quotes\components\TransitRouteConfiguration.jsx
+  Line 173:71:  Expected '===' and instead saw '=='  eqeqeq
+  Line 181:25:  Expected '===' and instead saw '=='  eqeqeq
+  Line 190:86:  Expected '===' and instead saw '=='  eqeqeq
+
+src\Features\Quotes\utils\pdfGenerator.js
+  Line 309:10:   'calculateTransitTotalNew' is defined but never used       no-unused-vars
+  Line 336:10:   'getSegmentsCurrency' is defined but never used            no-unused-vars
+  Line 619:7:    'formatCurrencyAmount' is assigned a value but never used  no-unused-vars
+  Line 1409:10:  'calculateOptionTotal' is defined but never used           no-unused-vars
+
+src\Features\RFQ\SalesEntryModal.jsx
+  Line 89:6:  React Hook useEffect has a missing dependency: 'loadEntries'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+src\Features\Rates\RateForm.jsx
+  Line 9:3:  'CheckCircle' is defined but never used  no-unused-vars
+
+src\Features\Reports\ReportsSec.jsx
+  Line 7:13:   'Download' is defined but never used     no-unused-vars
+  Line 7:50:   'ChevronDown' is defined but never used  no-unused-vars
+  Line 8:56:   'X' is defined but never used            no-unused-vars
+  Line 9:17:   'XCircle' is defined but never used      no-unused-vars
+  Line 9:26:   'Clock' is defined but never used        no-unused-vars
+  Line 9:45:   'Briefcase' is defined but never used    no-unused-vars
+  Line 94:7:   Expected a default case                  default-case
+  Line 382:5:  Expected a default case                  default-case
+
+src\Features\RoleBase\EmployeeRoleManagement.jsx
+  Line 29:6:  React Hook useEffect has a missing dependency: 'filterRoles'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+src\SeaExportFcl.jsx
+  Line 85:6:   React Hook useMemo has missing dependencies: 'tableHeader' and 'tableRow'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+  Line 128:6:  React Hook useEffect has a missing dependency: 'copyToClipboard'. Either include it or remove the dependency array             react-hooks/exhaustive-deps
+
+src\SeaExportLcl.jsx
+  Line 81:6:   React Hook useMemo has missing dependencies: 'tableHeader' and 'tableRow'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+  Line 124:6:  React Hook useEffect has a missing dependency: 'copyToClipboard'. Either include it or remove the dependency array             react-hooks/exhaustive-deps
+
+src\SeaImportFcl.jsx
+  Line 87:6:   React Hook useMemo has missing dependencies: 'tableHeader' and 'tableRow'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+  Line 130:6:  React Hook useEffect has a missing dependency: 'copyToClipboard'. Either include it or remove the dependency array             react-hooks/exhaustive-deps
+
+src\SeaImportLcl.jsx
+  Line 81:6:   React Hook useMemo has missing dependencies: 'tableHeader' and 'tableRow'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+  Line 124:6:  React Hook useEffect has a missing dependency: 'copyToClipboard'. Either include it or remove the dependency array             react-hooks/exhaustive-deps
+
+src\components\Header.jsx
+  Line 2:8:   'logo' is defined but never used               no-unused-vars
+  Line 5:16:  'MessageSquareText' is defined but never used  no-unused-vars
+
+src\components\NotificationPanel.jsx
+  Line 3:11:  'XCircle' is defined but never used        no-unused-vars
+  Line 3:20:  'AlertTriangle' is defined but never used  no-unused-vars
+
+src\components\SideNav.jsx
+  Line 5:3:   'Mail' is defined but never used                                                                                 no-unused-vars
+  Line 6:3:   'UsersRound' is defined but never used                                                                           no-unused-vars
+  Line 14:3:  'Users' is defined but never used                                                                                no-unused-vars
+  Line 15:3:  'UserPlus' is defined but never used                                                                             no-unused-vars
+  Line 16:3:  'UserCog' is defined but never used                                                                              no-unused-vars
+  Line 19:3:  'UserCheck' is defined but never used                                                                            no-unused-vars
+  Line 20:3:  'Settings' is defined but never used                                                                             no-unused-vars
+  Line 44:6:  React Hook useEffect has a missing dependency: 'scrollBottom'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+src\context\AuthContext.js
+  Line 42:6:  React Hook useEffect has a missing dependency: 'checkLoginStatus'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+src\index.js
+  Line 6:8:   'SalesDashboard' is defined but never used  no-unused-vars
+  Line 7:8:   'ContactBoard' is defined but never used    no-unused-vars
+  Line 8:8:   'MailTracking' is defined but never used    no-unused-vars
+  Line 9:8:   'QuotesInvoice' is defined but never used   no-unused-vars
+  Line 10:8:  'DealPage' is defined but never used        no-unused-vars
+  Line 11:8:  'LeadPage' is defined but never used        no-unused-vars
+  Line 12:8:  'Account' is defined but never used         no-unused-vars
+  Line 13:8:  'Project' is defined but never used         no-unused-vars
+  Line 14:8:  'Activities' is defined but never used      no-unused-vars
+  Line 15:8:  'Dashboard' is defined but never used       no-unused-vars
+  Line 16:8:  'SeaImport' is defined but never used       no-unused-vars
+  Line 17:8:  'RateManage' is defined but never used      no-unused-vars
+
+src\monday-crm-dashboard.jsx
+  Line 8:3:  'Plus' is defined but never used  no-unused-vars
+
+Search for the keywords to learn more about each warning.
+To ignore, add // eslint-disable-next-line to the line before.
+
+File sizes after gzip:
+
+  512.39 kB  build\static\js\main.63ad7c5d.js
+  46.35 kB   build\static\js\239.759cdc61.chunk.js
+  43.26 kB   build\static\js\455.8d2787b5.chunk.js
+  13.1 kB    build\static\css\main.083dd277.css
+  8.62 kB    build\static\js\977.294bee46.chunk.js
+  1.77 kB    build\static\js\453.3fa3ea41.chunk.js
+
+The project was built assuming it is hosted at /.
+You can control this with the homepage field in your package.json.
+
+The build folder is ready to be deployed.
+You may serve it with a static server:
+
+  npm install -g serve
+  serve -s build
+
+Find out more about deployment here:
+
+  https://cra.link/deployment
+

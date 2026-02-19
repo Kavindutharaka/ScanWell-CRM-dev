@@ -267,9 +267,10 @@ export default function DashboardSec() {
           <svg viewBox="0 0 200 120" className="w-full h-full">
             <defs>
               <linearGradient id="gaugeGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-                <stop offset="0%" stopColor="#00C875" />
-                <stop offset="50%" stopColor="#0073EA" />
-                <stop offset="100%" stopColor="#A25DDC" />
+                <stop offset="0%" stopColor="#E44258" />
+                <stop offset="35%" stopColor="#FDAB3D" />
+                <stop offset="70%" stopColor="#7BC67E" />
+                <stop offset="100%" stopColor="#00C875" />
               </linearGradient>
             </defs>
             {/* Background arc */}
@@ -413,7 +414,7 @@ export default function DashboardSec() {
 
   const pipeTotal = pipeline.reduce((s, p) => s + (p.count || 0), 0);
 
-  const statusColors = { draft: COLORS.blue, sent: COLORS.purple, approved: COLORS.success };
+  const statusColors = { draft: COLORS.blue, sent: COLORS.purple, approved: COLORS.success, won: "#00C875", lost: "#E44258" };
 
   // Total Deals Won = RFQ Revenue + Won Quote Amount + Won Deal Value
   const totalDealsWon = (rfq.totalRevenue || 0) + (quoteOutcomes.totalWonAmount || 0) + (deals.wonDealValue || 0);
@@ -432,14 +433,17 @@ export default function DashboardSec() {
     label: m.monthName, value: m.quoteCount || 0, color: COLORS.primary, colorEnd: COLORS.blue,
   }));
 
-  // Pie segments
-  // Combine deal_reg + quote_outcomes for the deal status pie
+  // Pie segments — full sales status distribution (all quote statuses + deals)
   const dealPieSegments = [
+    { label: "Draft", value: qs.draftCount || 0, color: COLORS.blue },
+    { label: "Sent", value: qs.sentCount || 0, color: COLORS.purple },
+    { label: "Approved", value: qs.approvedCount || 0, color: COLORS.warning },
     { label: "Won", value: (deals.wonDeals || 0) + (quoteOutcomes.wonQuotes || 0), color: COLORS.success },
     { label: "Lost", value: (deals.lostDeals || 0) + (quoteOutcomes.lostQuotes || 0), color: COLORS.danger },
-    { label: "Active", value: deals.activeDeals || 0, color: COLORS.blue },
+    { label: "Active Deals", value: deals.activeDeals || 0, color: "#579BFC" },
+    { label: "Other", value: qs.otherCount || 0, color: COLORS.lightGray },
   ].filter(s => s.value > 0);
-  const totalDealsPieCount = (deals.totalDeals || 0) + (quoteOutcomes.wonQuotes || 0) + (quoteOutcomes.lostQuotes || 0);
+  const totalDealsPieCount = dealPieSegments.reduce((s, seg) => s + seg.value, 0);
 
   const pipelinePieSegments = pipeline.map((p, i) => ({
     label: (p.status || "Other").charAt(0).toUpperCase() + (p.status || "other").slice(1),
@@ -447,12 +451,20 @@ export default function DashboardSec() {
     color: statusColors[p.status?.toLowerCase()] || PIE_COLORS[i % PIE_COLORS.length],
   })).filter(s => s.value > 0);
 
-  const actPieSegments = [
-    { label: "Completed", value: activity.completedActivities || 0, color: COLORS.success },
-    { label: "Pending", value: activity.pendingActivities || 0, color: COLORS.warning },
-    { label: "Declined", value: activity.declinedActivities || 0, color: COLORS.danger },
-    { label: "Cancelled", value: activity.cancelledActivities || 0, color: COLORS.lightGray },
-  ].filter(s => s.value > 0);
+  // Activity pie by type (Meeting, Call, Visit, etc.) instead of status
+  const actTypeBreakdown = activity.typeBreakdown || [];
+  const actPieSegments = actTypeBreakdown.length > 0
+    ? actTypeBreakdown.map((tb, i) => ({
+        label: tb.type || "Other",
+        value: tb.count || 0,
+        color: PIE_COLORS[i % PIE_COLORS.length],
+      })).filter(s => s.value > 0)
+    : [
+        { label: "Completed", value: activity.completedActivities || 0, color: COLORS.success },
+        { label: "Pending", value: activity.pendingActivities || 0, color: COLORS.warning },
+        { label: "Declined", value: activity.declinedActivities || 0, color: COLORS.danger },
+        { label: "Cancelled", value: activity.cancelledActivities || 0, color: COLORS.lightGray },
+      ].filter(s => s.value > 0);
 
   const tabs = [
     { id: "dashboard", label: "Dashboard", icon: LayoutGrid },
@@ -589,82 +601,6 @@ export default function DashboardSec() {
               </div>
             </div>
 
-            {/* --- SALES TARGET --- */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
-              <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-5 fade-in fade-in-1">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-2">
-                    <Award className="w-5 h-5 text-blue-500" />
-                    <h3 className="text-sm font-semibold text-slate-700">Monthly Sales Target</h3>
-                  </div>
-                  {isAdmin && !editingTarget && (
-                    <button onClick={() => { setTargetForm({ monthlyTarget: salesTarget.monthlyTarget || "", yearlyTarget: salesTarget.yearlyTarget || "" }); setEditingTarget(true); }}
-                      className="text-xs text-blue-600 hover:text-blue-700 font-medium">Edit</button>
-                  )}
-                </div>
-                {editingTarget ? (
-                  <div className="space-y-3">
-                    <div>
-                      <label className="text-xs text-slate-500 block mb-1">Monthly Target (LKR)</label>
-                      <input type="number" value={targetForm.monthlyTarget} onChange={(e) => setTargetForm({ ...targetForm, monthlyTarget: e.target.value })}
-                        className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" placeholder="e.g. 5000000" />
-                    </div>
-                    <div>
-                      <label className="text-xs text-slate-500 block mb-1">Yearly Target (LKR)</label>
-                      <input type="number" value={targetForm.yearlyTarget} onChange={(e) => setTargetForm({ ...targetForm, yearlyTarget: e.target.value })}
-                        className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" placeholder="e.g. 60000000" />
-                    </div>
-                    <div className="flex gap-2">
-                      <button onClick={handleSaveTarget} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors">Save</button>
-                      <button onClick={() => setEditingTarget(false)} className="px-4 py-2 bg-slate-100 text-slate-600 rounded-lg text-sm font-medium hover:bg-slate-200 transition-colors">Cancel</button>
-                    </div>
-                  </div>
-                ) : (
-                  <div>
-                    <div className="flex items-baseline gap-2 mb-2">
-                      <span className="text-3xl font-bold text-slate-800">{fmtLKR(salesTarget.monthlyTarget || 0)}</span>
-                      <span className="text-xs text-slate-400">/ month</span>
-                    </div>
-                    {(salesTarget.monthlyTarget || 0) > 0 && (
-                      <div className="mb-3">
-                        <div className="flex justify-between text-xs text-slate-500 mb-1">
-                          <span>Progress</span>
-                          <span>{Math.min(((totalDealsWon / salesTarget.monthlyTarget) * 100), 100).toFixed(1)}%</span>
-                        </div>
-                        <div className="h-2.5 bg-slate-100 rounded-full overflow-hidden">
-                          <div className="h-full rounded-full transition-all duration-700 bg-gradient-to-r from-blue-500 to-emerald-500"
-                            style={{ width: `${Math.min(((totalDealsWon / salesTarget.monthlyTarget) * 100), 100)}%` }} />
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-5 fade-in fade-in-2">
-                <div className="flex items-center gap-2 mb-4">
-                  <Award className="w-5 h-5 text-purple-500" />
-                  <h3 className="text-sm font-semibold text-slate-700">Yearly Sales Target ({now.getFullYear()})</h3>
-                </div>
-                <div className="flex items-baseline gap-2 mb-2">
-                  <span className="text-3xl font-bold text-slate-800">{fmtLKR(salesTarget.yearlyTarget || 0)}</span>
-                  <span className="text-xs text-slate-400">/ year</span>
-                </div>
-                {(salesTarget.yearlyTarget || 0) > 0 && (
-                  <div className="mb-3">
-                    <div className="flex justify-between text-xs text-slate-500 mb-1">
-                      <span>Progress</span>
-                      <span>{Math.min(((totalDealsWon / salesTarget.yearlyTarget) * 100), 100).toFixed(1)}%</span>
-                    </div>
-                    <div className="h-2.5 bg-slate-100 rounded-full overflow-hidden">
-                      <div className="h-full rounded-full transition-all duration-700 bg-gradient-to-r from-purple-500 to-pink-500"
-                        style={{ width: `${Math.min(((totalDealsWon / salesTarget.yearlyTarget) * 100), 100)}%` }} />
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-
             {/* --- CHARTS ROW --- */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
               {/* Pipeline Conversion */}
@@ -751,13 +687,17 @@ export default function DashboardSec() {
                       </div>
                     ))}
                   </div>
-                  {(activity.typeBreakdown || []).length > 0 && (
+                  {(activity.totalActivities || 0) > 0 && (
                     <div className="mt-3 pt-3 border-t border-slate-100 w-full">
-                      <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-2">By Type</p>
-                      {(activity.typeBreakdown || []).slice(0, 5).map((tb, i) => (
-                        <ProgressBar key={i} label={tb.type} value={tb.count}
-                          total={activity.totalActivities || 1} color={PIE_COLORS[i % PIE_COLORS.length]} />
-                      ))}
+                      <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-2">By Status</p>
+                      <ProgressBar label="Completed" value={activity.completedActivities || 0}
+                        total={activity.totalActivities || 1} color={COLORS.success} />
+                      <ProgressBar label="Pending" value={activity.pendingActivities || 0}
+                        total={activity.totalActivities || 1} color={COLORS.warning} />
+                      <ProgressBar label="Declined" value={activity.declinedActivities || 0}
+                        total={activity.totalActivities || 1} color={COLORS.danger} />
+                      <ProgressBar label="Cancelled" value={activity.cancelledActivities || 0}
+                        total={activity.totalActivities || 1} color={COLORS.lightGray} />
                     </div>
                   )}
                 </div>

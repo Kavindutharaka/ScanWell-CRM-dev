@@ -189,12 +189,13 @@ namespace back_end.Controllers
         }
 
         // ====================================================================
-        // 2. PIPELINE CONVERSION
+        // 2. PIPELINE CONVERSION (Quotes statuses + Won/Lost from quote_outcomes)
         // ====================================================================
         private object GetPipelineConversion(DateTime dtFrom, DateTime dtTo, long? empId, bool isAdmin)
         {
             string ownerFilter = (!isAdmin && empId.HasValue) ? " AND q.CreatedBy = @EmpId" : "";
 
+            // Get quote statuses (draft, sent, approved, etc.)
             string query = $@"
                 SELECT
                     q.Status,
@@ -229,6 +230,47 @@ namespace back_end.Controllers
                     }
                 }
             }
+
+            // Get won/lost from quote_outcomes (wrapped in try/catch so quote statuses still return if this fails)
+            try
+            {
+                string outcomeQuery = $@"
+                    SELECT
+                        qo.outcome_status,
+                        COUNT(*) AS cnt
+                    FROM quote_outcomes qo
+                    INNER JOIN [dbo].[Quotes] q ON qo.quote_id = q.QuoteId
+                    WHERE CAST(qo.created_date AS DATE) >= @DateFrom
+                      AND CAST(qo.created_date AS DATE) <= @DateTo
+                      {ownerFilter}
+                    GROUP BY qo.outcome_status;";
+
+                using (var con2 = new SqlConnection(_dbConnectionString))
+                {
+                    con2.Open();
+                    using (var cmd2 = new SqlCommand(outcomeQuery, con2))
+                    {
+                        cmd2.Parameters.Add(new SqlParameter("@DateFrom", SqlDbType.Date) { Value = dtFrom });
+                        cmd2.Parameters.Add(new SqlParameter("@DateTo", SqlDbType.Date) { Value = dtTo });
+                        if (!isAdmin && empId.HasValue)
+                            cmd2.Parameters.AddWithValue("@EmpId", empId.Value);
+
+                        using (var reader2 = cmd2.ExecuteReader())
+                        {
+                            while (reader2.Read())
+                            {
+                                items.Add(new
+                                {
+                                    status = reader2["outcome_status"]?.ToString() ?? "unknown",
+                                    count = Convert.ToInt32(reader2["cnt"])
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+            catch { /* quote_outcomes table may not exist yet — skip gracefully */ }
+
             return items;
         }
 

@@ -21,7 +21,9 @@
       "Bash(powershell -Command:*)",
       "Bash(select-string:*)",
       "Bash(out-string:*)",
-      "Bash(echo:*)"
+      "Bash(echo:*)",
+      "Bash(Select-String -Pattern \"Compiled|Error|Failed|ready to be deployed\")",
+      "Bash(tee:*)"
     ]
   }
 }
