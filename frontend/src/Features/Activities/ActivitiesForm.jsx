@@ -40,10 +40,13 @@ export default function ActivitiesForm({ onClose, initialActivity = null, isEdit
   useEffect(() => {
     const loadAccounts = async () => {
       try {
-        const accountsData = await fetchAccounts();
-        setAccounts(accountsData);
+        const accountsData = await fetchAccounts(1, 1000);
+        // API returns paginated object { data: [...], totalCount, ... } - extract the array
+        const accountsList = Array.isArray(accountsData) ? accountsData : (accountsData.data || []);
+        setAccounts(accountsList);
       } catch (error) {
         console.error('Error loading accounts:', error);
+        setAccounts([]);
       }
     };
     loadAccounts();
