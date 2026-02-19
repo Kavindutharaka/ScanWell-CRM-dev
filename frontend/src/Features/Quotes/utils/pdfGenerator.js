@@ -430,7 +430,7 @@ function addAirFreightRatioChargesTable(doc, charges, yPos, title = 'Air Freight
   });
 
   // Build headers
-  const headers = ['AIRLINE', 'CCY', ...ratioColumns, 'SURCHARGE', 'T/T', 'FREQUENCY', 'ROUTING', 'REMARKS'];
+  const headers = ['AIRLINE', 'Currency', ...ratioColumns, 'SURCHARGE', 'T/T', 'FREQUENCY', 'ROUTING', 'REMARKS'];
 
   // Calculate column widths
   const numRatios = ratioColumns.length;
@@ -1046,7 +1046,7 @@ function addAirFreightChargesTableWithName(doc, charges, yPos, tableName = null,
   });
 
   // Build headers
-  const headers = ['AIRLINE', 'CCY', ...unitTypeColumns, 'MIN', 'SURCH', 'T/T', 'FREQ', 'ROUTING', 'REMARKS'];
+  const headers = ['AIRLINE', 'Currency', ...unitTypeColumns, 'MIN', 'SURCH', 'T/T', 'FREQ', 'ROUTING', 'REMARKS'];
 
   autoTable(doc, {
     startY: yPos,
@@ -1154,7 +1154,7 @@ function addAirFreightChargesTable(doc, charges, yPos) {
   });
   
   // Build headers
-  const headers = ['AIRLINE', 'CCY', 'M'];
+  const headers = ['AIRLINE', 'Currency', 'M'];
   headers.push(...unitTypeColumns);
   headers.push('SURCHARGES', 'T/T', 'FREQUENCY', 'ROUTING', 'REMARKS');
   
