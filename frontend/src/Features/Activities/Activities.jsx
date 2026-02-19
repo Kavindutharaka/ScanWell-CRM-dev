@@ -41,6 +41,7 @@ export default function Activities() {
     activity_id: 0
   });
   const [userDetails, setUserDetails] = useState(null);
+  const [typeCounts, setTypeCounts] = useState({ total: 0, siteVisit: 0, call: 0, meeting: 0, email: 0, followUp: 0, presentation: 0, other: 0 });
 
   // Filters
   const { filters, setFilter, clearAllFilters, getApiParams } = useFilters(['activityType', 'status']);
@@ -164,6 +165,7 @@ export default function Activities() {
       const rawData = result.data || [];
       setTotalCount(result.totalCount || 0);
       setTotalPages(result.totalPages || 0);
+      if (result.typeCounts) setTypeCounts(result.typeCounts);
 
       const transformedData = rawData.map((activity) => {
         const ownerFullName = activity.owner_name || 'Unassigned';
@@ -348,6 +350,7 @@ export default function Activities() {
               setFilter={setFilter}
               clearAllFilters={clearAllFilters}
               filterConfig={activityFilterConfig}
+              typeCounts={typeCounts}
             />
           )}
         </main>

@@ -122,13 +122,19 @@ namespace back_end.Controllers
                     }
                 }
 
+                // Get type counts (no filter — always show full totals)
+                object typeCounts;
+                try { typeCounts = GetTypeCounts(); }
+                catch { typeCounts = new { total = 0, siteVisit = 0, call = 0, meeting = 0, email = 0, followUp = 0, presentation = 0, other = 0 }; }
+
                 return Ok(new
                 {
                     data = table,
                     totalCount = totalCount,
                     page = page,
                     pageSize = pageSize,
-                    totalPages = (int)Math.Ceiling((double)totalCount / pageSize)
+                    totalPages = (int)Math.Ceiling((double)totalCount / pageSize),
+                    typeCounts = typeCounts
                 });
             }
             catch (Exception ex)
@@ -238,13 +244,19 @@ namespace back_end.Controllers
                     }
                 }
 
+                // Get type counts for this employee only
+                object typeCounts;
+                try { typeCounts = GetTypeCounts("a.[owner] = @ownerId", new SqlParameter("@ownerId", id)); }
+                catch { typeCounts = new { total = 0, siteVisit = 0, call = 0, meeting = 0, email = 0, followUp = 0, presentation = 0, other = 0 }; }
+
                 return Ok(new
                 {
                     data = table,
                     totalCount = totalCount,
                     page = page,
                     pageSize = pageSize,
-                    totalPages = (int)Math.Ceiling((double)totalCount / pageSize)
+                    totalPages = (int)Math.Ceiling((double)totalCount / pageSize),
+                    typeCounts = typeCounts
                 });
             }
             catch (Exception ex)
@@ -400,6 +412,55 @@ namespace back_end.Controllers
                 myCon.Close();
             }
             return Ok("Activity updated successfully.");
+        }
+
+        // ====================================================================
+        // HELPER: Get activity type counts (for summary cards)
+        // ====================================================================
+        private object GetTypeCounts(string ownerCondition = null, SqlParameter ownerParam = null)
+        {
+            string whereClause = !string.IsNullOrEmpty(ownerCondition) ? $" WHERE {ownerCondition}" : "";
+            string query = $@"
+                SELECT
+                    COUNT(*) AS total,
+                    COUNT(CASE WHEN a.[activity_type] = 'site_visit' OR a.[activity_type] = 'site-visit' THEN 1 END) AS siteVisit,
+                    COUNT(CASE WHEN a.[activity_type] = 'call' THEN 1 END) AS [call],
+                    COUNT(CASE WHEN a.[activity_type] = 'meeting' THEN 1 END) AS meeting,
+                    COUNT(CASE WHEN a.[activity_type] = 'email' THEN 1 END) AS email,
+                    COUNT(CASE WHEN a.[activity_type] = 'follow-up' THEN 1 END) AS followUp,
+                    COUNT(CASE WHEN a.[activity_type] = 'presentation' THEN 1 END) AS presentation,
+                    COUNT(CASE WHEN a.[activity_type] NOT IN ('site_visit','site-visit','call','meeting','email','follow-up','presentation') THEN 1 END) AS other
+                FROM [dbo].[activity] a
+                {whereClause};";
+
+            using (var con = new SqlConnection(_dbConnectionString))
+            {
+                con.Open();
+                using (var cmd = new SqlCommand(query, con))
+                {
+                    if (ownerParam != null)
+                        cmd.Parameters.Add(new SqlParameter(ownerParam.ParameterName, ownerParam.Value));
+
+                    using (var reader = cmd.ExecuteReader())
+                    {
+                        if (reader.Read())
+                        {
+                            return new
+                            {
+                                total = Convert.ToInt32(reader["total"]),
+                                siteVisit = Convert.ToInt32(reader["siteVisit"]),
+                                call = Convert.ToInt32(reader["call"]),
+                                meeting = Convert.ToInt32(reader["meeting"]),
+                                email = Convert.ToInt32(reader["email"]),
+                                followUp = Convert.ToInt32(reader["followUp"]),
+                                presentation = Convert.ToInt32(reader["presentation"]),
+                                other = Convert.ToInt32(reader["other"])
+                            };
+                        }
+                    }
+                }
+            }
+            return new { total = 0, siteVisit = 0, call = 0, meeting = 0, email = 0, followUp = 0, presentation = 0, other = 0 };
         }
 
         [HttpDelete("{id}")]

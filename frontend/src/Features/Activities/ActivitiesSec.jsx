@@ -14,13 +14,20 @@ import {
   Share2,
   Sparkles,
   MoreHorizontal,
-  Calendar1
+  Calendar1,
+  ClipboardList,
+  MapPin,
+  Phone,
+  Handshake,
+  Mail,
+  RotateCcw,
+  Presentation
 } from "lucide-react";
 import ActivitiesDetails from "./ActivitiesDetails";
 import ActivityView from "./ActivityView";
 import FilterPanel from "../../components/filters/FilterPanel";
 
-export default function ActivitiesSec({ modalOpen, onEdit, activities, setActivities, loadActivities, loading, isAdmin, page, setPage, pageSize, setPageSize, totalCount, totalPages, searchQuery, setSearchQuery, filters, setFilter, clearAllFilters, filterConfig }) {
+export default function ActivitiesSec({ modalOpen, onEdit, activities, setActivities, loadActivities, loading, isAdmin, page, setPage, pageSize, setPageSize, totalCount, totalPages, searchQuery, setSearchQuery, filters, setFilter, clearAllFilters, filterConfig, typeCounts }) {
   const [localSearch, setLocalSearch] = useState(searchQuery || "");
   const [viewCalendar, setViewCalender] = useState(false);
   const debounceRef = useRef(null);
@@ -177,6 +184,89 @@ export default function ActivitiesSec({ modalOpen, onEdit, activities, setActivi
             </div>
           </div>
         </div>
+
+        {/* Stats Cards */}
+        {typeCounts && (
+          <div className={`grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-4 mb-6 ${!loading ? 'animate-fadeInUp' : 'opacity-0'}`} style={{ animationDelay: '250ms', animationFillMode: 'both' }}>
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600">Total Activities</p>
+                  <p className="text-2xl font-bold text-gray-800">{typeCounts.total || 0}</p>
+                </div>
+                <div className="w-12 h-12 bg-blue-50 rounded-lg flex items-center justify-center">
+                  <ClipboardList className="text-blue-600" size={24} />
+                </div>
+              </div>
+            </div>
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600">Site Visit</p>
+                  <p className="text-2xl font-bold text-gray-800">{typeCounts.siteVisit || 0}</p>
+                </div>
+                <div className="w-12 h-12 bg-orange-50 rounded-lg flex items-center justify-center">
+                  <MapPin className="text-orange-600" size={24} />
+                </div>
+              </div>
+            </div>
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600">Phone Call</p>
+                  <p className="text-2xl font-bold text-gray-800">{typeCounts.call || 0}</p>
+                </div>
+                <div className="w-12 h-12 bg-green-50 rounded-lg flex items-center justify-center">
+                  <Phone className="text-green-600" size={24} />
+                </div>
+              </div>
+            </div>
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600">Meeting</p>
+                  <p className="text-2xl font-bold text-gray-800">{typeCounts.meeting || 0}</p>
+                </div>
+                <div className="w-12 h-12 bg-indigo-50 rounded-lg flex items-center justify-center">
+                  <Handshake className="text-indigo-600" size={24} />
+                </div>
+              </div>
+            </div>
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600">Email</p>
+                  <p className="text-2xl font-bold text-gray-800">{typeCounts.email || 0}</p>
+                </div>
+                <div className="w-12 h-12 bg-purple-50 rounded-lg flex items-center justify-center">
+                  <Mail className="text-purple-600" size={24} />
+                </div>
+              </div>
+            </div>
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600">Follow-up</p>
+                  <p className="text-2xl font-bold text-gray-800">{typeCounts.followUp || 0}</p>
+                </div>
+                <div className="w-12 h-12 bg-amber-50 rounded-lg flex items-center justify-center">
+                  <RotateCcw className="text-amber-600" size={24} />
+                </div>
+              </div>
+            </div>
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600">Presentation</p>
+                  <p className="text-2xl font-bold text-gray-800">{typeCounts.presentation || 0}</p>
+                </div>
+                <div className="w-12 h-12 bg-pink-50 rounded-lg flex items-center justify-center">
+                  <Presentation className="text-pink-600" size={24} />
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Activities Content */}
         <div className="space-y-6">
