@@ -22,7 +22,7 @@ namespace back_end.Controllers
         [HttpGet]
         public ActionResult GetRfqs()
         {
-            string query = "SELECT sysID, rfq_number, customer, valid_date, link, added_by FROM [dbo].[rfq] ORDER BY sysID DESC";
+            string query = "SELECT sysID, rfq_number, customer, valid_date, link, added_by, created_at FROM [dbo].[rfq] ORDER BY sysID DESC";
             DataTable table = new DataTable();
             using (SqlConnection myCon = new SqlConnection(_dbConnectionString))
             {
@@ -43,8 +43,8 @@ namespace back_end.Controllers
         [HttpPost]
         public ActionResult CreateRfq([FromBody] Rfq rfq)
         {
-            string query = @"INSERT INTO [dbo].[rfq] (rfq_number, customer, valid_date, link, added_by)
-                     VALUES (@rfq_number, @customer, @valid_date, @link, @added_by)";
+            string query = @"INSERT INTO [dbo].[rfq] (rfq_number, customer, valid_date, link, added_by, created_at)
+                     VALUES (@rfq_number, @customer, @valid_date, @link, @added_by, GETDATE())";
 
             using (SqlConnection myCon = new SqlConnection(_dbConnectionString))
             {

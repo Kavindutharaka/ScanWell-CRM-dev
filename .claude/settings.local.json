@@ -17,7 +17,11 @@
       "Bash(findstr:*)",
       "Bash(netsh interface ipv4 show excludedportrange:*)",
       "Bash(Select-String -Pattern \"error CS\" -NotMatch \"MSB3\")",
-      "Bash(done)"
+      "Bash(done)",
+      "Bash(powershell -Command:*)",
+      "Bash(select-string:*)",
+      "Bash(out-string:*)",
+      "Bash(echo:*)"
     ]
   }
 }
