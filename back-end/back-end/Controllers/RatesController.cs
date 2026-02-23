@@ -710,6 +710,158 @@ namespace back_end.Controllers
         }
 
         // ============================================================================
+        // RATE SUB-CATEGORIES ENDPOINTS (Dynamic Liner/Destination Headers)
+        // ============================================================================
+
+        // GET: api/rates/sub-categories?type=linear|destination
+        [HttpGet, Route("sub-categories")]
+        public ActionResult GetSubCategories([FromQuery] string type)
+        {
+            string query = @"SELECT id, name, code, type, color, sort_order, created_at
+                             FROM [dbo].[rate_sub_categories]
+                             WHERE is_active = 1
+                             AND (@type IS NULL OR type = @type)
+                             ORDER BY sort_order ASC, name ASC;";
+
+            DataTable catTb = new DataTable();
+            using (SqlConnection con = new SqlConnection(_dbConnectionString))
+            {
+                con.Open();
+                using (SqlCommand cmd = new SqlCommand(query, con))
+                {
+                    cmd.Parameters.AddWithValue("@type", string.IsNullOrEmpty(type) ? (object)DBNull.Value : type);
+                    using (SqlDataReader reader = cmd.ExecuteReader())
+                    {
+                        catTb.Load(reader);
+                    }
+                }
+                con.Close();
+            }
+            return new OkObjectResult(catTb);
+        }
+
+        // POST: api/rates/sub-categories
+        [HttpPost, Route("sub-categories")]
+        public IActionResult CreateSubCategory([FromBody] dynamic body)
+        {
+            try
+            {
+                string name = body.name?.ToString();
+                string type = body.type?.ToString();
+                string color = body.color?.ToString();
+
+                if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(type))
+                    return BadRequest("Name and type are required.");
+
+                if (type != "linear" && type != "destination")
+                    return BadRequest("Type must be 'linear' or 'destination'.");
+
+                string code = name.ToUpper().Trim();
+
+                string query = @"
+                    INSERT INTO [dbo].[rate_sub_categories]
+                    (name, code, type, color, sort_order, created_at, is_active)
+                    VALUES
+                    (@name, @code, @type, @color,
+                     (SELECT ISNULL(MAX(sort_order), 0) + 1 FROM [dbo].[rate_sub_categories] WHERE type = @type),
+                     GETDATE(), 1);
+                    SELECT SCOPE_IDENTITY();";
+
+                using (SqlConnection con = new SqlConnection(_dbConnectionString))
+                {
+                    con.Open();
+                    using (SqlCommand cmd = new SqlCommand(query, con))
+                    {
+                        cmd.Parameters.AddWithValue("@name", name.Trim());
+                        cmd.Parameters.AddWithValue("@code", code);
+                        cmd.Parameters.AddWithValue("@type", type);
+                        cmd.Parameters.AddWithValue("@color", string.IsNullOrEmpty(color) ? (object)DBNull.Value : color);
+
+                        var newId = cmd.ExecuteScalar();
+                        con.Close();
+
+                        return Ok(new { id = newId, name = name.Trim(), code, type, color });
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Error creating sub-category: {ex.Message}");
+            }
+        }
+
+        // PUT: api/rates/sub-categories/{id}
+        [HttpPut, Route("sub-categories/{id}")]
+        public IActionResult UpdateSubCategory(int id, [FromBody] dynamic body)
+        {
+            try
+            {
+                string name = body.name?.ToString();
+                string color = body.color?.ToString();
+
+                if (string.IsNullOrWhiteSpace(name))
+                    return BadRequest("Name is required.");
+
+                string code = name.ToUpper().Trim();
+
+                string query = @"UPDATE [dbo].[rate_sub_categories]
+                                 SET name = @name, code = @code, color = @color
+                                 WHERE id = @id;";
+
+                using (SqlConnection con = new SqlConnection(_dbConnectionString))
+                {
+                    con.Open();
+                    using (SqlCommand cmd = new SqlCommand(query, con))
+                    {
+                        cmd.Parameters.AddWithValue("@id", id);
+                        cmd.Parameters.AddWithValue("@name", name.Trim());
+                        cmd.Parameters.AddWithValue("@code", code);
+                        cmd.Parameters.AddWithValue("@color", string.IsNullOrEmpty(color) ? (object)DBNull.Value : color);
+
+                        int rows = cmd.ExecuteNonQuery();
+                        con.Close();
+
+                        if (rows == 0) return NotFound("Sub-category not found.");
+                        return Ok(new { message = "Updated successfully." });
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Error updating sub-category: {ex.Message}");
+            }
+        }
+
+        // DELETE: api/rates/sub-categories/{id}
+        [HttpDelete, Route("sub-categories/{id}")]
+        public IActionResult DeleteSubCategory(int id)
+        {
+            try
+            {
+                // Soft delete
+                string query = @"UPDATE [dbo].[rate_sub_categories] SET is_active = 0 WHERE id = @id;";
+
+                using (SqlConnection con = new SqlConnection(_dbConnectionString))
+                {
+                    con.Open();
+                    using (SqlCommand cmd = new SqlCommand(query, con))
+                    {
+                        cmd.Parameters.AddWithValue("@id", id);
+                        int rows = cmd.ExecuteNonQuery();
+                        con.Close();
+
+                        if (rows == 0) return NotFound("Sub-category not found.");
+                        return Ok(new { message = "Sub-category deleted successfully." });
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Error deleting sub-category: {ex.Message}");
+            }
+        }
+
+        // ============================================================================
         // AIR EXPORT RATES ENDPOINTS
         // ============================================================================
 

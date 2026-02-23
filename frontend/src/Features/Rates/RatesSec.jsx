@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from "react";
+import React, { useState, useEffect, useContext, useRef, useCallback } from "react";
 import { BASE_URL } from '../../config/apiConfig';
 import {
   Search,
@@ -14,6 +14,8 @@ import {
   AlertCircle,
   ChevronDown,
   ChevronUp,
+  ChevronLeft,
+  ChevronRight,
   Clock,
   ArrowRight,
   Package,
@@ -64,24 +66,101 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
   const [editingAirExportRate, setEditingAirExportRate] = useState(null);
   const [showAirExportEditModal, setShowAirExportEditModal] = useState(false);
 
-  // Shipping lines configuration - Linear Header's
-  const linearHeaderLines = [
-    { code: 'EMC', name: 'EMC', color: 'bg-green-600' },
-    { code: 'WAN HAI', name: 'WAN HAI', color: 'bg-sky-600' },
-    { code: 'HMM', name: 'HMM', color: 'bg-rose-600' },
-    { code: 'COSCO', name: 'COSCO', color: 'bg-blue-700' },
-    { code: 'ZIM', name: 'ZIM', color: 'bg-yellow-600' },
-    { code: 'SML', name: 'SML', color: 'bg-violet-600' },
-    { code: 'AIYER LANKA', name: 'AIYER LANKA', color: 'bg-lime-600' },
-  ];
+  // Dynamic sub-categories from DB (replaces hardcoded arrays)
+  const [linearHeaderLines, setLinearHeaderLines] = useState([]);
+  const [destinationHeaderLines, setDestinationHeaderLines] = useState([]);
+  const [subCategoriesLoading, setSubCategoriesLoading] = useState(false);
+  // Add sub-category modal state
+  const [showAddSubCategoryModal, setShowAddSubCategoryModal] = useState(false);
+  const [addSubCategoryType, setAddSubCategoryType] = useState(null); // 'linear' or 'destination'
+  const [newSubCategoryName, setNewSubCategoryName] = useState('');
+  const [addingSubCategory, setAddingSubCategory] = useState(false);
+  // Scroll refs for horizontal scroll
+  const linearScrollRef = useRef(null);
+  const destinationScrollRef = useRef(null);
 
-  // Destination Header's configuration
-  const destinationHeaderLines = [
-    { code: 'USEC/USWC HEADERS', name: 'USEC/USWC HEADERS', color: 'bg-red-700' },
-    { code: 'CANADA HEADERS', name: 'CANADA HEADERS', color: 'bg-red-600' },
-    { code: 'JEBAL ALI HEADERS', name: 'JEBAL ALI HEADERS', color: 'bg-amber-700' },
-    { code: 'EU/UK HEADERS', name: 'EU/UK HEADERS', color: 'bg-blue-800' },
-  ];
+  // Default color palettes for auto-assigning
+  const linearColors = ['bg-green-600', 'bg-sky-600', 'bg-rose-600', 'bg-blue-700', 'bg-yellow-600', 'bg-violet-600', 'bg-lime-600', 'bg-teal-600', 'bg-orange-600', 'bg-pink-600', 'bg-cyan-600', 'bg-emerald-600'];
+  const destinationColors = ['bg-red-700', 'bg-red-600', 'bg-amber-700', 'bg-blue-800', 'bg-rose-700', 'bg-orange-700', 'bg-purple-700', 'bg-indigo-700', 'bg-slate-700', 'bg-teal-700'];
+
+  // Load sub-categories from DB
+  const loadSubCategories = useCallback(async () => {
+    setSubCategoriesLoading(true);
+    try {
+      const [linearData, destData] = await Promise.all([
+        RateAPI.fetchSubCategories('linear'),
+        RateAPI.fetchSubCategories('destination')
+      ]);
+      const mapCats = (data, colorPalette) =>
+        (Array.isArray(data) ? data : []).map((cat, idx) => ({
+          id: cat.id,
+          code: cat.code || cat.name?.toUpperCase(),
+          name: cat.name,
+          color: cat.color || colorPalette[idx % colorPalette.length],
+        }));
+      setLinearHeaderLines(mapCats(linearData, linearColors));
+      setDestinationHeaderLines(mapCats(destData, destinationColors));
+    } catch (err) {
+      console.error('Error loading sub-categories:', err);
+    } finally {
+      setSubCategoriesLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadSubCategories();
+  }, [loadSubCategories]);
+
+  // Add new sub-category
+  const handleAddSubCategory = async () => {
+    if (!newSubCategoryName.trim()) return;
+    setAddingSubCategory(true);
+    try {
+      const palette = addSubCategoryType === 'linear' ? linearColors : destinationColors;
+      const existingCount = addSubCategoryType === 'linear' ? linearHeaderLines.length : destinationHeaderLines.length;
+      const color = palette[existingCount % palette.length];
+
+      await RateAPI.createSubCategory({
+        name: newSubCategoryName.trim(),
+        type: addSubCategoryType,
+        color: color
+      });
+      setShowAddSubCategoryModal(false);
+      setNewSubCategoryName('');
+      setAddSubCategoryType(null);
+      await loadSubCategories();
+    } catch (err) {
+      console.error('Error creating sub-category:', err);
+      alert('Failed to create sub-category. ' + err.message);
+    } finally {
+      setAddingSubCategory(false);
+    }
+  };
+
+  // Delete sub-category
+  const handleDeleteSubCategory = async (id, name, type) => {
+    if (!window.confirm(`Are you sure you want to delete "${name}"? This will NOT delete the rates data associated with it.`)) return;
+    try {
+      await RateAPI.deleteSubCategory(id);
+      // If the deleted category was active, reset
+      if (activeLiner === name.toUpperCase() || activeLiner === name) {
+        setActiveLiner(null);
+        setActiveLinerCategory(null);
+      }
+      await loadSubCategories();
+    } catch (err) {
+      console.error('Error deleting sub-category:', err);
+      alert('Failed to delete sub-category.');
+    }
+  };
+
+  // Horizontal scroll handler
+  const scrollContainer = (ref, direction) => {
+    if (ref.current) {
+      const scrollAmount = 200;
+      ref.current.scrollBy({ left: direction === 'left' ? -scrollAmount : scrollAmount, behavior: 'smooth' });
+    }
+  };
 
   const loadRates = async () => {
     setLoading(true);
@@ -1690,43 +1769,135 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
             </div>
           )}
 
-          {/* Linear Header's Sub-section - Shipping Line Buttons */}
+          {/* Linear Header's Sub-section - Horizontally Scrollable Buttons */}
           {(showLinearHeaders || activeLinerCategory === 'linearheaders') && (
-            <div className="flex flex-wrap gap-2 mb-4 p-3 bg-emerald-50 rounded-lg border border-emerald-200">
-              <span className="text-xs text-emerald-600 font-medium w-full mb-2">Liner Header's</span>
-              {linearHeaderLines.map((liner) => (
+            <div className="mb-4 p-3 bg-emerald-50 rounded-lg border border-emerald-200">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs text-emerald-600 font-medium">Liner Header's</span>
                 <button
-                  key={liner.code}
-                  onClick={() => handleLinearHeaderLinerClick(liner.code)}
-                  className={`px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 ${
-                    activeLiner === liner.code && activeLinerCategory === 'linearheaders'
-                      ? `${liner.color} text-white shadow-md`
-                      : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'
-                  }`}
+                  onClick={() => { setAddSubCategoryType('linear'); setNewSubCategoryName(''); setShowAddSubCategoryModal(true); }}
+                  className="flex items-center gap-1 px-2.5 py-1 bg-emerald-600 text-white rounded-lg text-xs font-medium hover:bg-emerald-700 transition-colors"
+                  title="Add new liner sub-category"
                 >
-                  <Ship className="w-4 h-4" /> {liner.name}
+                  <Plus className="w-3.5 h-3.5" /> Add
                 </button>
-              ))}
+              </div>
+              <div className="flex items-center gap-1">
+                {/* Left scroll button */}
+                <button
+                  onClick={() => scrollContainer(linearScrollRef, 'left')}
+                  className="flex-shrink-0 p-1 rounded-full hover:bg-emerald-200 text-emerald-600 transition-colors"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                {/* Scrollable container */}
+                <div
+                  ref={linearScrollRef}
+                  className="flex items-center gap-2 overflow-x-auto scrollbar-hide"
+                  style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+                >
+                  {linearHeaderLines.length === 0 && !subCategoriesLoading && (
+                    <span className="text-xs text-slate-400 italic px-2">No liner categories yet. Click "Add" to create one.</span>
+                  )}
+                  {linearHeaderLines.map((liner) => (
+                    <div key={liner.id || liner.code} className="relative group flex-shrink-0">
+                      <button
+                        onClick={() => handleLinearHeaderLinerClick(liner.code)}
+                        className={`px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 whitespace-nowrap text-sm ${
+                          activeLiner === liner.code && activeLinerCategory === 'linearheaders'
+                            ? `${liner.color} text-white shadow-md`
+                            : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'
+                        }`}
+                      >
+                        <Ship className="w-4 h-4" /> {liner.name}
+                      </button>
+                      {/* Delete button on hover */}
+                      {isAdmin && liner.id && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleDeleteSubCategory(liner.id, liner.name, 'linear'); }}
+                          className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-500 text-white rounded-full items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity hidden group-hover:flex shadow-sm"
+                          title={`Delete ${liner.name}`}
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                {/* Right scroll button */}
+                <button
+                  onClick={() => scrollContainer(linearScrollRef, 'right')}
+                  className="flex-shrink-0 p-1 rounded-full hover:bg-emerald-200 text-emerald-600 transition-colors"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
             </div>
           )}
 
-          {/* Destination Header's Sub-section - Region Buttons */}
+          {/* Destination Header's Sub-section - Horizontally Scrollable Buttons */}
           {(showDestinationHeaders || activeLinerCategory === 'destinationheaders') && (
-            <div className="flex flex-wrap gap-2 mb-4 p-3 bg-red-50 rounded-lg border border-red-200">
-              <span className="text-xs text-red-600 font-medium w-full mb-2">Destination Header's</span>
-              {destinationHeaderLines.map((liner) => (
+            <div className="mb-4 p-3 bg-red-50 rounded-lg border border-red-200">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs text-red-600 font-medium">Destination Header's</span>
                 <button
-                  key={liner.code}
-                  onClick={() => handleDestinationHeaderLinerClick(liner.code)}
-                  className={`px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 ${
-                    activeLiner === liner.code && activeLinerCategory === 'destinationheaders'
-                      ? `${liner.color} text-white shadow-md`
-                      : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'
-                  }`}
+                  onClick={() => { setAddSubCategoryType('destination'); setNewSubCategoryName(''); setShowAddSubCategoryModal(true); }}
+                  className="flex items-center gap-1 px-2.5 py-1 bg-red-600 text-white rounded-lg text-xs font-medium hover:bg-red-700 transition-colors"
+                  title="Add new destination sub-category"
                 >
-                  <MapPin className="w-4 h-4" /> {liner.name}
+                  <Plus className="w-3.5 h-3.5" /> Add
                 </button>
-              ))}
+              </div>
+              <div className="flex items-center gap-1">
+                {/* Left scroll button */}
+                <button
+                  onClick={() => scrollContainer(destinationScrollRef, 'left')}
+                  className="flex-shrink-0 p-1 rounded-full hover:bg-red-200 text-red-600 transition-colors"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                {/* Scrollable container */}
+                <div
+                  ref={destinationScrollRef}
+                  className="flex items-center gap-2 overflow-x-auto scrollbar-hide"
+                  style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+                >
+                  {destinationHeaderLines.length === 0 && !subCategoriesLoading && (
+                    <span className="text-xs text-slate-400 italic px-2">No destination categories yet. Click "Add" to create one.</span>
+                  )}
+                  {destinationHeaderLines.map((liner) => (
+                    <div key={liner.id || liner.code} className="relative group flex-shrink-0">
+                      <button
+                        onClick={() => handleDestinationHeaderLinerClick(liner.code)}
+                        className={`px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 whitespace-nowrap text-sm ${
+                          activeLiner === liner.code && activeLinerCategory === 'destinationheaders'
+                            ? `${liner.color} text-white shadow-md`
+                            : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'
+                        }`}
+                      >
+                        <MapPin className="w-4 h-4" /> {liner.name}
+                      </button>
+                      {/* Delete button on hover */}
+                      {isAdmin && liner.id && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleDeleteSubCategory(liner.id, liner.name, 'destination'); }}
+                          className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-500 text-white rounded-full items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity hidden group-hover:flex shadow-sm"
+                          title={`Delete ${liner.name}`}
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                {/* Right scroll button */}
+                <button
+                  onClick={() => scrollContainer(destinationScrollRef, 'right')}
+                  className="flex-shrink-0 p-1 rounded-full hover:bg-red-200 text-red-600 transition-colors"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
             </div>
           )}
 
@@ -2868,6 +3039,66 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
                       <Upload className="w-5 h-5" />
                       Upload & Save
                     </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Sub-Category Modal */}
+      {showAddSubCategoryModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setShowAddSubCategoryModal(false)}>
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md mx-4" onClick={(e) => e.stopPropagation()}>
+            <div className={`p-4 rounded-t-xl ${addSubCategoryType === 'linear' ? 'bg-emerald-600' : 'bg-red-700'} text-white`}>
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-bold flex items-center gap-2">
+                  {addSubCategoryType === 'linear' ? <Ship className="w-5 h-5" /> : <MapPin className="w-5 h-5" />}
+                  Add {addSubCategoryType === 'linear' ? 'Liner' : 'Destination'} Sub-Category
+                </h3>
+                <button onClick={() => setShowAddSubCategoryModal(false)} className="p-1 hover:bg-white/20 rounded-lg transition-colors">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  {addSubCategoryType === 'linear' ? 'Liner Name' : 'Destination Header Name'}
+                </label>
+                <input
+                  type="text"
+                  value={newSubCategoryName}
+                  onChange={(e) => setNewSubCategoryName(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' && newSubCategoryName.trim()) handleAddSubCategory(); }}
+                  placeholder={addSubCategoryType === 'linear' ? 'e.g., MSC, MAERSK, CMA CGM' : 'e.g., AFRICA HEADERS, ASIA HEADERS'}
+                  className="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent"
+                  autoFocus
+                />
+              </div>
+              <p className="text-xs text-slate-500">
+                This will create a new tab under {addSubCategoryType === 'linear' ? "Liner Header's" : "Destination Header's"}.
+                You can then upload Excel data for this category using the same format.
+              </p>
+              <div className="flex justify-end gap-3 pt-2">
+                <button
+                  onClick={() => setShowAddSubCategoryModal(false)}
+                  className="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 text-sm font-medium"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleAddSubCategory}
+                  disabled={!newSubCategoryName.trim() || addingSubCategory}
+                  className={`px-4 py-2 text-white rounded-lg text-sm font-medium disabled:opacity-50 flex items-center gap-2 ${
+                    addSubCategoryType === 'linear' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-red-700 hover:bg-red-800'
+                  }`}
+                >
+                  {addingSubCategory ? (
+                    <><RefreshCw className="w-4 h-4 animate-spin" /> Creating...</>
+                  ) : (
+                    <><Plus className="w-4 h-4" /> Create</>
                   )}
                 </button>
               </div>
