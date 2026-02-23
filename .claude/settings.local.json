@@ -25,7 +25,8 @@
       "Bash(Select-String -Pattern \"Compiled|Error|Failed|ready to be deployed\")",
       "Bash(tee:*)",
       "Bash(node -e:*)",
-      "Bash(Select-String \"error CS\")"
+      "Bash(Select-String \"error CS\")",
+      "Bash(npx vite build)"
     ]
   }
 }

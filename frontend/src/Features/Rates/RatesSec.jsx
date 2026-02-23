@@ -1782,25 +1782,29 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
                       <div key={rate.id} className="p-4 hover:bg-slate-50 transition-colors">
                         {/* Desktop Grid View */}
                         <div className="hidden md:grid grid-cols-12 gap-4 items-center">
-                          {/* Country & Airline Badge - Left aligned */}
-                          <div className="col-span-2 text-left">
-                            {rate.country && (
-                              <div className="text-xs font-semibold text-slate-700 mb-1 flex items-center gap-1 justify-start">
-                                <MapPin className="w-3 h-3 text-slate-400 flex-shrink-0" />
-                                <span className="truncate">{rate.country}</span>
-                              </div>
-                            )}
+                          {/* Airline Badge - Left */}
+                          <div className="col-span-1 text-left">
                             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium text-white bg-sky-600">
                               <Plane className="w-4 h-4" />
                               <span className="uppercase">{rate.airline || '—'}</span>
                             </div>
                             {rate.commodityType && (
-                              <div className="text-[10px] text-slate-400 mt-1 truncate max-w-[140px]">{rate.commodityType}</div>
+                              <div className="text-[10px] text-slate-400 mt-1 truncate max-w-[100px]">{rate.commodityType}</div>
+                            )}
+                          </div>
+
+                          {/* Country Badge - Between airline and rates */}
+                          <div className="col-span-2 flex items-center justify-center">
+                            {rate.country && (
+                              <div className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-slate-700 border border-slate-300 bg-white">
+                                <MapPin className="w-3 h-3 text-slate-400 flex-shrink-0" />
+                                <span className="truncate max-w-[100px]">{rate.country}</span>
+                              </div>
                             )}
                           </div>
 
                           {/* Rates Grid - M, -45, 45, 100, 300, 500, 1000 */}
-                          <div className="col-span-5">
+                          <div className="col-span-4">
                             <div className="flex items-center gap-2 flex-wrap">
                               {rate.rateM != null && (
                                 <div className="bg-sky-50 border border-sky-200 rounded px-2 py-1 text-center min-w-[60px]">
@@ -2018,7 +2022,7 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
                 <div className="p-6 space-y-4">
                   <div className="grid grid-cols-3 gap-4">
                     <div>
-                      <label className="block text-xs font-medium text-slate-600 mb-1">City</label>
+                      <label className="block text-xs font-medium text-slate-600 mb-1">Country</label>
                       <input type="text" value={editingAirExportRate.country || ''} onChange={(e) => setEditingAirExportRate({...editingAirExportRate, country: e.target.value})} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-sky-500" />
                     </div>
                     <div>
