@@ -859,15 +859,17 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
     setShowSeaSpotRates(false);
     setShowDestinationHeaders(false);
     setShowAirExport(false);
-    // Reset active liner if closing, or if switching from destination headers
     if (!willShow) {
+      // Closing liner headers
       if (activeLinerCategory === 'linearheaders') {
         setActiveLiner(null);
         setActiveLinerCategory(null);
       }
+      setActiveTab('all');
     } else {
-      // Opening liner headers - clear destination active state
-      if (activeLinerCategory === 'destinationheaders') {
+      // Opening liner headers - clear other content and wait for sub-category click
+      setActiveTab(null);
+      if (activeLinerCategory !== 'linearheaders') {
         setActiveLiner(null);
         setActiveLinerCategory(null);
       }
@@ -881,15 +883,17 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
     setShowSeaSpotRates(false);
     setShowLinearHeaders(false);
     setShowAirExport(false);
-    // Reset active liner if closing, or if switching from liner headers
     if (!willShow) {
+      // Closing destination headers
       if (activeLinerCategory === 'destinationheaders') {
         setActiveLiner(null);
         setActiveLinerCategory(null);
       }
+      setActiveTab('all');
     } else {
-      // Opening destination headers - clear liner active state
-      if (activeLinerCategory === 'linearheaders') {
+      // Opening destination headers - clear other content and wait for sub-category click
+      setActiveTab(null);
+      if (activeLinerCategory !== 'destinationheaders') {
         setActiveLiner(null);
         setActiveLinerCategory(null);
       }
@@ -1503,14 +1507,15 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
 
   // Determine which data to display based on active category
   // Sea Spot & Air Export rates are shown in their own inline sections, not in the card list
-  const displayData = (activeTab === 'seaspot' || activeTab === 'airexport')
+  // When activeTab is null, a header section is open but no sub-category selected yet — show nothing
+  const displayData = (activeTab === 'seaspot' || activeTab === 'airexport' || activeTab === null)
     ? []
     : activeLinerCategory === 'destinationheaders'
       ? destinationRates
       : activeLiner
         ? linerRates
         : filteredRates;
-  const isLoadingData = (activeTab === 'seaspot' || activeTab === 'airexport')
+  const isLoadingData = (activeTab === 'seaspot' || activeTab === 'airexport' || activeTab === null)
     ? false
     : activeLinerCategory === 'destinationheaders'
       ? destinationLoading
@@ -1537,7 +1542,7 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
             </div>
             
             {/* Conditional Button Display */}
-            {activeTab === 'seaspot' || activeTab === 'airexport' ? null : !activeLiner ? (
+            {activeTab === 'seaspot' || activeTab === 'airexport' || activeTab === null ? null : !activeLiner ? (
               <button
                 onClick={modalOpen}
                 className="inline-flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 transition-colors shadow-lg hover:shadow-xl"
@@ -2909,16 +2914,33 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
           </div>
         )}
 
+        {/* Prompt to select a sub-category when header is open */}
+        {activeTab === null && !activeLiner && (showLinearHeaders || showDestinationHeaders) && (
+          <div className="bg-white rounded-xl shadow-sm border p-12 text-center">
+            {showLinearHeaders ? (
+              <Ship className="w-16 h-16 text-emerald-300 mx-auto mb-4" />
+            ) : (
+              <MapPin className="w-16 h-16 text-red-300 mx-auto mb-4" />
+            )}
+            <h3 className="text-lg font-medium text-slate-700 mb-2">
+              Select a {showLinearHeaders ? 'Liner' : 'Destination'} category
+            </h3>
+            <p className="text-slate-500">
+              Choose a sub-category above to view or upload rates.
+            </p>
+          </div>
+        )}
+
         {/* Empty & Refresh */}
-        {!isLoadingData && !error && displayData.length === 0 && activeTab !== 'seaspot' && activeTab !== 'airexport' && (
+        {!isLoadingData && !error && displayData.length === 0 && activeTab !== 'seaspot' && activeTab !== 'airexport' && activeTab !== null && (
           <div className="bg-white rounded-xl shadow-sm border p-12 text-center">
             <DollarSign className="w-16 h-16 text-slate-300 mx-auto mb-4" />
             <h3 className="text-lg font-medium mb-2">No rates found</h3>
             <p className="text-slate-500 mb-6">
-              {activeLiner 
-                ? `No rates available for ${activeLiner}. Upload an Excel file to get started.` 
-                : searchQuery 
-                  ? 'Try adjusting your search' 
+              {activeLiner
+                ? `No rates available for ${activeLiner}. Upload an Excel file to get started.`
+                : searchQuery
+                  ? 'Try adjusting your search'
                   : 'Create your first rate'
               }
             </p>
