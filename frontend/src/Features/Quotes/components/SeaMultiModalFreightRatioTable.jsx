@@ -177,7 +177,7 @@ export default function SeaMultiModalFreightRatioTable({
           <thead className="bg-gray-50">
             <tr>
               <th className="border border-gray-300 px-2 py-2 text-left" style={{ minWidth: '70px' }}>AIRLINE</th>
-              <th className="border border-gray-300 px-2 py-2 text-left" style={{ minWidth: '65px' }}>CCY</th>
+              <th className="border border-gray-300 px-2 py-2 text-left" style={{ minWidth: '65px' }}>Currency</th>
               {standardRatios.map(ratio => (
                 <th key={ratio} className="border border-gray-300 px-2 py-2 text-left" style={{ minWidth: '60px' }}>{ratio}</th>
               ))}

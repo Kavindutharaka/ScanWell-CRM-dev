@@ -1,18 +1,27 @@
 import { useContext } from 'react';
 import logo from '../assets/images/logo.png';
 import appLogo from '../assets/images/app_logo.png';
-import { Bell, MessageSquareText, Menu, X, User, LogOut } from 'lucide-react';
-import { useState, useEffect, useRef } from 'react';
+import scanwellLogo from '../assets/images/logo_scanwell.png';
+import { Bell, MessageSquareText, Menu, X, User, LogOut, Bot, MessageCircle } from 'lucide-react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { BASE_URL } from '../config/apiConfig';
 import axios from '../config/axios';
 import { AuthContext } from "../context/AuthContext";
 import { fetchUserDetailsByRoleID } from '../api/UserRoleApi';
+import { fetchNotifications, markNotificationsSeen } from '../api/NotificationApi';
+import NotificationPanel from './NotificationPanel';
 
 function Header({ onMenuToggle, isMobileMenuOpen }) {
   const [showNotifications, setShowNotifications] = useState(false);
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
   const [userDetails, setUserDetails] = useState(null);
+  const [notifications, setNotifications] = useState(null);
+  const [notificationCount, setNotificationCount] = useState(0);
+  const [unseenCount, setUnseenCount] = useState(0);
   const profileDropdownRef = useRef(null);
+  const notificationRef = useRef(null);
+  const markedSeenRef = useRef(false);
+  const lastSeenTotalRef = useRef(0);
 
   const { user } = useContext(AuthContext);
 
@@ -34,6 +43,52 @@ function Header({ onMenuToggle, isMobileMenuOpen }) {
     }
   };
 
+  // Fetch notifications + polling (every 2 minutes)
+  const loadNotifications = useCallback(async () => {
+    if (!user?.id) return;
+    try {
+      const data = await fetchNotifications(user.id);
+      setNotifications(data);
+      const newTotal = data.totalCount || 0;
+      setNotificationCount(newTotal);
+
+      // If user already marked as seen, only show badge if NEW notifications arrived
+      if (markedSeenRef.current) {
+        if (newTotal > lastSeenTotalRef.current) {
+          // New notifications arrived since user last viewed — show the diff
+          setUnseenCount(newTotal - lastSeenTotalRef.current);
+          markedSeenRef.current = false; // reset so server unseenCount is used again
+        }
+        // else: same or fewer notifications — keep badge at 0
+      } else {
+        setUnseenCount(data.unseenCount ?? newTotal);
+      }
+    } catch (error) {
+      console.error("Error fetching notifications:", error);
+    }
+  }, [user?.id]);
+
+  // Mark notifications as seen in database
+  const handleMarkSeen = useCallback(async () => {
+    if (!user?.id) return;
+    try {
+      // Immediately clear badge and set the flag to prevent polling from overwriting
+      setUnseenCount(0);
+      markedSeenRef.current = true;
+      lastSeenTotalRef.current = notificationCount;
+      // Send the current totalCount so backend stores it for future diff calculation
+      await markNotificationsSeen(user.id, notificationCount);
+    } catch (error) {
+      console.error("Error marking notifications as seen:", error);
+    }
+  }, [user?.id, notificationCount]);
+
+  useEffect(() => {
+    loadNotifications();
+    const interval = setInterval(loadNotifications, 120000); // 2 minutes
+    return () => clearInterval(interval);
+  }, [loadNotifications]);
+
   // Get initials from first and last name
   const getInitials = () => {
     if (!userDetails) return 'K';
@@ -42,22 +97,25 @@ function Header({ onMenuToggle, isMobileMenuOpen }) {
     return firstInitial + lastInitial;
   };
 
-  // Close dropdown when clicking outside
+  // Close dropdowns when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (profileDropdownRef.current && !profileDropdownRef.current.contains(event.target)) {
         setShowProfileDropdown(false);
       }
+      if (notificationRef.current && !notificationRef.current.contains(event.target)) {
+        setShowNotifications(false);
+      }
     };
 
-    if (showProfileDropdown) {
+    if (showProfileDropdown || showNotifications) {
       document.addEventListener('mousedown', handleClickOutside);
     }
 
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [showProfileDropdown]);
+  }, [showProfileDropdown, showNotifications]);
 
   const handleLogout = async () => {
     // Add your logout logic here
@@ -94,7 +152,7 @@ function Header({ onMenuToggle, isMobileMenuOpen }) {
           <img 
             src={appLogo} 
             alt="Company Logo" 
-            className="h-12 w-auto transition-transform hover:scale-105" 
+            className="h-8 w-auto transition-transform hover:scale-105" 
           />
         </div>
       </div>
@@ -106,24 +164,80 @@ function Header({ onMenuToggle, isMobileMenuOpen }) {
           alt="Sales Drive" 
           className="h-7 w-auto" 
         /> */}
-        {/* Notifications */}
+        {/* Scanwell Logo */}
+        <img
+          src={scanwellLogo}
+          alt="Scanwell"
+          className="h-9 w-auto rounded object-contain"
+        />
+
+        {/* AI Assistant */}
         <div className="relative group">
           <button
-            onClick={() => setShowNotifications(!showNotifications)}
             className="p-2 rounded-lg hover:bg-slate-100 transition-all duration-200 active:scale-95 relative"
-            aria-label="Notifications"
+            aria-label="AI Assistant"
           >
-            <Bell className="w-5 h-5 text-slate-600 group-hover:text-slate-800" />
-            {/* Notification badge */}
-            {/* <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full flex items-center justify-center">
-              <span className="text-[10px] text-white font-medium">3</span>
-            </span> */}
+            <Bot className="w-5 h-5 text-slate-600 group-hover:text-violet-600" />
           </button>
-          
           {/* Tooltip */}
-          <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-slate-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
-            Notifications
+          <div className="absolute top-full left-1/2 -translate-x-1/2 mt-1 px-2.5 py-1 bg-slate-800 text-white text-xs rounded-md shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50">
+            AI Assistant
           </div>
+        </div>
+
+        {/* Chat */}
+        <div className="relative group">
+          <button
+            className="p-2 rounded-lg hover:bg-slate-100 transition-all duration-200 active:scale-95 relative"
+            aria-label="Chat"
+          >
+            <MessageCircle className="w-5 h-5 text-slate-600 group-hover:text-blue-600" />
+          </button>
+          {/* Tooltip */}
+          <div className="absolute top-full left-1/2 -translate-x-1/2 mt-1 px-2.5 py-1 bg-slate-800 text-white text-xs rounded-md shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50">
+            Group Chat
+          </div>
+        </div>
+
+        {/* Notifications */}
+        <div className="relative" ref={notificationRef}>
+          <div className="relative group">
+            <button
+              onClick={() => {
+                const opening = !showNotifications;
+                setShowNotifications(opening);
+                if (opening) {
+                  handleMarkSeen(); // mark as seen in DB + clear badge (no loadNotifications to avoid race condition)
+                }
+              }}
+              className="p-2 rounded-lg hover:bg-slate-100 transition-all duration-200 active:scale-95 relative"
+              aria-label="Notifications"
+            >
+              <Bell className="w-5 h-5 text-slate-600 group-hover:text-slate-800" />
+              {/* Notification badge — only show unseen count */}
+              {unseenCount > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 bg-red-500 rounded-full flex items-center justify-center">
+                  <span className="text-[10px] text-white font-bold leading-none">
+                    {unseenCount > 99 ? '99+' : unseenCount}
+                  </span>
+                </span>
+              )}
+            </button>
+
+            {/* Tooltip - only show when panel is closed */}
+            {!showNotifications && (
+              <div className="absolute top-full left-1/2 -translate-x-1/2 mt-1 px-2.5 py-1 bg-slate-800 text-white text-xs rounded-md shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50">
+                Notifications
+              </div>
+            )}
+          </div>
+
+          {/* Notification Panel */}
+          <NotificationPanel
+            notifications={notifications}
+            isOpen={showNotifications}
+            onClose={() => setShowNotifications(false)}
+          />
         </div>
 
         {/* Messages */}

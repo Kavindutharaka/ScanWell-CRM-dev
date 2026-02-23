@@ -1,8 +1,13 @@
 import axios from 'axios';
 import { BASE_URL } from '../config/apiConfig';
 
-export const fetchActivities = async () => {
-  const response = await axios.get(`${BASE_URL}/Activity`);
+export const fetchActivities = async (page = 1, pageSize = 25, search = '', filters = {}) => {
+  const params = { page, pageSize };
+  if (search.trim()) params.search = search.trim();
+  Object.entries(filters).forEach(([key, value]) => {
+    if (value) params[key] = value;
+  });
+  const response = await axios.get(`${BASE_URL}/Activity`, { params });
   return response.data;
 };
 
@@ -36,8 +41,13 @@ export const fetchFullName = async(id) =>{
     return response.data;
 };
 
-export const fetchbyEmpId = async(id) =>{
-    const response = await axios.get(`${BASE_URL}/Activity/${id}`);
+export const fetchbyEmpId = async(id, page = 1, pageSize = 25, search = '', filters = {}) =>{
+    const params = { page, pageSize };
+    if (search.trim()) params.search = search.trim();
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value) params[key] = value;
+    });
+    const response = await axios.get(`${BASE_URL}/Activity/${id}`, { params });
     return response.data;
 };
 

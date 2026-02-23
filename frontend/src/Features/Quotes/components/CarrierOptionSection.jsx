@@ -90,14 +90,16 @@ export default function CarrierOptionSection({
             <h4 className="text-md font-semibold text-gray-700 mb-4">
               {category === 'air' ? 'Airline' : 'Carrier'} Details
             </h4>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <AutocompleteInput
-                label={category === 'air' ? 'Airline' : 'Carrier'}
-                value={option.carrier || ''}
-                onChange={(value) => updateCarrierOption('carrier', value)}
-                suggestions={carrierList}
-                disabled={disabled}
-              />
+            <div className={`grid grid-cols-1 ${category === 'air' ? 'md:grid-cols-3' : 'md:grid-cols-4'} gap-4`}>
+              {category !== 'air' && (
+                <AutocompleteInput
+                  label="Carrier"
+                  value={option.carrier || ''}
+                  onChange={(value) => updateCarrierOption('carrier', value)}
+                  suggestions={carrierList}
+                  disabled={disabled}
+                />
+              )}
 
               <AutocompleteInput
                 label="Incoterm"
@@ -133,7 +135,6 @@ export default function CarrierOptionSection({
                 <button
                   type="button"
                   onClick={() => {
-                    // Call addFreightChargesTable from parent DirectQuoteForm
                     if (window.addFreightChargesTable) {
                       window.addFreightChargesTable(index);
                     }
@@ -146,9 +147,7 @@ export default function CarrierOptionSection({
               )}
             </div>
 
-            {/* Check if freightChargesTables exists, otherwise use old format */}
             {option.freightChargesTables && option.freightChargesTables.length > 0 ? (
-              // New format: multiple tables
               option.freightChargesTables.map((table, tableIdx) => (
                 <div key={tableIdx} className="bg-white rounded-lg p-4 mb-4 shadow-sm border border-gray-200">
                   <div className="flex justify-between items-center mb-2">
@@ -183,25 +182,24 @@ export default function CarrierOptionSection({
                     }}
                     category={category}
                     disabled={disabled}
-                    carrierName={option.carrier}
+                    carrierName={category === 'air' ? null : option.carrier}
                   />
                 </div>
               ))
             ) : (
-              // Old format: single freight charges array
               <div className="bg-white rounded-lg p-4 mb-4 shadow-sm">
                 <FreightChargesSection
                   formData={createChargeFormData('freightCharges')}
                   setFormData={createChargeSetFormData('freightCharges')}
                   category={category}
                   disabled={disabled}
-                  carrierName={option.carrier}
+                  carrierName={category === 'air' ? null : option.carrier}
                 />
               </div>
             )}
           </div>
 
-          {/* Air Freight Ratio Charges - only for air category */}
+          {/* Air Freight Ratio Charges - always visible for air category, user fills one or the other */}
           {category === 'air' && (
             <div className="bg-white rounded-lg p-4 mb-4 shadow-sm">
               <SeaFreightRatioTable

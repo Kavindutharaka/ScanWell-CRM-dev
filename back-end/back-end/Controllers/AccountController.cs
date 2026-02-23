@@ -29,21 +29,176 @@ namespace back_end.Controllers
         }
 
         [HttpGet, Route("account")]
-        public ActionResult getAccounts()
+        public ActionResult getAccounts([FromQuery] int page = 1, [FromQuery] int pageSize = 25, [FromQuery] string search = "", [FromQuery] string accountType = "all", [FromQuery] string salesPerson = "all", [FromQuery] string location = "all")
         {
-            string query = @"SELECT TOP 20 * FROM [dbo].[account_reg] ORDER BY SysID DESC;";
-            tb = new DataTable();
-            using (myCon)
+            int offset = (page - 1) * pageSize;
+
+            var conditions = new List<string>();
+            var parameters = new List<SqlParameter>();
+
+            if (!string.IsNullOrWhiteSpace(search))
             {
-                myCon.Open();
-                using (myCom = new SqlCommand(query, myCon))
+                conditions.Add(@"(accountName LIKE @search
+                    OR domain LIKE @search
+                    OR fmsCode LIKE @search
+                    OR industry LIKE @search
+                    OR location LIKE @search
+                    OR salesPerson LIKE @search
+                    OR primaryContact LIKE @search
+                    OR primaryEmail LIKE @search
+                    OR accountType LIKE @search
+                    OR description LIKE @search)");
+                parameters.Add(new SqlParameter("@search", $"%{search}%"));
+            }
+
+            if (!string.IsNullOrEmpty(accountType) && accountType != "all")
+            {
+                var values = accountType.Split(',', StringSplitOptions.RemoveEmptyEntries);
+                if (values.Length == 1)
                 {
-                    myR = myCom.ExecuteReader();
-                    tb.Load(myR);
-                    myR.Close();
-                    myCon.Close();
+                    conditions.Add("accountType = @accountType");
+                    parameters.Add(new SqlParameter("@accountType", values[0].Trim()));
                 }
-                return new OkObjectResult(tb);
+                else
+                {
+                    var paramNames = new List<string>();
+                    for (int i = 0; i < values.Length; i++)
+                    {
+                        paramNames.Add($"@atp{i}");
+                        parameters.Add(new SqlParameter($"@atp{i}", values[i].Trim()));
+                    }
+                    conditions.Add($"accountType IN ({string.Join(",", paramNames)})");
+                }
+            }
+
+            if (!string.IsNullOrEmpty(salesPerson) && salesPerson != "all")
+            {
+                var values = salesPerson.Split(',', StringSplitOptions.RemoveEmptyEntries);
+                if (values.Length == 1)
+                {
+                    conditions.Add("salesPerson = @salesPerson");
+                    parameters.Add(new SqlParameter("@salesPerson", values[0].Trim()));
+                }
+                else
+                {
+                    var paramNames = new List<string>();
+                    for (int i = 0; i < values.Length; i++)
+                    {
+                        paramNames.Add($"@sp{i}");
+                        parameters.Add(new SqlParameter($"@sp{i}", values[i].Trim()));
+                    }
+                    conditions.Add($"salesPerson IN ({string.Join(",", paramNames)})");
+                }
+            }
+
+            if (!string.IsNullOrEmpty(location) && location != "all")
+            {
+                var values = location.Split(',', StringSplitOptions.RemoveEmptyEntries);
+                if (values.Length == 1)
+                {
+                    conditions.Add("location = @location");
+                    parameters.Add(new SqlParameter("@location", values[0].Trim()));
+                }
+                else
+                {
+                    var paramNames = new List<string>();
+                    for (int i = 0; i < values.Length; i++)
+                    {
+                        paramNames.Add($"@loc{i}");
+                        parameters.Add(new SqlParameter($"@loc{i}", values[i].Trim()));
+                    }
+                    conditions.Add($"location IN ({string.Join(",", paramNames)})");
+                }
+            }
+
+            string whereClause = conditions.Count > 0 ? " WHERE " + string.Join(" AND ", conditions) : "";
+            string countQuery = $"SELECT COUNT(*) FROM [dbo].[account_reg]{whereClause};";
+            string dataQuery = $@"SELECT * FROM [dbo].[account_reg]{whereClause}
+                ORDER BY SysID DESC
+                OFFSET @offset ROWS FETCH NEXT @pageSize ROWS ONLY;";
+
+            try
+            {
+                int totalCount = 0;
+                tb = new DataTable();
+
+                using (var con = new SqlConnection(dbcon))
+                {
+                    con.Open();
+
+                    // Get total count
+                    using (var cmd = new SqlCommand(countQuery, con))
+                    {
+                        foreach (var p in parameters) cmd.Parameters.Add(new SqlParameter(p.ParameterName, p.Value));
+                        totalCount = (int)cmd.ExecuteScalar();
+                    }
+
+                    // Get paged data
+                    using (var cmd = new SqlCommand(dataQuery, con))
+                    {
+                        foreach (var p in parameters) cmd.Parameters.Add(new SqlParameter(p.ParameterName, p.Value));
+                        cmd.Parameters.AddWithValue("@offset", offset);
+                        cmd.Parameters.AddWithValue("@pageSize", pageSize);
+
+                        using (var reader = cmd.ExecuteReader())
+                        {
+                            tb.Load(reader);
+                        }
+                    }
+                }
+
+                return Ok(new
+                {
+                    data = tb,
+                    totalCount = totalCount,
+                    page = page,
+                    pageSize = pageSize,
+                    totalPages = (int)Math.Ceiling((double)totalCount / pageSize)
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, "Error: " + ex.Message);
+            }
+        }
+
+        [HttpGet, Route("account/filter-options")]
+        public ActionResult GetFilterOptions()
+        {
+            try
+            {
+                var accountTypes = new List<string>();
+                var salesPersons = new List<string>();
+                var locations = new List<string>();
+
+                using (var con = new SqlConnection(dbcon))
+                {
+                    con.Open();
+
+                    using (var cmd = new SqlCommand("SELECT DISTINCT accountType FROM [dbo].[account_reg] WHERE accountType IS NOT NULL AND accountType != '' ORDER BY accountType", con))
+                    using (var reader = cmd.ExecuteReader())
+                    {
+                        while (reader.Read()) accountTypes.Add(reader.GetString(0));
+                    }
+
+                    using (var cmd = new SqlCommand("SELECT DISTINCT salesPerson FROM [dbo].[account_reg] WHERE salesPerson IS NOT NULL AND salesPerson != '' ORDER BY salesPerson", con))
+                    using (var reader = cmd.ExecuteReader())
+                    {
+                        while (reader.Read()) salesPersons.Add(reader.GetString(0));
+                    }
+
+                    using (var cmd = new SqlCommand("SELECT DISTINCT location FROM [dbo].[account_reg] WHERE location IS NOT NULL AND location != '' ORDER BY location", con))
+                    using (var reader = cmd.ExecuteReader())
+                    {
+                        while (reader.Read()) locations.Add(reader.GetString(0));
+                    }
+                }
+
+                return Ok(new { accountTypes, salesPersons, locations });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, "Error: " + ex.Message);
             }
         }
 

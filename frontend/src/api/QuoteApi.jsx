@@ -14,8 +14,14 @@ export const fetchQuoteCounts = async () => {
   return response.data;
 };
 
-export const fetchQuotesPaged = async (page = 1, pageSize = 10, search = '', category = 'all', type = 'all') => {
+export const fetchQuotesPaged = async (page = 1, pageSize = 10, search = '', category = 'all', type = 'all', filters = {}) => {
   const params = new URLSearchParams({ page, pageSize, search, category, type });
+  // Append additional filters (status, etc.)
+  Object.entries(filters).forEach(([key, value]) => {
+    if (value && key !== 'category' && key !== 'type') {
+      params.append(key, value);
+    }
+  });
   const response = await axios.get(`${BASE_URL}/quote/quote/paged?${params.toString()}`);
   return response.data;
 };

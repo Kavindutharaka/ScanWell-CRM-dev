@@ -1,19 +1,23 @@
 // QuotesInvoiceSec.jsx - MINIMAL CHANGES - Only outcome fixes + Warehouse Quotes
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Search, Filter, Eye, Edit2, Trash2, Plane, Ship, Package, Container, Truck, Route as RouteIcon, Layers, MapPin, Calendar, User, DollarSign, ArrowRight, Award, CheckCircle, XCircle, AlertCircle, Warehouse, Send, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, Search, Eye, Edit2, Trash2, Plane, Ship, Package, Container, Truck, Route as RouteIcon, Layers, MapPin, Calendar, User, DollarSign, ArrowRight, Award, CheckCircle, XCircle, AlertCircle, Warehouse, Send, ChevronLeft, ChevronRight, FileText } from 'lucide-react';
 import { fetchQuotesPaged, fetchQuoteCounts, deleteQuote, fetchWareQuote, getSp, updateQuoteStatus } from '../../api/QuoteApi';
-import { fetchOutComeById, saveQuoteOutCome } from '../../api/QuotesOutComeApi';
+import { fetchOutComeById, saveQuoteOutCome, updateWonDetails } from '../../api/QuotesOutComeApi';
+import { AuthContext } from '../../context/AuthContext';
+import FilterPanel from '../../components/filters/FilterPanel';
+import useFilters from '../../components/filters/useFilters';
 import axios from 'axios';
 
 export default function QuotesInvoiceSec({ modalOpen }) {
   const navigate = useNavigate();
+  const { permission } = useContext(AuthContext);
+  const isAdmin = permission?.IsAdmin;
   const [quotes, setQuotes] = useState([]);
   const [warehouseQuotes, setWarehouseQuotes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterType, setFilterType] = useState('all');
-  const [filterCategory, setFilterCategory] = useState('all');
+  const { filters, setFilter, clearAllFilters, getApiParams, hasActiveFilters } = useFilters(['category', 'type', 'status']);
   const [deleteModal, setDeleteModal] = useState({ show: false, quoteId: null, quoteNumber: '' });
   const [submitModal, setSubmitModal] = useState({ show: false, quoteId: null, quoteNumber: '' });
 
@@ -35,6 +39,11 @@ export default function QuotesInvoiceSec({ modalOpen }) {
   const [quoteOutcomes, setQuoteOutcomes] = useState({});
   const [winForm, setWinForm] = useState({ wonAmount: '' });
   const [lostForm, setLostForm] = useState({ lostReason: '', lostNote: '' });
+
+  // Won details modal state (Admin only)
+  const [wonDetailsModalShow, setWonDetailsModalShow] = useState(false);
+  const [wonDetailsQuote, setWonDetailsQuote] = useState(null);
+  const [wonDetailsForm, setWonDetailsForm] = useState({ invoiceNumber: '', cost: '', salesValue: '' });
 
   const lostReasons = [
     'High Prices',
@@ -86,28 +95,40 @@ function SalesPerson({ customerName }) {
   const getOutcomeBadge = (quoteId) => {
     const outcome = quoteOutcomes[quoteId];
 
-    // No outcome yet - show Win/Lost buttons
+    // No outcome yet - show Win/Lost buttons (direct save, no modal)
     if (!outcome) {
       return (
         <div className="flex items-center gap-2">
           <button
-            onClick={() => {
+            onClick={async () => {
               const quote = allQuotes.find(q => q.quoteId === quoteId);
-              setCurrentQuote(quote);
-              setWinForm({ wonAmount: '' });
-              setWinModalShow(true);
+              try {
+                await saveQuoteOutCome({
+                  quoteId: quote.quoteId,
+                  outcomeStatus: 'won'
+                });
+                await loadQuoteOutcome(quote.quoteId);
+              } catch (error) {
+                console.error('Error saving win outcome:', error);
+              }
             }}
             className="flex items-center gap-1 px-3 py-1 bg-green-50 text-green-700 rounded-lg text-xs font-medium hover:bg-green-100 transition-colors"
           >
             <CheckCircle size={14} />
-            Win
+            Won
           </button>
           <button
-            onClick={() => {
+            onClick={async () => {
               const quote = allQuotes.find(q => q.quoteId === quoteId);
-              setCurrentQuote(quote);
-              setLostForm({ lostReason: '', lostNote: '' });
-              setLostModalShow(true);
+              try {
+                await saveQuoteOutCome({
+                  quoteId: quote.quoteId,
+                  outcomeStatus: 'lost'
+                });
+                await loadQuoteOutcome(quote.quoteId);
+              } catch (error) {
+                console.error('Error saving lost outcome:', error);
+              }
             }}
             className="flex items-center gap-1 px-3 py-1 bg-red-50 text-red-700 rounded-lg text-xs font-medium hover:bg-red-100 transition-colors"
           >
@@ -120,43 +141,19 @@ function SalesPerson({ customerName }) {
 
     if (outcome.outcomeStatus === 'won') {
       return (
-        <div className="flex flex-col gap-1">
-          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-            <Award size={14} />
-            Won
-          </span>
-          {outcome.wonAmount > 0 && (
-            <span className="text-xs text-gray-600 font-semibold">
-              LKR {parseFloat(outcome.wonAmount).toLocaleString()}
-            </span>
-          )}
-          {outcome.createdDate && (
-            <span className="text-[10px] text-gray-400">
-              {new Date(outcome.createdDate).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })}
-            </span>
-          )}
-        </div>
+        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+          <Award size={14} />
+          Won
+        </span>
       );
     }
 
     if (outcome.outcomeStatus === 'lost') {
       return (
-        <div className="flex flex-col gap-1">
-          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
-            <AlertCircle size={14} />
-            Lost
-          </span>
-          {outcome.lostReason && (
-            <span className="text-xs text-gray-600">
-              {outcome.lostReason}
-            </span>
-          )}
-          {outcome.createdDate && (
-            <span className="text-[10px] text-gray-400">
-              {new Date(outcome.createdDate).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })}
-            </span>
-          )}
-        </div>
+        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+          <AlertCircle size={14} />
+          Lost
+        </span>
       );
     }
 
@@ -222,6 +219,40 @@ function SalesPerson({ customerName }) {
     }
   };
 
+  // Save won details handler (Admin only)
+  const handleSaveWonDetails = async () => {
+    try {
+      const payload = {
+        quoteId: wonDetailsQuote.quoteId,
+        invoiceNumber: wonDetailsForm.invoiceNumber || null,
+        cost: wonDetailsForm.cost ? parseFloat(wonDetailsForm.cost) : null,
+        salesValue: wonDetailsForm.salesValue ? parseFloat(wonDetailsForm.salesValue) : null
+      };
+
+      await updateWonDetails(payload);
+      await loadQuoteOutcome(wonDetailsQuote.quoteId);
+      setWonDetailsModalShow(false);
+      setWonDetailsQuote(null);
+      alert('Won details updated successfully!');
+    } catch (error) {
+      console.error('Error updating won details:', error);
+      alert('Failed to update won details');
+    }
+  };
+
+  // Open won details modal for a quote
+  const openWonDetailsModal = (quoteId) => {
+    const quote = allQuotes.find(q => q.quoteId === quoteId);
+    const outcome = quoteOutcomes[quoteId];
+    setWonDetailsQuote(quote);
+    setWonDetailsForm({
+      invoiceNumber: outcome?.invoiceNumber || '',
+      cost: outcome?.cost || '',
+      salesValue: outcome?.salesValue || ''
+    });
+    setWonDetailsModalShow(true);
+  };
+
   // Debounce search input
   useEffect(() => {
     if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
@@ -235,12 +266,36 @@ function SalesPerson({ customerName }) {
   // Reset page when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [filterType, filterCategory]);
+  }, [filters]);
 
   // Load quotes when page, filters, or debounced search changes
   useEffect(() => {
     loadQuotes();
-  }, [currentPage, pageSize, debouncedSearch, filterCategory, filterType]);
+  }, [currentPage, pageSize, debouncedSearch, filters]);
+
+  // Filter configuration for Quotes
+  const quoteFilterConfig = [
+    { key: 'category', label: 'Category', allLabel: 'All Categories', minWidth: '160px', options: [
+      { value: 'air', label: 'Air' },
+      { value: 'sea', label: 'Sea' },
+      { value: 'multimodal', label: 'MultiModal' },
+      { value: 'warehouse', label: 'Warehouse' }
+    ]},
+    { key: 'type', label: 'Type', allLabel: 'All Types', minWidth: '140px', options: [
+      { value: 'direct', label: 'Direct' },
+      { value: 'transit', label: 'Transit' },
+      { value: 'multimodal', label: 'MultiModal' },
+      { value: 'warehouse', label: 'Warehouse' }
+    ]},
+    { key: 'status', label: 'Status', allLabel: 'All Statuses', minWidth: '150px', options: [
+      { value: 'draft', label: 'Draft' },
+      { value: 'submitted', label: 'Submitted' },
+      { value: 'pending', label: 'Pending' },
+      { value: 'approved', label: 'Approved' },
+      { value: 'rejected', label: 'Rejected' },
+      { value: 'active', label: 'Active' }
+    ]}
+  ];
 
   // Load warehouse quotes and stats counts once on mount
   useEffect(() => {
@@ -251,7 +306,10 @@ function SalesPerson({ customerName }) {
   const loadQuotes = async () => {
     try {
       setLoading(true);
-      const result = await fetchQuotesPaged(currentPage, pageSize, debouncedSearch, filterCategory, filterType);
+      const apiFilters = getApiParams();
+      const categoryParam = apiFilters.category || 'all';
+      const typeParam = apiFilters.type || 'all';
+      const result = await fetchQuotesPaged(currentPage, pageSize, debouncedSearch, categoryParam, typeParam, apiFilters);
       setQuotes(result.data || []);
       setTotalCount(result.totalCount || 0);
 
@@ -585,14 +643,20 @@ function SalesPerson({ customerName }) {
     const matchesSearch = !debouncedSearch ||
       quote.quoteNumber?.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
       quote.customer?.toLowerCase().includes(debouncedSearch.toLowerCase());
-    const matchesTypeFilter = filterType === 'all' || quote.freightType === filterType;
-    const matchesCategoryFilter = filterCategory === 'all' || quote.freightCategory === filterCategory;
+    const matchesTypeFilter = filters.type.length === 0 || filters.type.includes(quote.freightType);
+    const matchesCategoryFilter = filters.category.length === 0 || filters.category.includes(quote.freightCategory);
     return matchesSearch && matchesTypeFilter && matchesCategoryFilter;
   });
 
-  // Show freight quotes (server-paginated) on page 1 along with matching warehouse quotes
-  // On subsequent pages, only show freight quotes (warehouse is small enough to show on page 1)
-  const filteredQuotes = currentPage === 1 ? [...quotes, ...filteredWarehouse] : [...quotes];
+  // Combine freight quotes with warehouse quotes and sort by date descending
+  // On page 1, merge warehouse quotes in date order. On other pages, only freight quotes.
+  const filteredQuotes = currentPage === 1
+    ? [...quotes, ...filteredWarehouse].sort((a, b) => {
+        const dateA = new Date(a.createdDate || 0);
+        const dateB = new Date(b.createdDate || 0);
+        return dateB - dateA; // Newest first
+      })
+    : [...quotes];
 
   // Total pages based on freight quote count from server (warehouse added to page 1)
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
@@ -627,31 +691,13 @@ function SalesPerson({ customerName }) {
               className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
             />
           </div>
-          <div className="flex items-center gap-2">
-            <Filter className="text-gray-400" size={20} />
-            <select
-              value={filterCategory}
-              onChange={(e) => setFilterCategory(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-            >
-              <option value="all">All Categories</option>
-              <option value="air">Air</option>
-              <option value="sea">Sea</option>
-              <option value="multimodal">MultiModal</option>
-              <option value="warehouse">Warehouse</option>
-            </select>
-            <select
-              value={filterType}
-              onChange={(e) => setFilterType(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-            >
-              <option value="all">All Types</option>
-              <option value="direct">Direct</option>
-              <option value="transit">Transit</option>
-              <option value="multimodal">MultiModal</option>
-              <option value="warehouse">Warehouse</option>
-            </select>
-          </div>
+          <FilterPanel
+            filterConfig={quoteFilterConfig}
+            filters={filters}
+            onFilterChange={setFilter}
+            onClearAll={clearAllFilters}
+            accentColor="teal"
+          />
         </div>
       </div>
 
@@ -732,11 +778,11 @@ function SalesPerson({ customerName }) {
           <Package className="w-16 h-16 text-gray-300 mx-auto mb-4" />
           <h3 className="text-lg font-semibold text-gray-700 mb-2">No quotes found</h3>
           <p className="text-gray-500 mb-4">
-            {searchTerm || filterType !== 'all' || filterCategory !== 'all'
+            {searchTerm || hasActiveFilters
               ? 'Try adjusting your search or filters'
               : 'Create your first quote to get started'}
           </p>
-          {!searchTerm && filterType === 'all' && filterCategory === 'all' && (
+          {!searchTerm && !hasActiveFilters && (
             <button
               onClick={() => modalOpen('quote')}
               className="inline-flex items-center gap-2 px-6 py-2.5 bg-teal-600 text-white rounded-lg hover:bg-teal-700"
@@ -757,13 +803,12 @@ function SalesPerson({ customerName }) {
                   <col className="w-[7%]" />
                   <col className="w-[10%]" />
                   <col className="w-[9%]" />
-                  <col className="w-[10%]" />
+                  <col className="w-[11%]" />
+                  <col className="w-[9%]" />
                   <col className="w-[8%]" />
-                  <col className="w-[7%]" />
-                  <col className="w-[7%]" />
                   <col className="w-[9%]" />
-                  <col className="w-[9%]" />
-                  <col className="w-[10%]" />
+                  <col className="w-[12%]" />
+                  <col className="w-[11%]" />
                 </colgroup>
                 <thead className="bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200">
                   <tr>
@@ -786,9 +831,6 @@ function SalesPerson({ customerName }) {
                       Dates
                     </th>
                     <th className="px-2 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
-                      Amount
-                    </th>
-                    <th className="px-2 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
                       Status
                     </th>
                     <th className="px-2 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
@@ -808,9 +850,11 @@ function SalesPerson({ customerName }) {
                     const typeIcon = getTypeIcon(quote.freightType);
                     const FreightIconComponent = freightIcon.icon;
                     const TypeIconComponent = typeIcon.icon;
+                    const outcomeStatus = quoteOutcomes[quote.quoteId]?.outcomeStatus;
+                    const rowBg = outcomeStatus === 'won' ? 'bg-green-50 hover:bg-green-100' : outcomeStatus === 'lost' ? 'bg-red-50 hover:bg-red-100' : 'hover:bg-gray-50';
 
                     return (
-                      <tr key={quote.quoteId} className="hover:bg-gray-50 transition-colors">
+                      <tr key={quote.quoteId} className={`${rowBg} transition-colors`}>
                         <td className="px-3 py-3">
                           <div className="flex items-center gap-2">
                             <div className={`w-8 h-8 rounded-lg ${freightIcon.bg} ${freightIcon.color} flex items-center justify-center flex-shrink-0`}>
@@ -890,12 +934,6 @@ function SalesPerson({ customerName }) {
                           </div>
                         </td>
                         <td className="px-2 py-3">
-                          <div className="flex items-center gap-0.5 font-semibold text-gray-900 text-xs">
-                            <DollarSign size={14} className="text-green-600" />
-                            {calculateTotalAmount(quote)}
-                          </div>
-                        </td>
-                        <td className="px-2 py-3">
                           {getStatusBadge(quote.status)}
                         </td>
                         <td className="px-2 py-3">
@@ -905,7 +943,19 @@ function SalesPerson({ customerName }) {
                           </div>
                         </td>
                         <td className="px-2 py-3">
-                          {!quote.isWarehouse && getOutcomeBadge(quote.quoteId)}
+                          <div className="flex flex-col gap-1">
+                            {!quote.isWarehouse && getOutcomeBadge(quote.quoteId)}
+                            {isAdmin && !quote.isWarehouse && quoteOutcomes[quote.quoteId]?.outcomeStatus === 'won' && (
+                              <button
+                                onClick={() => openWonDetailsModal(quote.quoteId)}
+                                className="flex items-center gap-1 px-2 py-0.5 bg-blue-50 text-blue-700 rounded text-[10px] font-medium hover:bg-blue-100 transition-colors mt-1"
+                                title="Update Won Details"
+                              >
+                                <FileText size={10} />
+                                Update Details
+                              </button>
+                            )}
+                          </div>
                         </td>
                         <td className="px-2 py-3">
                           <div className="flex items-center justify-end gap-1">
@@ -956,9 +1006,11 @@ function SalesPerson({ customerName }) {
               const typeIcon = getTypeIcon(quote.freightType);
               const FreightIconComponent = freightIcon.icon;
               const TypeIconComponent = typeIcon.icon;
+              const mobileOutcomeStatus = quoteOutcomes[quote.quoteId]?.outcomeStatus;
+              const mobileBg = mobileOutcomeStatus === 'won' ? 'bg-green-50 border-green-200' : mobileOutcomeStatus === 'lost' ? 'bg-red-50 border-red-200' : 'bg-white border-gray-200';
 
               return (
-                <div key={quote.quoteId} className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 hover:shadow-md transition-shadow">
+                <div key={quote.quoteId} className={`rounded-lg shadow-sm border p-4 hover:shadow-md transition-shadow ${mobileBg}`}>
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex items-center gap-3">
                       <div className={`w-12 h-12 rounded-lg ${freightIcon.bg} ${freightIcon.color} flex items-center justify-center flex-shrink-0`}>
@@ -1011,21 +1063,15 @@ function SalesPerson({ customerName }) {
                         </div>
                       </>
                     )}
-                    <div className="flex items-center justify-between text-sm">
-                      <div className="flex items-center gap-2">
-                        <Calendar size={14} className="text-gray-400" />
-                        <span className="text-gray-600">
-                          {new Date(quote.createdDate).toLocaleDateString('en-US', {
-                            month: 'short',
-                            day: 'numeric',
-                            year: 'numeric'
-                          })}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-1 font-semibold text-gray-900">
-                        <DollarSign size={16} className="text-green-600" />
-                        {calculateTotalAmount(quote)}
-                      </div>
+                    <div className="flex items-center gap-2 text-sm">
+                      <Calendar size={14} className="text-gray-400" />
+                      <span className="text-gray-600">
+                        {new Date(quote.createdDate).toLocaleDateString('en-US', {
+                          month: 'short',
+                          day: 'numeric',
+                          year: 'numeric'
+                        })}
+                      </span>
                     </div>
                   </div>
 
@@ -1197,128 +1243,93 @@ function SalesPerson({ customerName }) {
         </div>
       )}
 
-      {/* Win Modal */}
-      {winModalShow && currentQuote && (
+      {/* Win Modal removed - now saves directly on button click */}
+
+      {/* Won Details Modal (Admin Only) */}
+      {wonDetailsModalShow && wonDetailsQuote && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
-                <Award className="text-green-600" size={24} />
+              <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                <FileText className="text-blue-600" size={24} />
               </div>
               <div>
-                <h3 className="text-lg font-semibold text-gray-900">Quote Won!</h3>
-                <p className="text-sm text-gray-500">Quote: {currentQuote.quoteNumber}</p>
-              </div>
-            </div>
-            
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Won Amount (LKR) <span className="text-red-500">*</span>
-              </label>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">
-                  LKR
-                </span>
-                <input
-                  type="number"
-                  value={winForm.wonAmount}
-                  onChange={(e) => setWinForm({ ...winForm, wonAmount: e.target.value })}
-                  placeholder="0.00"
-                  className="w-full pl-14 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                  step="0.01"
-                  min="0"
-                />
+                <h3 className="text-lg font-semibold text-gray-900">Update Won Details</h3>
+                <p className="text-sm text-gray-500">Quote: {wonDetailsQuote.quoteNumber}</p>
               </div>
             </div>
 
-            <div className="flex gap-3">
-              <button
-                onClick={() => {
-                  setWinModalShow(false);
-                  setCurrentQuote(null);
-                }}
-                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSaveWin}
-                className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
-              >
-                Save
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Lost Modal */}
-      {lostModalShow && currentQuote && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
-                <AlertCircle className="text-red-600" size={24} />
-              </div>
+            <div className="space-y-4 mb-6">
               <div>
-                <h3 className="text-lg font-semibold text-gray-900">Quote Lost</h3>
-                <p className="text-sm text-gray-500">Quote: {currentQuote.quoteNumber}</p>
-              </div>
-            </div>
-            
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Reason <span className="text-red-500">*</span>
-              </label>
-              <select
-                value={lostForm.lostReason}
-                onChange={(e) => setLostForm({ ...lostForm, lostReason: e.target.value })}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
-              >
-                <option value="">Select reason...</option>
-                {lostReasons.map((reason) => (
-                  <option key={reason} value={reason}>
-                    {reason}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {lostForm.lostReason === 'Others' && (
-              <div className="mb-4">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Note <span className="text-red-500">*</span>
+                  Invoice Number
                 </label>
-                <textarea
-                  value={lostForm.lostNote}
-                  onChange={(e) => setLostForm({ ...lostForm, lostNote: e.target.value })}
-                  placeholder="Please provide details..."
-                  rows="3"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent resize-none"
+                <input
+                  type="text"
+                  value={wonDetailsForm.invoiceNumber}
+                  onChange={(e) => setWonDetailsForm({ ...wonDetailsForm, invoiceNumber: e.target.value })}
+                  placeholder="Enter invoice number"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
-            )}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Cost (LKR)
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">LKR</span>
+                  <input
+                    type="number"
+                    value={wonDetailsForm.cost}
+                    onChange={(e) => setWonDetailsForm({ ...wonDetailsForm, cost: e.target.value })}
+                    placeholder="0.00"
+                    className="w-full pl-14 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    step="0.01"
+                    min="0"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Sales Value (LKR)
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">LKR</span>
+                  <input
+                    type="number"
+                    value={wonDetailsForm.salesValue}
+                    onChange={(e) => setWonDetailsForm({ ...wonDetailsForm, salesValue: e.target.value })}
+                    placeholder="0.00"
+                    className="w-full pl-14 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    step="0.01"
+                    min="0"
+                  />
+                </div>
+              </div>
+            </div>
 
             <div className="flex gap-3">
               <button
                 onClick={() => {
-                  setLostModalShow(false);
-                  setCurrentQuote(null);
+                  setWonDetailsModalShow(false);
+                  setWonDetailsQuote(null);
                 }}
                 className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
               >
                 Cancel
               </button>
               <button
-                onClick={handleSaveLost}
-                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+                onClick={handleSaveWonDetails}
+                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
               >
-                Save
+                Save Details
               </button>
             </div>
           </div>
         </div>
       )}
+
+      {/* Lost Modal removed - outcome saved directly on button click */}
     </div>
   );
 }

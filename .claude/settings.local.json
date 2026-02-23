@@ -8,7 +8,24 @@
       "Bash(git log:*)",
       "Bash(npx vite build --logLevel error)",
       "Bash(npm run build)",
-      "Bash(dotnet build:*)"
+      "Bash(dotnet build:*)",
+      "Bash(npx react-scripts build:*)",
+      "Bash(curl:*)",
+      "Bash(python3:*)",
+      "Bash(dir:*)",
+      "Bash(netstat:*)",
+      "Bash(findstr:*)",
+      "Bash(netsh interface ipv4 show excludedportrange:*)",
+      "Bash(Select-String -Pattern \"error CS\" -NotMatch \"MSB3\")",
+      "Bash(done)",
+      "Bash(powershell -Command:*)",
+      "Bash(select-string:*)",
+      "Bash(out-string:*)",
+      "Bash(echo:*)",
+      "Bash(Select-String -Pattern \"Compiled|Error|Failed|ready to be deployed\")",
+      "Bash(tee:*)",
+      "Bash(node -e:*)",
+      "Bash(Select-String \"error CS\")"
     ]
   }
 }

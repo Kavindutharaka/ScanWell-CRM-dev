@@ -1,23 +1,24 @@
 {
   "files": {
-    "main.css": "/static/css/main.b4ccbd5e.css",
-    "main.js": "/static/js/main.6a268cf2.js",
+    "main.css": "/static/css/main.12df7622.css",
+    "main.js": "/static/js/main.adeb0393.js",
     "static/js/239.759cdc61.chunk.js": "/static/js/239.759cdc61.chunk.js",
     "static/js/977.294bee46.chunk.js": "/static/js/977.294bee46.chunk.js",
     "static/js/455.8d2787b5.chunk.js": "/static/js/455.8d2787b5.chunk.js",
     "static/js/453.3fa3ea41.chunk.js": "/static/js/453.3fa3ea41.chunk.js",
-    "static/media/app_logo.png": "/static/media/app_logo.47e8e89d0a34644ec486.png",
+    "static/media/logo_scanwell.png": "/static/media/logo_scanwell.44bbc05b3e35e9614f69.png",
+    "static/media/app_logo.png": "/static/media/app_logo.87307171b0059b0fc91a.png",
     "static/media/logo.png": "/static/media/logo.2605e2b8067f593472b6.png",
     "index.html": "/index.html",
-    "main.b4ccbd5e.css.map": "/static/css/main.b4ccbd5e.css.map",
-    "main.6a268cf2.js.map": "/static/js/main.6a268cf2.js.map",
+    "main.12df7622.css.map": "/static/css/main.12df7622.css.map",
+    "main.adeb0393.js.map": "/static/js/main.adeb0393.js.map",
     "239.759cdc61.chunk.js.map": "/static/js/239.759cdc61.chunk.js.map",
     "977.294bee46.chunk.js.map": "/static/js/977.294bee46.chunk.js.map",
     "455.8d2787b5.chunk.js.map": "/static/js/455.8d2787b5.chunk.js.map",
     "453.3fa3ea41.chunk.js.map": "/static/js/453.3fa3ea41.chunk.js.map"
   },
   "entrypoints": [
-    "static/css/main.b4ccbd5e.css",
-    "static/js/main.6a268cf2.js"
+    "static/css/main.12df7622.css",
+    "static/js/main.adeb0393.js"
   ]
 }

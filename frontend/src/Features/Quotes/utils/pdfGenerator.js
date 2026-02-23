@@ -430,7 +430,7 @@ function addAirFreightRatioChargesTable(doc, charges, yPos, title = 'Air Freight
   });
 
   // Build headers
-  const headers = ['AIRLINE', 'CCY', ...ratioColumns, 'SURCHARGE', 'T/T', 'FREQUENCY', 'ROUTING', 'REMARKS'];
+  const headers = ['AIRLINE', 'Currency', ...ratioColumns, 'SURCHARGE', 'T/T', 'FREQUENCY', 'ROUTING', 'REMARKS'];
 
   // Calculate column widths
   const numRatios = ratioColumns.length;
@@ -463,6 +463,54 @@ function addAirFreightRatioChargesTable(doc, charges, yPos, title = 'Air Freight
   });
 
   return doc.lastAutoTable.finalY + 8;
+}
+
+/**
+ * Check if a charge amount is meaningful (non-empty, non-zero)
+ */
+function isMeaningfulAmount(amount) {
+  if (!amount) return false;
+  const num = parseFloat(amount);
+  return !isNaN(num) && num !== 0;
+}
+
+/**
+ * Check if ratio charges have actual data filled in
+ * Returns true if any row has carrier AND at least one meaningful amount
+ */
+function hasRatioChargesData(ratioCharges) {
+  if (!ratioCharges || !Array.isArray(ratioCharges) || ratioCharges.length === 0) return false;
+  return ratioCharges.some(c => c.carrier && isMeaningfulAmount(c.amount));
+}
+
+/**
+ * Check if standard freight charges have actual data filled in
+ * For air freight: checks carrier + meaningful amount (ignores unitType-only rows with 0.00 amounts)
+ * Works with both freightChargesTables and freightCharges formats
+ */
+function hasFreightChargesData(option) {
+  const hasMeaningfulCharge = (c) => {
+    // A charge has real data if it has a carrier with a meaningful amount
+    if (c.carrier && isMeaningfulAmount(c.amount)) return true;
+    // Or for sea format: chargeableWeight based
+    if (c.chargeableWeight || c.weightBreaker) return true;
+    return false;
+  };
+
+  // Check freightChargesTables format
+  const freightTables = option.freightChargesTables || [];
+  if (freightTables.length > 0) {
+    const hasTableData = freightTables.some(t =>
+      (t.charges || []).some(hasMeaningfulCharge)
+    );
+    if (hasTableData) return true;
+  }
+  // Check old freightCharges format
+  const freightCharges = option.freightCharges || [];
+  if (freightCharges.length > 0) {
+    return freightCharges.some(hasMeaningfulCharge);
+  }
+  return false;
 }
 
 const formatRemarksWithBreaks = (remarks) => {
@@ -763,7 +811,7 @@ export const generateDirectQuotePDF = (quoteData, userData = null, returnDoc = f
   doc.text('Equipment', 15, yPos);
   doc.text('Units', 70, yPos);
   doc.text('Gross Weight', 95, yPos);
-  doc.text('Volume (m³)', 135, yPos);
+  doc.text('Volume (m3)', 135, yPos);
   doc.text('Chargeable Weight', 165, yPos);
   
   yPos += 4;
@@ -802,7 +850,7 @@ export const generateDirectQuotePDF = (quoteData, userData = null, returnDoc = f
         
         doc.setFont('helvetica', 'normal');
         let detailsText = [];
-        if (option.carrier) detailsText.push(`${isAir ? 'Airline' : 'Carrier'}: ${option.carrier}`);
+        if (!isAir && option.carrier) detailsText.push(`Carrier: ${option.carrier}`);
         if (option.incoterm) detailsText.push(`Incoterm: ${option.incoterm}`);
         if (option.currency) detailsText.push(`Currency: ${option.currency}`);
         if (option.cargoType) detailsText.push(`Cargo Type: ${option.cargoType}`);
@@ -813,34 +861,39 @@ export const generateDirectQuotePDF = (quoteData, userData = null, returnDoc = f
         }
       }
 
-      // Freight Charges - handle both new freightChargesTables and old freightCharges format
-      if (option.freightChargesTables && Array.isArray(option.freightChargesTables) && option.freightChargesTables.length > 0) {
-        // New format: multiple tables
-        const hasMultipleTables = option.freightChargesTables.length > 1 ||
-                                   (option.freightChargesTables[0]?.tableName && option.freightChargesTables[0]?.tableName !== 'Default');
+      // Freight Charges - Mutually exclusive with Ratio Charges for air category
+      // If ratio charges have data, show ratio table. Otherwise show standard freight table.
+      const optionHasRatioData = isAir && hasRatioChargesData(option.seaFreightRatioCharges);
+      const optionHasFreightData = hasFreightChargesData(option);
 
-        if (hasMultipleTables) {
-          // Render each table separately with table name
-          option.freightChargesTables.forEach((table, tableIndex) => {
-            const tableCharges = table.charges || [];
-            if (tableCharges.length > 0) {
-              const tableName = table.tableName || `Table ${tableIndex + 1}`;
-              yPos = addFreightChargesTableWithName(doc, tableCharges, yPos, isAir, tableName, optionIndex + 1);
-            }
-          });
-        } else {
-          // Single table - render without table name
-          const charges = option.freightChargesTables[0]?.charges || [];
-          yPos = addFreightChargesTable(doc, charges, yPos, isAir);
-        }
-      } else if (option.freightCharges) {
-        // Old format: direct array
-        yPos = addFreightChargesTable(doc, option.freightCharges || [], yPos, isAir);
-      }
-
-      // Air Freight Ratio Charges - only for air category
-      if (isAir && option.seaFreightRatioCharges && option.seaFreightRatioCharges.length > 0) {
+      if (isAir && optionHasRatioData && !optionHasFreightData) {
+        // Show ONLY ratio charges table
         yPos = addAirFreightRatioChargesTable(doc, option.seaFreightRatioCharges, yPos);
+      } else {
+        // Show standard freight charges table (default for non-air, or when freight data exists)
+        if (option.freightChargesTables && Array.isArray(option.freightChargesTables) && option.freightChargesTables.length > 0) {
+          // New format: multiple tables
+          const hasMultipleTables = option.freightChargesTables.length > 1 ||
+                                     (option.freightChargesTables[0]?.tableName && option.freightChargesTables[0]?.tableName !== 'Default');
+
+          if (hasMultipleTables) {
+            // Render each table separately with table name
+            option.freightChargesTables.forEach((table, tableIndex) => {
+              const tableCharges = table.charges || [];
+              if (tableCharges.length > 0) {
+                const tableName = table.tableName || `Table ${tableIndex + 1}`;
+                yPos = addFreightChargesTableWithName(doc, tableCharges, yPos, isAir, tableName, optionIndex + 1);
+              }
+            });
+          } else {
+            // Single table - render without table name
+            const charges = option.freightChargesTables[0]?.charges || [];
+            yPos = addFreightChargesTable(doc, charges, yPos, isAir);
+          }
+        } else if (option.freightCharges) {
+          // Old format: direct array
+          yPos = addFreightChargesTable(doc, option.freightCharges || [], yPos, isAir);
+        }
       }
 
       // Destination Charges
@@ -993,7 +1046,7 @@ function addAirFreightChargesTableWithName(doc, charges, yPos, tableName = null,
   });
 
   // Build headers
-  const headers = ['AIRLINE', 'CCY', ...unitTypeColumns, 'MIN', 'SURCH', 'T/T', 'FREQ', 'ROUTING', 'REMARKS'];
+  const headers = ['AIRLINE', 'Currency', ...unitTypeColumns, 'MIN', 'SURCH', 'T/T', 'FREQ', 'ROUTING', 'REMARKS'];
 
   autoTable(doc, {
     startY: yPos,
@@ -1101,7 +1154,7 @@ function addAirFreightChargesTable(doc, charges, yPos) {
   });
   
   // Build headers
-  const headers = ['AIRLINE', 'CCY', 'M'];
+  const headers = ['AIRLINE', 'Currency', 'M'];
   headers.push(...unitTypeColumns);
   headers.push('SURCHARGES', 'T/T', 'FREQUENCY', 'ROUTING', 'REMARKS');
   
@@ -1426,7 +1479,7 @@ export const generateTransitQuotePDF = (quoteData, userData = null, returnDoc = 
   
   doc.setFont('helvetica', 'normal');
   if (routesData.length > 0) {
-    const routeText = routesData.map(r => r.origin || 'N/A').concat([routesData[routesData.length - 1]?.destination || 'N/A']).join(' → ');
+    const routeText = routesData.map(r => r.origin || 'N/A').concat([routesData[routesData.length - 1]?.destination || 'N/A']).join(' -> ');
     const routeLines = doc.splitTextToSize(routeText, 170);
     routeLines.forEach(line => {
       doc.text(line, 15, yPos);
@@ -1442,7 +1495,7 @@ export const generateTransitQuotePDF = (quoteData, userData = null, returnDoc = 
   doc.text('Equipment', 15, yPos);
   doc.text('Units', 70, yPos);
   doc.text('Gross Weight', 95, yPos);
-  doc.text('Volume (m³)', 135, yPos);
+  doc.text('Volume (m3)', 135, yPos);
   doc.text('Chargeable Weight', 165, yPos);
 
   yPos += 4;
@@ -1468,49 +1521,54 @@ export const generateTransitQuotePDF = (quoteData, userData = null, returnDoc = 
     doc.setFontSize(10);
 
     const segmentMode = segment.mode?.toUpperCase() || 'N/A';
-    const segmentRoute = `${segment.origin || 'N/A'} → ${segment.destination || 'N/A'}`;
+    const segmentRoute = `${segment.origin || 'N/A'} -> ${segment.destination || 'N/A'}`;
     doc.text(`Segment ${index + 1}: ${segmentMode} (${segmentRoute})`, 18, yPos + 2);
     yPos += 10;
 
-    // Freight Charges - handle multiple tables if they exist
-    if (segment.freightChargesTables && Array.isArray(segment.freightChargesTables) && segment.freightChargesTables.length > 0) {
-      // Check if we have multiple tables with table names
-      const hasMultipleTables = segment.freightChargesTables.length > 1 ||
-                                 (segment.freightChargesTables[0]?.tableName && segment.freightChargesTables[0]?.tableName !== 'Default');
+    // Freight Charges - Mutually exclusive with Ratio Charges for air segments
+    // Check if ratio tables have actual data (carrier + meaningful amount)
+    const segRatioTables = segment.seaFreightRatioChargesTables || [];
+    const segHasRatioData = segment.mode === 'air' && segRatioTables.some(t =>
+      (t.charges || []).some(c => c.carrier && isMeaningfulAmount(c.amount))
+    );
+    // Check if standard freight tables have actual meaningful data
+    const segHasFreightData = hasFreightChargesData(segment);
 
-      if (hasMultipleTables) {
-        // Render each table separately
-        segment.freightChargesTables.forEach((table, tableIndex) => {
-          const tableCharges = table.charges || [];
-          if (tableCharges.length > 0) {
-            const tableName = table.tableName || `Table ${tableIndex + 1}`;
-            yPos = addFreightChargesTableTransit(doc, tableCharges, yPos, segment.mode === 'air', index + 1, tableName);
-          }
-        });
-      } else {
-        // Single table - flatten and render
-        const freightCharges = extractChargesFromTables(segment.freightChargesTables, 'freight');
-        if (freightCharges.length > 0) {
-          yPos = addFreightChargesTableTransit(doc, freightCharges, yPos, segment.mode === 'air', index + 1);
-        }
-      }
-    } else if (segment.freightCharges) {
-      // Old format - direct array
-      const freightCharges = segment.freightCharges;
-      if (freightCharges.length > 0) {
-        yPos = addFreightChargesTableTransit(doc, freightCharges, yPos, segment.mode === 'air', index + 1);
-      }
-    }
-
-    // Air Freight Ratio Charges - only for air segments (Transit)
-    if (segment.mode === 'air' && segment.seaFreightRatioChargesTables && Array.isArray(segment.seaFreightRatioChargesTables)) {
-      segment.seaFreightRatioChargesTables.forEach((table) => {
+    if (segment.mode === 'air' && segHasRatioData && !segHasFreightData) {
+      // Show ONLY ratio charges table for this air segment
+      segRatioTables.forEach((table) => {
         const ratioCharges = table.charges || [];
         if (ratioCharges.length > 0) {
           const tableName = table.tableName || 'Default';
           yPos = addAirFreightRatioChargesTable(doc, ratioCharges, yPos, `Air Freight Ratio Charges - ${tableName} (Segment ${index + 1})`);
         }
       });
+    } else {
+      // Show standard freight charges table
+      if (segment.freightChargesTables && Array.isArray(segment.freightChargesTables) && segment.freightChargesTables.length > 0) {
+        const hasMultipleTables = segment.freightChargesTables.length > 1 ||
+                                   (segment.freightChargesTables[0]?.tableName && segment.freightChargesTables[0]?.tableName !== 'Default');
+
+        if (hasMultipleTables) {
+          segment.freightChargesTables.forEach((table, tableIndex) => {
+            const tableCharges = table.charges || [];
+            if (tableCharges.length > 0) {
+              const tableName = table.tableName || `Table ${tableIndex + 1}`;
+              yPos = addFreightChargesTableTransit(doc, tableCharges, yPos, segment.mode === 'air', index + 1, tableName);
+            }
+          });
+        } else {
+          const freightCharges = extractChargesFromTables(segment.freightChargesTables, 'freight');
+          if (freightCharges.length > 0) {
+            yPos = addFreightChargesTableTransit(doc, freightCharges, yPos, segment.mode === 'air', index + 1);
+          }
+        }
+      } else if (segment.freightCharges) {
+        const freightCharges = segment.freightCharges;
+        if (freightCharges.length > 0) {
+          yPos = addFreightChargesTableTransit(doc, freightCharges, yPos, segment.mode === 'air', index + 1);
+        }
+      }
     }
 
     // Origin Handling - extract from originHandlingTables
@@ -1523,7 +1581,7 @@ export const generateTransitQuotePDF = (quoteData, userData = null, returnDoc = 
     if (originHandling.length > 0) {
       yPos = addOtherChargesTable(doc, originHandling, `Seg${index + 1}: Origin Handling`, yPos);
     }
-    
+
     // Destination Handling - extract from destinationHandlingTables
     let destinationHandling = [];
     if (segment.destinationHandlingTables && Array.isArray(segment.destinationHandlingTables)) {
@@ -1534,7 +1592,7 @@ export const generateTransitQuotePDF = (quoteData, userData = null, returnDoc = 
     if (destinationHandling.length > 0) {
       yPos = addOtherChargesTable(doc, destinationHandling, `Seg${index + 1}: Destination Handling`, yPos);
     }
-    
+
     // Destination Charges (POD) - extract from destinationChargesTables
     let destinationCharges = [];
     if (segment.destinationChargesTables && Array.isArray(segment.destinationChargesTables)) {
@@ -1545,11 +1603,11 @@ export const generateTransitQuotePDF = (quoteData, userData = null, returnDoc = 
     if (destinationCharges.length > 0) {
       yPos = addOtherChargesTable(doc, destinationCharges, `Seg${index + 1}: Destination Charges (POD)`, yPos);
     }
-    
+
     yPos += 5;
   });
-  
-  
+
+
   // Terms
   if (terms.length > 0) {
     yPos += 10;
@@ -1575,19 +1633,19 @@ export const generateTransitQuotePDF = (quoteData, userData = null, returnDoc = 
       });
     });
   }
-  
+
   // Footer
   const finalY = 280;
   doc.setFontSize(8);
   doc.setFont('helvetica', 'italic');
-  
+
   // Format user information
   const userName = userData ? `${userData.firstName || ''} ${userData.lastName || ''}`.trim() : 'System';
   const userEmail = userData?.email ? ` (${userData.email})` : '';
-  
+
   doc.text(`Quotation generated by - ${userName}${userEmail}`, 15, finalY);
   doc.text('This is a Computer generated Document and no Signature required.', 15, finalY + 4);
-  
+
   if (returnDoc) {
     return doc;
   }
@@ -1640,7 +1698,7 @@ export const generateMultiModalQuotePDF = (quoteData, userData = null, returnDoc
   if (routesData.length > 0) {
     const routeText = routesData.map((r, idx) => {
       const mode = r.mode?.toUpperCase() || 'N/A';
-      const route = `${r.origin || 'N/A'} → ${r.destination || 'N/A'}`;
+      const route = `${r.origin || 'N/A'} -> ${r.destination || 'N/A'}`;
       return `Seg ${idx + 1}: ${mode} (${route})`;
     }).join('  |  ');
 
@@ -1659,7 +1717,7 @@ export const generateMultiModalQuotePDF = (quoteData, userData = null, returnDoc
   doc.text('Equipment', 15, yPos);
   doc.text('Units', 70, yPos);
   doc.text('Gross Weight', 95, yPos);
-  doc.text('Volume (m³)', 135, yPos);
+  doc.text('Volume (m3)', 135, yPos);
   doc.text('Chargeable Weight', 165, yPos);
 
   yPos += 4;
@@ -1685,49 +1743,52 @@ export const generateMultiModalQuotePDF = (quoteData, userData = null, returnDoc
     doc.setFontSize(10);
 
     const segmentMode = segment.mode?.toUpperCase() || 'N/A';
-    const segmentRoute = `${segment.origin || 'N/A'} → ${segment.destination || 'N/A'}`;
+    const segmentRoute = `${segment.origin || 'N/A'} -> ${segment.destination || 'N/A'}`;
     doc.text(`Segment ${index + 1}: ${segmentMode} (${segmentRoute})`, 18, yPos + 2);
     yPos += 10;
 
-    // Freight Charges - handle multiple tables if they exist
-    if (segment.freightChargesTables && Array.isArray(segment.freightChargesTables) && segment.freightChargesTables.length > 0) {
-      // Check if we have multiple tables with table names
-      const hasMultipleTables = segment.freightChargesTables.length > 1 ||
-                                 (segment.freightChargesTables[0]?.tableName && segment.freightChargesTables[0]?.tableName !== 'Default');
+    // Freight Charges - Mutually exclusive with Ratio Charges for air segments
+    const mmRatioTables = segment.seaFreightRatioChargesTables || [];
+    const mmHasRatioData = segment.mode === 'air' && mmRatioTables.some(t =>
+      (t.charges || []).some(c => c.carrier && isMeaningfulAmount(c.amount))
+    );
+    const mmHasFreightData = hasFreightChargesData(segment);
 
-      if (hasMultipleTables) {
-        // Render each table separately
-        segment.freightChargesTables.forEach((table, tableIndex) => {
-          const tableCharges = table.charges || [];
-          if (tableCharges.length > 0) {
-            const tableName = table.tableName || `Table ${tableIndex + 1}`;
-            yPos = addFreightChargesTableTransit(doc, tableCharges, yPos, segment.mode === 'air', index + 1, tableName);
-          }
-        });
-      } else {
-        // Single table - flatten and render
-        const freightCharges = extractChargesFromTables(segment.freightChargesTables, 'freight');
-        if (freightCharges.length > 0) {
-          yPos = addFreightChargesTableTransit(doc, freightCharges, yPos, segment.mode === 'air', index + 1);
-        }
-      }
-    } else if (segment.freightCharges) {
-      // Old format - direct array
-      const freightCharges = segment.freightCharges;
-      if (freightCharges.length > 0) {
-        yPos = addFreightChargesTableTransit(doc, freightCharges, yPos, segment.mode === 'air', index + 1);
-      }
-    }
-
-    // Air Freight Ratio Charges - only for air segments (MultiModal)
-    if (segment.mode === 'air' && segment.seaFreightRatioChargesTables && Array.isArray(segment.seaFreightRatioChargesTables)) {
-      segment.seaFreightRatioChargesTables.forEach((table) => {
+    if (segment.mode === 'air' && mmHasRatioData && !mmHasFreightData) {
+      // Show ONLY ratio charges table for this air segment
+      mmRatioTables.forEach((table) => {
         const ratioCharges = table.charges || [];
         if (ratioCharges.length > 0) {
           const tableName = table.tableName || 'Default';
           yPos = addAirFreightRatioChargesTable(doc, ratioCharges, yPos, `Air Freight Ratio Charges - ${tableName} (Segment ${index + 1})`);
         }
       });
+    } else {
+      // Show standard freight charges table
+      if (segment.freightChargesTables && Array.isArray(segment.freightChargesTables) && segment.freightChargesTables.length > 0) {
+        const hasMultipleTables = segment.freightChargesTables.length > 1 ||
+                                   (segment.freightChargesTables[0]?.tableName && segment.freightChargesTables[0]?.tableName !== 'Default');
+
+        if (hasMultipleTables) {
+          segment.freightChargesTables.forEach((table, tableIndex) => {
+            const tableCharges = table.charges || [];
+            if (tableCharges.length > 0) {
+              const tableName = table.tableName || `Table ${tableIndex + 1}`;
+              yPos = addFreightChargesTableTransit(doc, tableCharges, yPos, segment.mode === 'air', index + 1, tableName);
+            }
+          });
+        } else {
+          const freightCharges = extractChargesFromTables(segment.freightChargesTables, 'freight');
+          if (freightCharges.length > 0) {
+            yPos = addFreightChargesTableTransit(doc, freightCharges, yPos, segment.mode === 'air', index + 1);
+          }
+        }
+      } else if (segment.freightCharges) {
+        const freightCharges = segment.freightCharges;
+        if (freightCharges.length > 0) {
+          yPos = addFreightChargesTableTransit(doc, freightCharges, yPos, segment.mode === 'air', index + 1);
+        }
+      }
     }
 
     // Origin Handling - extract from originHandlingTables
@@ -1740,7 +1801,7 @@ export const generateMultiModalQuotePDF = (quoteData, userData = null, returnDoc
     if (originHandling.length > 0) {
       yPos = addOtherChargesTable(doc, originHandling, `Seg${index + 1}: Origin Handling`, yPos);
     }
-    
+
     // Destination Handling - extract from destinationHandlingTables
     let destinationHandling = [];
     if (segment.destinationHandlingTables && Array.isArray(segment.destinationHandlingTables)) {
@@ -1751,7 +1812,7 @@ export const generateMultiModalQuotePDF = (quoteData, userData = null, returnDoc
     if (destinationHandling.length > 0) {
       yPos = addOtherChargesTable(doc, destinationHandling, `Seg${index + 1}: Destination Handling`, yPos);
     }
-    
+
     // Destination Charges (POD) - extract from destinationChargesTables
     let destinationCharges = [];
     if (segment.destinationChargesTables && Array.isArray(segment.destinationChargesTables)) {

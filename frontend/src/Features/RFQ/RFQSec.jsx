@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   CircleDollarSign,
   RotateCcw,
@@ -11,11 +11,16 @@ import {
   ExternalLink,
 } from "lucide-react";
 import { fetchRfq, deleteRfq } from "../../api/RfqApi";
+import FilterPanel from "../../components/filters/FilterPanel";
+import useFilters from "../../components/filters/useFilters";
 
 export default function RFQSec({ modalOpen, onEdit, onSalesEntry }) {
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [rfqItems, setRfqItems] = useState([]);
+
+  // Filters
+  const { filters, setFilter, clearAllFilters } = useFilters(['customer', 'rfqStatus']);
 
   useEffect(() => {
     fetchRfqItems();
@@ -47,12 +52,19 @@ export default function RFQSec({ modalOpen, onEdit, onSalesEntry }) {
     }
   };
 
-  const filteredItems = rfqItems.filter((item) => {
-    const query = searchQuery.toLowerCase();
-    const rfqNumber = item.rfq_number?.toLowerCase() || "";
-    const customer = item.customer?.toLowerCase() || "";
-    return rfqNumber.includes(query) || customer.includes(query);
-  });
+  // Dynamic customer options from loaded data
+  const customerOptions = useMemo(() => {
+    const uniqueCustomers = [...new Set(rfqItems.map(item => item.customer).filter(Boolean))].sort();
+    return uniqueCustomers.map(c => ({ value: c, label: c }));
+  }, [rfqItems]);
+
+  const rfqFilterConfig = [
+    { key: 'customer', label: 'Customer', allLabel: 'All Customers', minWidth: '160px', options: customerOptions },
+    { key: 'rfqStatus', label: 'Status', allLabel: 'All Statuses', minWidth: '140px', options: [
+      { value: 'active', label: 'Active' },
+      { value: 'expired', label: 'Expired' }
+    ]}
+  ];
 
   const formatDate = (dateString) => {
     if (!dateString) return "N/A";
@@ -72,6 +84,23 @@ export default function RFQSec({ modalOpen, onEdit, onSalesEntry }) {
     validDate.setHours(0, 0, 0, 0);
     return validDate < today;
   };
+
+  const filteredItems = rfqItems.filter((item) => {
+    const query = searchQuery.toLowerCase();
+    const rfqNumber = item.rfq_number?.toLowerCase() || "";
+    const customer = item.customer?.toLowerCase() || "";
+    const matchSearch = rfqNumber.includes(query) || customer.includes(query);
+
+    // Multi-select customer filter
+    const matchCustomer = filters.customer.length === 0 || filters.customer.includes(item.customer);
+
+    // Multi-select status filter (derived from valid_date)
+    const expired = isExpired(item.valid_date);
+    const itemStatus = expired ? 'expired' : 'active';
+    const matchStatus = filters.rfqStatus.length === 0 || filters.rfqStatus.includes(itemStatus);
+
+    return matchSearch && matchCustomer && matchStatus;
+  });
 
   return (
     <div className="w-full bg-gradient-to-br from-slate-50 to-blue-50/30 min-h-full">
@@ -121,19 +150,28 @@ export default function RFQSec({ modalOpen, onEdit, onSalesEntry }) {
           </div>
         </div>
 
-        {/* Search Bar */}
+        {/* Search & Filter Bar */}
         <div
-          className={`mb-6 ${!loading ? "animate-fadeInUp" : "opacity-0"}`}
+          className={`mb-6 relative z-10 ${!loading ? "animate-fadeInUp" : "opacity-0"}`}
           style={{ animationDelay: "200ms", animationFillMode: "both" }}
         >
-          <div className="relative max-w-md">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+          <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
+            <div className="relative max-w-md flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
             <input
               type="text"
               placeholder="Search by RFQ number or customer..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200 bg-white shadow-sm"
+            />
+            </div>
+            <FilterPanel
+              filterConfig={rfqFilterConfig}
+              filters={filters}
+              onFilterChange={setFilter}
+              onClearAll={clearAllFilters}
+              accentColor="blue"
             />
           </div>
         </div>

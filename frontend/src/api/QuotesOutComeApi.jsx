@@ -21,3 +21,12 @@ export const saveQuoteOutCome = async (payload) => {
     throw new Error('Failed to save quote outcome');
   }
 };
+
+export const updateWonDetails = async (payload) => {
+  try {
+    const response = await axios.put(`${BASE_URL}/QuoteOutcome/won-details`, payload);
+    return response.data;
+  } catch (error) {
+    throw new Error('Failed to update won details');
+  }
+};

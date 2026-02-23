@@ -6,6 +6,7 @@ namespace back_end.Models
     public class AirExportRate
     {
         public int? Id { get; set; }
+        public string? Country { get; set; }
         public string? CommodityType { get; set; }
         public string? Airline { get; set; }
         public decimal? RateM { get; set; }           // Minimum (M)

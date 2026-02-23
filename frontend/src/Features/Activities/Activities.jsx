@@ -5,6 +5,7 @@ import ActivitiesSec from "./ActivitiesSec";
 import ActivitiesForm from "./ActivitiesForm";
 import { fetchActivities, fetchbyEmpId, fetchFullName } from "../../api/ActivityApi";
 import { AuthContext } from "../../context/AuthContext";
+import useFilters from "../../components/filters/useFilters";
 
 import {
   Phone,
@@ -27,12 +28,43 @@ export default function Activities() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [openNoteModal, setOpenNoteModal] = useState(false);
+
+  // Pagination state
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+  const [totalCount, setTotalCount] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+  const [searchQuery, setSearchQuery] = useState("");
   const [isSuccesssNote, setIsSuccesssNote] = useState(false);
   const [currentStatus, setCurrentStatus] = useState({
     status: "",
     activity_id: 0
   });
   const [userDetails, setUserDetails] = useState(null);
+  const [typeCounts, setTypeCounts] = useState({ total: 0, siteVisit: 0, call: 0, meeting: 0, email: 0, followUp: 0, presentation: 0, other: 0 });
+
+  // Filters
+  const { filters, setFilter, clearAllFilters, getApiParams } = useFilters(['activityType', 'status']);
+
+  const activityFilterConfig = [
+    { key: 'activityType', label: 'Type', allLabel: 'All Types', minWidth: '150px', options: [
+      { value: 'call', label: 'Phone Call' },
+      { value: 'email', label: 'Email' },
+      { value: 'meeting', label: 'Meeting' },
+      { value: 'follow-up', label: 'Follow-up' },
+      { value: 'presentation', label: 'Presentation' },
+      { value: 'site-visit', label: 'Site Visit' },
+      { value: 'other', label: 'Other' }
+    ]},
+    { key: 'status', label: 'Status', allLabel: 'All Statuses', minWidth: '150px', options: [
+      { value: 'planned', label: 'Planned' },
+      { value: 'in-progress', label: 'In Progress' },
+      { value: 'completed', label: 'Completed' },
+      { value: 'cancelled', label: 'Cancelled' },
+      { value: 'rescheduled', label: 'Rescheduled' },
+      { value: 'overdue', label: 'Overdue' }
+    ]}
+  ];
 
   useEffect(() => {
     if (user) {
@@ -113,26 +145,31 @@ export default function Activities() {
     if (userDetails) {
       loadActivities();
     }
-  }, [permission, userDetails]);  // Depend on permission and userDetails, but call only if userDetails
-  
+  }, [permission, userDetails, page, pageSize, searchQuery, filters]);
+
   const loadActivities = async () => {
     setLoading(true);
     setError('');
-    console.log("check admin **** : ", permission);
-    let data;
+    let result;
     try {
+      const apiFilters = getApiParams();
       if (permission?.IsAdmin) {
-        data = await fetchActivities();
+        result = await fetchActivities(page, pageSize, searchQuery, apiFilters);
       } else {
         if (!userDetails?.emp_id) {
           throw new Error('Employee ID not available');
         }
-        data = await fetchbyEmpId(userDetails.emp_id);
+        result = await fetchbyEmpId(userDetails.emp_id, page, pageSize, searchQuery, apiFilters);
       }
-      
-      const transformedData = data.map((activity) => {
+
+      const rawData = result.data || [];
+      setTotalCount(result.totalCount || 0);
+      setTotalPages(result.totalPages || 0);
+      if (result.typeCounts) setTypeCounts(result.typeCounts);
+
+      const transformedData = rawData.map((activity) => {
         const ownerFullName = activity.owner_name || 'Unassigned';
-        
+
         return {
           id: activity.id,
           title: activity.activity_name,
@@ -150,7 +187,7 @@ export default function Activities() {
           rawData: activity
         };
       });
-      
+
       setActivities(transformedData);
     } catch (err) {
       console.error('Error fetching activities:', err);
@@ -295,11 +332,25 @@ export default function Activities() {
             </div>
           ) : (
             <ActivitiesSec
-              modalOpen={modalOpen} 
+              modalOpen={modalOpen}
               onEdit={handleEdit}
               activities={activities}
               setActivities={setActivities}
               loadActivities={loadActivities}
+              loading={loading}
+              page={page}
+              setPage={setPage}
+              pageSize={pageSize}
+              setPageSize={setPageSize}
+              totalCount={totalCount}
+              totalPages={totalPages}
+              searchQuery={searchQuery}
+              setSearchQuery={setSearchQuery}
+              filters={filters}
+              setFilter={setFilter}
+              clearAllFilters={clearAllFilters}
+              filterConfig={activityFilterConfig}
+              typeCounts={typeCounts}
             />
           )}
         </main>

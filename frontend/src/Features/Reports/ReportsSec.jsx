@@ -1,9 +1,12 @@
 import React, { useState, useEffect, useRef } from "react";
 import { BASE_URL } from "../../config/apiConfig";
+import * as XLSX from 'xlsx';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import {
   FileText, Download, Printer, Filter, Calendar, ChevronDown,
   Users, Building2, Plane, Ship, BarChart3, RefreshCw, X,
-  CheckCircle2, XCircle, Clock, TrendingUp, Briefcase
+  CheckCircle2, XCircle, Clock, TrendingUp, Briefcase, FileSpreadsheet
 } from "lucide-react";
 
 export default function ReportsSec() {
@@ -17,6 +20,8 @@ export default function ReportsSec() {
   const [salespersons, setSalespersons] = useState([]);
   const [departments, setDepartments] = useState([]);
   const [countries, setCountries] = useState([]);
+  const [customerLocations, setCustomerLocations] = useState([]);
+  const [accountTypes, setAccountTypes] = useState([]);
 
   // Quotation filters
   const [qDateFrom, setQDateFrom] = useState("");
@@ -32,8 +37,10 @@ export default function ReportsSec() {
   const [saDateTo, setSaDateTo] = useState("");
   const [saSalesPerson, setSaSalesPerson] = useState("all");
 
-  // Customer List filter
+  // Customer List filters
   const [clSalesPerson, setClSalesPerson] = useState("all");
+  const [clCountry, setClCountry] = useState("all");
+  const [clAccountType, setClAccountType] = useState("all");
 
   // Freight mode options
   const freightModeOptions = [
@@ -50,17 +57,23 @@ export default function ReportsSec() {
   useEffect(() => {
     const loadFilters = async () => {
       try {
-        const [spRes, deptRes, countryRes] = await Promise.all([
+        const [spRes, deptRes, countryRes, custLocRes, accTypeRes] = await Promise.all([
           fetch(`${BASE_URL}/report/filter/salespersons`),
           fetch(`${BASE_URL}/report/filter/departments`),
           fetch(`${BASE_URL}/report/filter/countries`),
+          fetch(`${BASE_URL}/report/filter/customer-locations`),
+          fetch(`${BASE_URL}/report/filter/account-types`),
         ]);
         const spData = await spRes.json();
         const deptData = await deptRes.json();
         const countryData = await countryRes.json();
+        const custLocData = await custLocRes.json();
+        const accTypeData = await accTypeRes.json();
         setSalespersons(spData.map(s => s.name || s.Name).filter(Boolean));
-        setDepartments(deptData.map(d => d.dName || d.DName || d.dname).filter(Boolean));
+        setDepartments(deptData.map(d => d.d_name || d.dName || d.DName || d.dname).filter(Boolean));
         setCountries(countryData.map(c => c.country || c.Country).filter(Boolean));
+        setCustomerLocations(custLocData.map(c => c.country || c.Country).filter(Boolean));
+        setAccountTypes(accTypeData.map(t => t.type || t.Type).filter(Boolean));
       } catch (err) {
         console.error("Failed to load filter data:", err);
       }
@@ -111,6 +124,8 @@ export default function ReportsSec() {
         case "customer-list":
           url = `${BASE_URL}/report/customer-list`;
           if (clSalesPerson !== "all") params.append("salesPerson", clSalesPerson);
+          if (clCountry !== "all") params.append("country", clCountry);
+          if (clAccountType !== "all") params.append("accountType", clAccountType);
           break;
       }
 
@@ -164,27 +179,134 @@ export default function ReportsSec() {
     setTimeout(() => { win.print(); win.close(); }, 300);
   };
 
-  // ====== EXPORT CSV ======
-  const handleExportCSV = () => {
+  // ====== FORMAT DATE FOR EXPORT (match UI format dd/MM/yyyy) ======
+  const formatDateForExport = (d) => {
+    if (!d) return "—";
+    const dt = new Date(d);
+    if (isNaN(dt.getTime())) return d;
+    const dd = String(dt.getDate()).padStart(2, "0");
+    const mm = String(dt.getMonth() + 1).padStart(2, "0");
+    const yyyy = dt.getFullYear();
+    return `${dd}/${mm}/${yyyy}`;
+  };
+
+  const formatDateTimeForExport = (d) => {
+    if (!d) return "—";
+    const dt = new Date(d);
+    if (isNaN(dt.getTime())) return d;
+    const dd = String(dt.getDate()).padStart(2, "0");
+    const mm = String(dt.getMonth() + 1).padStart(2, "0");
+    const yyyy = dt.getFullYear();
+    const hh = String(dt.getHours()).padStart(2, "0");
+    const min = String(dt.getMinutes()).padStart(2, "0");
+    return `${dd}/${mm}/${yyyy} ${hh}:${min}`;
+  };
+
+  // Prepare export data with formatted dates matching UI
+  const getExportData = () => {
+    return reportData.map((row, i) => {
+      switch (activeReport) {
+        case "quotation":
+          return {
+            '#': i + 1,
+            'Quote No': row.QuoteNumber || row.quoteNumber || '—',
+            'Date': formatDateForExport(row.CreatedDate || row.createdDate),
+            'Customer': row.Customer || row.customer || '—',
+            'Category': (row.FreightCategory || row.freightCategory || '—').toUpperCase(),
+            'Mode': (row.FreightMode || row.freightMode || '—').toUpperCase(),
+            'POL': row.PortOfLoading || row.portOfLoading || '—',
+            'POD': row.PortOfDischarge || row.portOfDischarge || '—',
+            'Sales Person': row.SalesPerson || row.salesPerson || '—',
+            'Department': row.Department || row.department || '—',
+            'Status': (row.Status || row.status || 'draft').charAt(0).toUpperCase() + (row.Status || row.status || 'draft').slice(1)
+          };
+        case "sales-activity":
+          return {
+            '#': i + 1,
+            'Activity': row.ActivityName || row.activityName || row.activity_name || '—',
+            'Type': row.ActivityType || row.activityType || row.activity_type || '—',
+            'Sales Person': row.SalesPerson || row.salesPerson || row.owner_name || '—',
+            'Start': formatDateTimeForExport(row.StartTime || row.startTime || row.start_time),
+            'End': formatDateTimeForExport(row.EndTime || row.endTime || row.end_time),
+            'Status': (row.Status || row.status || '—').toUpperCase(),
+            'Account': row.RelatedAccount || row.relatedAccount || row.related_account || '—',
+            'Comment': row.LatestComment || row.latestComment || '—'
+          };
+        case "user-list":
+          return {
+            '#': i + 1,
+            'Name': row.FullName || row.fullName || `${row.FirstName || row.firstName || row.fname || ""} ${row.LastName || row.lastName || row.lname || ""}`.trim() || '—',
+            'Position': row.Position || row.position || '—',
+            'Department': row.Department || row.department || '—',
+            'Email': row.Email || row.email || '—',
+            'Phone': row.Phone || row.phone || row.tp || '—',
+            'Location': row.WorkLocation || row.workLocation || row.w_location || '—'
+          };
+        case "customer-list":
+          return {
+            '#': i + 1,
+            'Account Name': row.AccountName || row.accountName || '—',
+            'Type': (row.AccountType || row.accountType || '—').toUpperCase(),
+            'Industry': row.Industry || row.industry || '—',
+            'Location': row.Location || row.location || '—',
+            'Sales Person': row.SalesPerson || row.salesPerson || '—',
+            'Primary Contact': row.PrimaryContact || row.primaryContact || '—',
+            'Email': row.PrimaryEmail || row.primaryEmail || '—',
+            'Phone': row.Phone || row.phone || row.tp || '—'
+          };
+        default:
+          return row;
+      }
+    });
+  };
+
+  // ====== EXPORT EXCEL ======
+  const handleExportExcel = () => {
     if (reportData.length === 0) return;
-    const headers = Object.keys(reportData[0]);
-    const csvRows = [
-      headers.join(","),
-      ...reportData.map(row =>
-        headers.map(h => {
-          let val = row[h] ?? "";
-          val = String(val).replace(/"/g, '""');
-          return `"${val}"`;
-        }).join(",")
-      ),
-    ];
-    const blob = new Blob([csvRows.join("\n")], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${activeReport}_report_${new Date().toISOString().split("T")[0]}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+    const exportData = getExportData();
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, reportTitles[activeReport]);
+
+    // Auto-size columns
+    const colWidths = Object.keys(exportData[0]).map(key => ({
+      wch: Math.max(key.length, ...exportData.map(row => String(row[key] || '').length)) + 2
+    }));
+    ws['!cols'] = colWidths;
+
+    XLSX.writeFile(wb, `${activeReport}_report_${new Date().toISOString().split("T")[0]}.xlsx`);
+  };
+
+  // ====== EXPORT PDF ======
+  const handleExportPDF = () => {
+    if (reportData.length === 0) return;
+    const exportData = getExportData();
+    const doc = new jsPDF('l', 'mm', 'a4'); // landscape
+
+    // Title
+    doc.setFontSize(16);
+    doc.text(reportTitles[activeReport], 14, 15);
+
+    // Subtitle
+    doc.setFontSize(9);
+    doc.setTextColor(100);
+    doc.text(`${getFilterDescription()} | Generated ${new Date().toLocaleString()}`, 14, 22);
+
+    // Table
+    const headers = Object.keys(exportData[0]);
+    const rows = exportData.map(row => headers.map(h => row[h]));
+
+    autoTable(doc, {
+      head: [headers],
+      body: rows,
+      startY: 28,
+      styles: { fontSize: 7, cellPadding: 2 },
+      headStyles: { fillColor: [100, 116, 139], textColor: 255, fontStyle: 'bold' },
+      alternateRowStyles: { fillColor: [248, 250, 252] },
+      margin: { left: 14, right: 14 }
+    });
+
+    doc.save(`${activeReport}_report_${new Date().toISOString().split("T")[0]}.pdf`);
   };
 
   const reportTitles = {
@@ -196,12 +318,22 @@ export default function ReportsSec() {
 
   const formatDate = (d) => {
     if (!d) return "—";
-    return new Date(d).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+    const dt = new Date(d);
+    const dd = String(dt.getDate()).padStart(2, "0");
+    const mm = String(dt.getMonth() + 1).padStart(2, "0");
+    const yyyy = dt.getFullYear();
+    return `${dd}/${mm}/${yyyy}`;
   };
 
   const formatDateTime = (d) => {
     if (!d) return "—";
-    return new Date(d).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+    const dt = new Date(d);
+    const dd = String(dt.getDate()).padStart(2, "0");
+    const mm = String(dt.getMonth() + 1).padStart(2, "0");
+    const yyyy = dt.getFullYear();
+    const hh = String(dt.getHours()).padStart(2, "0");
+    const min = String(dt.getMinutes()).padStart(2, "0");
+    return `${dd}/${mm}/${yyyy} ${hh}:${min}`;
   };
 
   // ====== SUMMARY STATS ======
@@ -210,19 +342,20 @@ export default function ReportsSec() {
     switch (activeReport) {
       case "quotation": {
         const total = reportData.length;
-        const won = reportData.filter(r => r.OutcomeStatus === "won" || r.outcomeStatus === "won").length;
-        const lost = reportData.filter(r => r.OutcomeStatus === "lost" || r.outcomeStatus === "lost").length;
-        const pending = total - won - lost;
-        const totalWonAmt = reportData
-          .filter(r => r.OutcomeStatus === "won" || r.outcomeStatus === "won")
-          .reduce((sum, r) => sum + (parseFloat(r.WonAmount || r.wonAmount || 0)), 0);
+        const statusCounts = {};
+        reportData.forEach(r => {
+          const s = (r.Status || r.status || "draft").toLowerCase();
+          statusCounts[s] = (statusCounts[s] || 0) + 1;
+        });
         return (
           <div className="summary">
             <div className="summary-item"><strong>{total}</strong>Total Quotations</div>
-            <div className="summary-item"><strong style={{ color: "#16a34a" }}>{won}</strong>Won</div>
-            <div className="summary-item"><strong style={{ color: "#dc2626" }}>{lost}</strong>Lost</div>
-            <div className="summary-item"><strong style={{ color: "#2563eb" }}>{pending}</strong>Pending</div>
-            {totalWonAmt > 0 && <div className="summary-item"><strong style={{ color: "#16a34a" }}>${totalWonAmt.toLocaleString()}</strong>Won Amount</div>}
+            {Object.entries(statusCounts).map(([s, count]) => (
+              <div key={s} className="summary-item">
+                <strong style={{ color: s === "approved" ? "#16a34a" : s === "draft" ? "#2563eb" : s === "sent" ? "#7c3aed" : "#64748b" }}>{count}</strong>
+                {s.charAt(0).toUpperCase() + s.slice(1)}
+              </div>
+            ))}
           </div>
         );
       }
@@ -273,6 +406,8 @@ export default function ReportsSec() {
         break;
       case "customer-list":
         if (clSalesPerson !== "all") parts.push(`Sales Person: ${clSalesPerson}`);
+        if (clCountry !== "all") parts.push(`Country: ${clCountry}`);
+        if (clAccountType !== "all") parts.push(`Type: ${clAccountType.charAt(0).toUpperCase() + clAccountType.slice(1)}`);
         break;
     }
     return parts.length > 0 ? parts.join(" | ") : "All records (no filters applied)";
@@ -439,12 +574,26 @@ export default function ReportsSec() {
 
           {/* Customer List Filters */}
           {activeReport === "customer-list" && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
                 <label className="block text-xs font-medium text-slate-600 mb-1">Sales Person</label>
                 <select value={clSalesPerson} onChange={e => setClSalesPerson(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white">
                   <option value="all">All</option>
                   {salespersons.map(sp => <option key={sp} value={sp}>{sp}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1">Country / Location</label>
+                <select value={clCountry} onChange={e => setClCountry(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white">
+                  <option value="all">All</option>
+                  {customerLocations.map(loc => <option key={loc} value={loc}>{loc}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1">Type (Import / Export)</label>
+                <select value={clAccountType} onChange={e => setClAccountType(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white">
+                  <option value="all">All</option>
+                  {accountTypes.map(t => <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>)}
                 </select>
               </div>
             </div>
@@ -466,8 +615,11 @@ export default function ReportsSec() {
                 <button onClick={handlePrint} className="px-4 py-2.5 bg-white text-slate-700 border border-slate-300 rounded-lg font-medium hover:bg-slate-50 transition-colors flex items-center gap-2 text-sm">
                   <Printer className="w-4 h-4" /> Print
                 </button>
-                <button onClick={handleExportCSV} className="px-4 py-2.5 bg-white text-slate-700 border border-slate-300 rounded-lg font-medium hover:bg-slate-50 transition-colors flex items-center gap-2 text-sm">
-                  <Download className="w-4 h-4" /> Export CSV
+                <button onClick={handleExportExcel} className="px-4 py-2.5 bg-white text-slate-700 border border-slate-300 rounded-lg font-medium hover:bg-slate-50 transition-colors flex items-center gap-2 text-sm">
+                  <FileSpreadsheet className="w-4 h-4 text-green-600" /> Export Excel
+                </button>
+                <button onClick={handleExportPDF} className="px-4 py-2.5 bg-white text-slate-700 border border-slate-300 rounded-lg font-medium hover:bg-slate-50 transition-colors flex items-center gap-2 text-sm">
+                  <FileText className="w-4 h-4 text-red-600" /> Export PDF
                 </button>
               </>
             )}
@@ -508,13 +660,12 @@ export default function ReportsSec() {
                           <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-600">POD</th>
                           <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-600">Sales Person</th>
                           <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-600">Department</th>
-                          <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-600">Outcome</th>
-                          <th className="px-3 py-2.5 text-right text-xs font-semibold text-slate-600">Amount</th>
+                          <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-600">Status</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
                         {reportData.map((row, i) => {
-                          const outcome = row.OutcomeStatus || row.outcomeStatus;
+                          const status = (row.Status || row.status || "draft").toLowerCase();
                           return (
                             <tr key={i} className="hover:bg-slate-50">
                               <td className="px-3 py-2 text-slate-400 text-xs">{i + 1}</td>
@@ -535,12 +686,14 @@ export default function ReportsSec() {
                               <td className="px-3 py-2 text-slate-700">{row.SalesPerson || row.salesPerson || "—"}</td>
                               <td className="px-3 py-2 text-slate-600 text-xs">{row.Department || row.department || "—"}</td>
                               <td className="px-3 py-2">
-                                {outcome === "won" && <span className="badge badge-won">WON</span>}
-                                {outcome === "lost" && <span className="badge badge-lost">LOST</span>}
-                                {!outcome && <span className="text-xs text-slate-400">—</span>}
-                              </td>
-                              <td className="px-3 py-2 text-right font-medium">
-                                {outcome === "won" && (row.WonAmount || row.wonAmount) ? `$${parseFloat(row.WonAmount || row.wonAmount).toLocaleString()}` : "—"}
+                                <span className={`inline-flex px-2 py-0.5 rounded text-xs font-medium ${
+                                  status === "approved" ? "bg-green-100 text-green-700" :
+                                  status === "sent" ? "bg-violet-100 text-violet-700" :
+                                  status === "draft" ? "bg-blue-100 text-blue-700" :
+                                  "bg-slate-100 text-slate-600"
+                                }`}>
+                                  {status.charAt(0).toUpperCase() + status.slice(1)}
+                                </span>
                               </td>
                             </tr>
                           );
