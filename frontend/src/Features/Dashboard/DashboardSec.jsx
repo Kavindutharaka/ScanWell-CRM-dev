@@ -182,7 +182,7 @@ export default function DashboardSec() {
     try {
       const fd = new FormData();
       fd.append("imageFile", uploadFile);
-      fd.append("caption", uploadCaption);
+      fd.append("caption", uploadCaption || "default");
       fd.append("uploadedBy", permission?.Username || user?.username || "Admin");
       await uploadNewsFeedImage(fd);
       setShowUploadModal(false);
@@ -202,6 +202,7 @@ export default function DashboardSec() {
   const handleDeleteImage = async (id) => {
     if (!window.confirm("Are you sure you want to delete this image?")) return;
     try {
+      console.log(id);
       await deleteNewsFeedImage(id);
       loadNewsFeed();
     } catch (err) {
@@ -859,7 +860,7 @@ export default function DashboardSec() {
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              handleDeleteImage(img.SysID);
+                              handleDeleteImage(img.sysID)
                             }}
                             className="w-8 h-8 rounded-lg bg-red-500/80 hover:bg-red-600 flex items-center justify-center transition-colors"
                             title="Delete image"
