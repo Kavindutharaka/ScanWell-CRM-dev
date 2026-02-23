@@ -1980,7 +1980,7 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
                   <p className="text-sm text-slate-600">
                     Upload an Excel file with headers:<br/>
                     <code className="text-[10px] bg-slate-100 px-2 py-1 rounded mt-1 inline-block leading-relaxed">
-                      COUNTRY | Commodity Type | AIRLINE | M | -45 | 45 | 100 | 300 | 500 | 1000 | SURCHARGES | T/T | FREQUENCY | ROUTINE | REMARKS | UPDATED DATE
+                      City | Commodity Type | AIRLINE | M | -45 | 45 | 100 | 300 | 500 | 1000 | SURCHARGES | T/T | FREQUENCY | ROUTINE | REMARKS | UPDATED DATE
                     </code>
                   </p>
                   <div className="bg-sky-50 border border-sky-200 rounded-lg p-3">
@@ -2022,7 +2022,7 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
                 <div className="p-6 space-y-4">
                   <div className="grid grid-cols-3 gap-4">
                     <div>
-                      <label className="block text-xs font-medium text-slate-600 mb-1">Country</label>
+                      <label className="block text-xs font-medium text-slate-600 mb-1">City</label>
                       <input type="text" value={editingAirExportRate.country || ''} onChange={(e) => setEditingAirExportRate({...editingAirExportRate, country: e.target.value})} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-sky-500" />
                     </div>
                     <div>
