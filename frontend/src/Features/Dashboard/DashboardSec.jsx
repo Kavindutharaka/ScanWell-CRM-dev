@@ -288,15 +288,25 @@ export default function DashboardSec() {
     </div>
   );
 
-  // ===== GAUGE METER (large, colorful) =====
-  const GaugeMeter = ({ value, label, maxLabel }) => {
-    // Gauge shows from 0 to a calculated max
-    const maxVal = value > 0 ? value * 1.3 : 100000;
+  // ===== GAUGE METER (large, target-aware) =====
+  const GaugeMeter = ({ value, label, maxLabel, target = 0 }) => {
+    // If target is set, use it as max; otherwise auto-calculate
+    const hasTarget = target > 0;
+    const maxVal = hasTarget ? Math.max(target * 1.2, value * 1.1) : (value > 0 ? value * 1.3 : 100000);
     const pct = Math.min((value / maxVal) * 100, 100);
     const angle = (pct / 100) * 180; // 0-180 degrees
 
-    // Color gradient based on amount
-    const gaugeColor = value > 0 ? "url(#gaugeGrad)" : COLORS.lightGray;
+    // Target needle position
+    const targetPct = hasTarget ? Math.min((target / maxVal) * 100, 100) : 0;
+    const targetAngle = (targetPct / 100) * 180;
+
+    // Color: green if meets/exceeds target, red if below target, gradient if no target
+    const meetsTarget = hasTarget && value >= target;
+    const gaugeColor = value <= 0
+      ? COLORS.lightGray
+      : hasTarget
+        ? (meetsTarget ? "url(#gaugeGradGreen)" : "url(#gaugeGradRed)")
+        : "url(#gaugeGrad)";
 
     return (
       <div className="flex flex-col items-center">
@@ -308,6 +318,14 @@ export default function DashboardSec() {
                 <stop offset="35%" stopColor="#FDAB3D" />
                 <stop offset="70%" stopColor="#7BC67E" />
                 <stop offset="100%" stopColor="#00C875" />
+              </linearGradient>
+              <linearGradient id="gaugeGradGreen" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" stopColor="#34D399" />
+                <stop offset="100%" stopColor="#00C875" />
+              </linearGradient>
+              <linearGradient id="gaugeGradRed" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" stopColor="#FCA5A5" />
+                <stop offset="100%" stopColor="#E44258" />
               </linearGradient>
             </defs>
             {/* Background arc */}
@@ -324,6 +342,13 @@ export default function DashboardSec() {
                 className="transition-all duration-1000"
               />
             )}
+            {/* Target marker line on the arc */}
+            {hasTarget && (
+              <g transform={`rotate(${targetAngle - 90}, 100, 105)`}>
+                <line x1="100" y1="75" x2="100" y2="55" stroke="#F97316" strokeWidth="3" strokeLinecap="round" />
+                <text x="100" y="50" textAnchor="middle" fill="#F97316" fontSize="7" fontWeight="bold">Target</text>
+              </g>
+            )}
             {/* Needle */}
             <g transform={`rotate(${angle - 90}, 100, 105)`}>
               <line x1="100" y1="105" x2="100" y2="40" stroke="#323338" strokeWidth="3" strokeLinecap="round" />
@@ -336,8 +361,15 @@ export default function DashboardSec() {
           </svg>
         </div>
         <div className="text-center -mt-2">
-          <p className="text-3xl font-bold text-slate-800">{fmtLKR(value)}</p>
+          <p className={`text-3xl font-bold ${hasTarget ? (meetsTarget ? 'text-emerald-600' : 'text-red-600') : 'text-slate-800'}`}>
+            {fmtLKR(value)}
+          </p>
           <p className="text-xs text-slate-400 mt-1">{label}</p>
+          {hasTarget && (
+            <p className={`text-xs font-semibold mt-1 ${meetsTarget ? 'text-emerald-500' : 'text-red-500'}`}>
+              {meetsTarget ? 'Target Achieved!' : `${((value / target) * 100).toFixed(1)}% of target`}
+            </p>
+          )}
         </div>
       </div>
     );
@@ -516,29 +548,55 @@ export default function DashboardSec() {
     dashQuarters.push({ label: `Q${q + 1}`, months: [m1, m2, m3] }); // 0-indexed
   }
 
-  // Calculate total target per quarter (sum across all employees, or just current user)
-  const getQuarterTarget = (quarterMonths) => {
-    const filteredTargets = isAdmin
-      ? employeeTargets
-      : employeeTargets.filter(t => {
-          const empId = t.employee_id || t.employeeId;
-          return String(empId) === String(user?.employeeId || user?.id);
-        });
+  // Filter targets: admin sees all, user sees own
+  const userFilteredTargets = isAdmin
+    ? employeeTargets
+    : employeeTargets.filter(t => {
+        const empId = t.employee_id || t.employeeId;
+        return String(empId) === String(user?.employeeId || user?.id);
+      });
 
-    return filteredTargets.reduce((sum, t) => {
-      return sum + quarterMonths.reduce((ms, mIdx) => {
-        const key = MONTH_KEYS[mIdx] + "_target";
-        const camelKey = MONTH_KEYS[mIdx] + "Target";
-        return ms + parseFloat(t[key] || t[camelKey] || 0);
-      }, 0);
+  // Helper: get monthly target value for a given 0-indexed month from a target row
+  const getMonthVal = (t, mIdx) => {
+    const key = MONTH_KEYS[mIdx] + "_target";
+    const camelKey = MONTH_KEYS[mIdx] + "Target";
+    return parseFloat(t[key] || t[camelKey] || 0);
+  };
+
+  // Calculate total target per quarter (sum across filtered employees)
+  const getQuarterTarget = (quarterMonths) => {
+    return userFilteredTargets.reduce((sum, t) => {
+      return sum + quarterMonths.reduce((ms, mIdx) => ms + getMonthVal(t, mIdx), 0);
     }, 0);
   };
 
   // Annual target total
-  const totalAnnualTarget = (isAdmin
-    ? employeeTargets
-    : employeeTargets.filter(t => String(t.employee_id || t.employeeId) === String(user?.employeeId || user?.id))
-  ).reduce((sum, t) => sum + parseFloat(t.annual_target || t.annualTarget || 0), 0);
+  const totalAnnualTarget = userFilteredTargets.reduce(
+    (sum, t) => sum + parseFloat(t.annual_target || t.annualTarget || 0), 0
+  );
+
+  // ===== DATE-RANGE AWARE TARGET for Gauge =====
+  // Calculate which months are covered by dateFrom-dateTo and sum those months' targets
+  const getTargetForDateRange = () => {
+    if (!dateFrom || !dateTo || userFilteredTargets.length === 0) return 0;
+    const from = new Date(dateFrom);
+    const to = new Date(dateTo);
+    // Collect all months (0-indexed) covered in the date range
+    const coveredMonths = new Set();
+    const d = new Date(from.getFullYear(), from.getMonth(), 1);
+    while (d <= to) {
+      coveredMonths.add(d.getMonth()); // 0-indexed
+      d.setMonth(d.getMonth() + 1);
+    }
+    // Sum targets for those months across filtered employees
+    return userFilteredTargets.reduce((sum, t) => {
+      let empSum = 0;
+      coveredMonths.forEach(mIdx => { empSum += getMonthVal(t, mIdx); });
+      return sum + empSum;
+    }, 0);
+  };
+
+  const periodTarget = getTargetForDateRange();
 
   const QUARTER_COLORS = [
     { bg: "bg-blue-50", border: "border-blue-200", text: "text-blue-700", bar: "bg-blue-500" },
@@ -634,7 +692,7 @@ export default function DashboardSec() {
                   <Award className="w-5 h-5 text-emerald-500" />
                   <h3 className="text-sm font-semibold text-slate-700">Total Sales Won</h3>
                 </div>
-                <GaugeMeter value={totalDealsWon} label="RFQ Revenue + Won Sales" />
+                <GaugeMeter value={totalDealsWon} label="RFQ Revenue + Won Sales" target={periodTarget} />
                 <div className="flex justify-around mt-4 pt-4 border-t border-slate-100">
                   <div className="text-center">
                     <p className="text-lg font-bold text-emerald-600">{fmtLKR(rfq.totalRevenue || 0)}</p>
@@ -645,6 +703,15 @@ export default function DashboardSec() {
                     <p className="text-lg font-bold text-blue-600">{fmtLKR((quoteOutcomes.totalWonAmount || 0) + (deals.wonDealValue || 0))}</p>
                     <p className="text-[10px] text-slate-400 uppercase tracking-wider">Won Sales</p>
                   </div>
+                  {periodTarget > 0 && (
+                    <>
+                      <div className="w-px bg-slate-100" />
+                      <div className="text-center">
+                        <p className="text-lg font-bold text-orange-600">{fmtLKR(periodTarget)}</p>
+                        <p className="text-[10px] text-slate-400 uppercase tracking-wider">Sales Target</p>
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
 
