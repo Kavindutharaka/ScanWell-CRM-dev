@@ -23,6 +23,7 @@ import Quotes from './Features/Quotes/Quotes';
 import WarehouseQuoteView from './Features/Quotes/WarehouseQuoteView';
 import Reports from './Features/Reports/Reports';
 import Invoices from './Features/Invoices/Invoices';
+import SalesTargetPage from './Features/SalesTarget/SalesTargetPage';
 
 function App() {
   return (
@@ -49,6 +50,7 @@ function App() {
             <Route path="/hr/manage-employee" element={<HREmployees />} />
             <Route path="/hr/manage" element={<HRSystemManagement />} />
             <Route path="/rolebase" element={<EmployeeRoleManagement />} />
+            <Route path="/hr/sales-target" element={<SalesTargetPage />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/warehouse-quotes/:id" element={<WarehouseQuoteView />} />
             <Route path="/reports" element={<Reports />} />

@@ -26,8 +26,11 @@ import {
   Trash2,
   X,
   Upload,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Target,
+  TrendingUp,
 } from "lucide-react";
+import { fetchTargetConfig, fetchAllTargets } from "../../api/SalesTargetApi";
 
 // ===== COLORS =====
 const COLORS = {
@@ -85,6 +88,10 @@ export default function DashboardSec() {
   const [editingTarget, setEditingTarget] = useState(false);
   const [targetForm, setTargetForm] = useState({ monthlyTarget: "", yearlyTarget: "" });
 
+  // ===== SALES TARGET (NEW - per employee, quarterly) =====
+  const [fyConfig, setFyConfig] = useState({ financialYearStart: 1 });
+  const [employeeTargets, setEmployeeTargets] = useState([]);
+
   // ===== NEWS FEED STATE =====
   const [newsFeedImages, setNewsFeedImages] = useState([]);
   const [newsFeedLoading, setNewsFeedLoading] = useState(false);
@@ -132,6 +139,24 @@ export default function DashboardSec() {
   useEffect(() => {
     fetchSalesTarget();
   }, [fetchSalesTarget]);
+
+  // ===== LOAD FY CONFIG + EMPLOYEE TARGETS =====
+  const loadTargetData = useCallback(async () => {
+    try {
+      const [config, targets] = await Promise.all([
+        fetchTargetConfig(),
+        fetchAllTargets(now.getFullYear()),
+      ]);
+      setFyConfig(config || { financialYearStart: 1 });
+      setEmployeeTargets(Array.isArray(targets) ? targets : []);
+    } catch (err) {
+      console.error("Target data load error:", err);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadTargetData();
+  }, [loadTargetData]);
 
   const handleSaveTarget = async () => {
     try {
@@ -226,7 +251,18 @@ export default function DashboardSec() {
     switch (preset) {
       case "thisMonth": from = new Date(today.getFullYear(), today.getMonth(), 1); to = today; break;
       case "lastMonth": from = new Date(today.getFullYear(), today.getMonth() - 1, 1); to = new Date(today.getFullYear(), today.getMonth(), 0); break;
-      case "thisQuarter": { const q = Math.floor(today.getMonth() / 3); from = new Date(today.getFullYear(), q * 3, 1); to = today; break; }
+      case "thisQuarter": {
+        // Use financial year start for quarter calculation
+        const fys = (fyConfig?.financialYearStart || 1) - 1; // 0-indexed (0=Jan, 3=Apr)
+        const adjustedMonth = (today.getMonth() - fys + 12) % 12;
+        const q = Math.floor(adjustedMonth / 3);
+        const qStartMonth = (fys + q * 3) % 12;
+        from = new Date(today.getFullYear(), qStartMonth, 1);
+        // If the quarter start month is after current month (crossed year boundary), adjust year
+        if (qStartMonth > today.getMonth()) from = new Date(today.getFullYear() - 1, qStartMonth, 1);
+        to = today;
+        break;
+      }
       case "thisYear": from = new Date(today.getFullYear(), 0, 1); to = today; break;
       default: break;
     }
@@ -467,6 +503,51 @@ export default function DashboardSec() {
         { label: "Cancelled", value: activity.cancelledActivities || 0, color: COLORS.lightGray },
       ].filter(s => s.value > 0);
 
+  // ===== QUARTERLY TARGET CALCULATIONS =====
+  const MONTH_KEYS = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
+  const fyStart = fyConfig?.financialYearStart || 1;
+
+  // Build quarters based on FY start
+  const dashQuarters = [];
+  for (let q = 0; q < 4; q++) {
+    const m1 = ((fyStart - 1 + q * 3) % 12); // 0-indexed
+    const m2 = (m1 + 1) % 12;
+    const m3 = (m1 + 2) % 12;
+    dashQuarters.push({ label: `Q${q + 1}`, months: [m1, m2, m3] }); // 0-indexed
+  }
+
+  // Calculate total target per quarter (sum across all employees, or just current user)
+  const getQuarterTarget = (quarterMonths) => {
+    const filteredTargets = isAdmin
+      ? employeeTargets
+      : employeeTargets.filter(t => {
+          const empId = t.employee_id || t.employeeId;
+          return String(empId) === String(user?.employeeId || user?.id);
+        });
+
+    return filteredTargets.reduce((sum, t) => {
+      return sum + quarterMonths.reduce((ms, mIdx) => {
+        const key = MONTH_KEYS[mIdx] + "_target";
+        const camelKey = MONTH_KEYS[mIdx] + "Target";
+        return ms + parseFloat(t[key] || t[camelKey] || 0);
+      }, 0);
+    }, 0);
+  };
+
+  // Annual target total
+  const totalAnnualTarget = (isAdmin
+    ? employeeTargets
+    : employeeTargets.filter(t => String(t.employee_id || t.employeeId) === String(user?.employeeId || user?.id))
+  ).reduce((sum, t) => sum + parseFloat(t.annual_target || t.annualTarget || 0), 0);
+
+  const QUARTER_COLORS = [
+    { bg: "bg-blue-50", border: "border-blue-200", text: "text-blue-700", bar: "bg-blue-500" },
+    { bg: "bg-emerald-50", border: "border-emerald-200", text: "text-emerald-700", bar: "bg-emerald-500" },
+    { bg: "bg-amber-50", border: "border-amber-200", text: "text-amber-700", bar: "bg-amber-500" },
+    { bg: "bg-purple-50", border: "border-purple-200", text: "text-purple-700", bar: "bg-purple-500" },
+  ];
+  const MONTH_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
   const tabs = [
     { id: "dashboard", label: "Dashboard", icon: LayoutGrid },
     { id: "newsfeed", label: "Market Place", icon: Newspaper },
@@ -601,6 +682,79 @@ export default function DashboardSec() {
                 </div>
               </div>
             </div>
+
+            {/* --- SALES TARGET vs ACTUAL --- */}
+            {totalAnnualTarget > 0 && (
+              <div className="mb-6 fade-in fade-in-2">
+                {/* Annual Progress Bar */}
+                <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-5 mb-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <Target className="w-5 h-5 text-orange-600" />
+                      <h3 className="text-sm font-semibold text-slate-700">
+                        Annual Target {isAdmin ? "(All Employees)" : ""}
+                      </h3>
+                      <span className="text-xs text-slate-400">
+                        FY {fyStart === 1 ? `Jan-Dec ${now.getFullYear()}` : `Apr ${now.getFullYear()}-Mar ${now.getFullYear() + 1}`}
+                      </span>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-lg font-bold text-orange-700">{fmtLKR(totalDealsWon)}</span>
+                      <span className="text-sm text-slate-400"> / {fmtLKR(totalAnnualTarget)}</span>
+                    </div>
+                  </div>
+                  <div className="w-full bg-slate-100 rounded-full h-3 overflow-hidden">
+                    <div
+                      className="h-full rounded-full transition-all duration-700"
+                      style={{
+                        width: `${Math.min((totalDealsWon / totalAnnualTarget) * 100, 100)}%`,
+                        background: totalDealsWon >= totalAnnualTarget
+                          ? `linear-gradient(90deg, ${COLORS.success}, #4ADE80)`
+                          : `linear-gradient(90deg, ${COLORS.warning}, #FDBA74)`,
+                      }}
+                    />
+                  </div>
+                  <p className="text-xs text-slate-400 mt-1.5 text-right">
+                    {totalAnnualTarget > 0
+                      ? `${Math.min(((totalDealsWon / totalAnnualTarget) * 100), 999).toFixed(1)}% achieved`
+                      : "No target set"}
+                  </p>
+                </div>
+
+                {/* Quarterly Cards */}
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                  {dashQuarters.map((q, qi) => {
+                    const qTarget = getQuarterTarget(q.months);
+                    const qMonthLabels = q.months.map(m => MONTH_LABELS[m]).join("-");
+                    const progressPct = qTarget > 0 ? Math.min((totalDealsWon / 4 / qTarget) * 100, 100) : 0;
+
+                    return (
+                      <div
+                        key={qi}
+                        className={`rounded-xl border p-4 ${QUARTER_COLORS[qi].bg} ${QUARTER_COLORS[qi].border}`}
+                      >
+                        <div className="flex items-center justify-between mb-2">
+                          <span className={`text-sm font-bold ${QUARTER_COLORS[qi].text}`}>{q.label}</span>
+                          <span className="text-[10px] text-slate-400">{qMonthLabels}</span>
+                        </div>
+                        <p className={`text-xl font-bold ${QUARTER_COLORS[qi].text} mb-1`}>
+                          {qTarget > 0 ? fmtLKR(qTarget) : "—"}
+                        </p>
+                        <p className="text-[10px] text-slate-500 mb-2">Target</p>
+                        {qTarget > 0 && (
+                          <div className="w-full bg-white/60 rounded-full h-1.5 overflow-hidden">
+                            <div
+                              className={`h-full rounded-full ${QUARTER_COLORS[qi].bar}`}
+                              style={{ width: `${progressPct}%` }}
+                            />
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             {/* --- CHARTS ROW --- */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
