@@ -34,12 +34,23 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
   const { permission } = useContext(AuthContext);
   const isAdmin = permission?.IsAdmin;
   const canManageRates = isAdmin || permission?.RateManageView;
-  const [activeTab, setActiveTab] = useState('all');
+  const [activeTab, setActiveTab] = useState('air');
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [rates, setRates] = useState([]);
   const [error, setError] = useState(null);
   const [expandedRows, setExpandedRows] = useState(new Set());
+
+  // Sub-filter for Air Freight / Sea Freight (Import/Export)
+  const [airSubFilter, setAirSubFilter] = useState('all'); // 'all' | 'import' | 'export'
+  const [seaSubFilter, setSeaSubFilter] = useState('all'); // 'all' | 'import' | 'export'
+
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 20;
+
+  // Button scroll ref
+  const tabScrollRef = useRef(null);
 
   // Shipping Line States
   const [activeLiner, setActiveLiner] = useState(null);
@@ -991,6 +1002,7 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
     setShowLinearHeaders(false);
     setShowDestinationHeaders(false);
     setShowAirExport(false);
+    setCurrentPage(1);
   };
 
   // Handle Sea Spot Rates button click
@@ -1077,9 +1089,21 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
     switch (activeTab) {
       case 'air':
         filtered = rates.filter(rate => rate.freightType?.toLowerCase().includes('air'));
+        // Apply Import/Export sub-filter
+        if (airSubFilter === 'import') {
+          filtered = filtered.filter(rate => rate.freightType?.toLowerCase().includes('import'));
+        } else if (airSubFilter === 'export') {
+          filtered = filtered.filter(rate => rate.freightType?.toLowerCase().includes('export'));
+        }
         break;
       case 'sea':
         filtered = rates.filter(rate => rate.freightType?.toLowerCase().includes('sea'));
+        // Apply Import/Export sub-filter
+        if (seaSubFilter === 'import') {
+          filtered = filtered.filter(rate => rate.freightType?.toLowerCase().includes('import'));
+        } else if (seaSubFilter === 'export') {
+          filtered = filtered.filter(rate => rate.freightType?.toLowerCase().includes('export'));
+        }
         break;
       case 'liner':
         // Liner tab uses its own data, return empty for regular rates
@@ -1101,7 +1125,7 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
     return filtered;
   };
 
-  // Filter Air Export rates by search query
+  // Filter Air Export rates by search query (search by city/country)
   const getFilteredAirExportRates = () => {
     if (!searchQuery.trim()) return airExportRates;
     const q = searchQuery.toLowerCase();
@@ -1113,18 +1137,28 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
     );
   };
 
-  // Filter Sea Spot rates by search query
+  // Filter Sea Spot rates by search query (search by destination/POD)
   const getFilteredSeaSpotRates = () => {
     if (!searchQuery.trim()) return seaSpotRates;
     const q = searchQuery.toLowerCase();
     return seaSpotRates.filter(rate =>
       rate.pol?.toLowerCase().includes(q) ||
       rate.pod?.toLowerCase().includes(q) ||
-      rate.carrier?.toLowerCase().includes(q) ||
-      rate.liner?.toLowerCase().includes(q) ||
-      rate.route?.toLowerCase().includes(q)
+      rate.liner?.toLowerCase().includes(q)
     );
   };
+
+  // Pagination helper
+  const getPaginatedData = (data) => {
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    return data.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+  };
+  const getTotalPages = (data) => Math.ceil(data.length / ITEMS_PER_PAGE);
+
+  // Reset page when switching tabs or searching
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeTab, searchQuery, airSubFilter, seaSubFilter]);
 
   const handleRefresh = () => {
     if (activeTab === 'airexport') {
@@ -1671,13 +1705,27 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
   // Determine which data to display based on active category
   // Sea Spot & Air Export rates are shown in their own inline sections, not in the card list
   // When activeTab is null, a header section is open but no sub-category selected yet — show nothing
-  const displayData = (activeTab === 'seaspot' || activeTab === 'seabond' || activeTab === 'airexport' || activeTab === null)
-    ? []
-    : activeLinerCategory === 'destinationheaders'
+  const allDisplayData = (() => {
+    if (activeTab === 'seaspot' || activeTab === 'seabond' || activeTab === 'airexport' || activeTab === null) return [];
+    let data = activeLinerCategory === 'destinationheaders'
       ? destinationRates
       : activeLiner
         ? linerRates
         : filteredRates;
+    // Apply search to liner/destination header data
+    if (searchQuery.trim() && (activeLinerCategory === 'destinationheaders' || (activeLiner && activeLinerCategory === 'linearheaders'))) {
+      const q = searchQuery.toLowerCase();
+      data = data.filter(rate =>
+        rate.destination?.toLowerCase().includes(q) ||
+        rate.pod?.toLowerCase().includes(q) ||
+        rate.pol?.toLowerCase().includes(q) ||
+        rate.liner?.toLowerCase().includes(q)
+      );
+    }
+    return data;
+  })();
+  const totalDisplayPages = getTotalPages(allDisplayData);
+  const displayData = getPaginatedData(allDisplayData);
   const isLoadingData = (activeTab === 'seaspot' || activeTab === 'seabond' || activeTab === 'airexport' || activeTab === null)
     ? false
     : activeLinerCategory === 'destinationheaders'
@@ -1724,103 +1772,157 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
             )}
           </div>
 
-          {/* Tabs & Search - Header Line */}
+          {/* Tabs - Horizontally Scrollable */}
+          <div className="relative mb-2">
+            <div
+              ref={tabScrollRef}
+              className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide"
+              style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+            >
+              {/* Regular Tabs */}
+              <button
+                onClick={() => handleRegularTabClick('air')}
+                className={`flex-shrink-0 px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 ${activeTab === 'air' && !activeLiner ? 'bg-yellow-500 text-white shadow-md' : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'}`}
+              >
+                <Plane className="w-4 h-4" /> Air Freight
+              </button>
+
+              {/* Air Export Rates Button */}
+              <button
+                onClick={handleAirExportClick}
+                className={`flex-shrink-0 px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 ${
+                  showAirExport
+                    ? 'bg-sky-600 text-white shadow-md'
+                    : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'
+                }`}
+              >
+                <Plane className="w-4 h-4" /> Air Export Rates
+                <ChevronDown className={`w-4 h-4 transition-transform ${showAirExport ? 'rotate-180' : ''}`} />
+              </button>
+
+              <button
+                onClick={() => handleRegularTabClick('sea')}
+                className={`flex-shrink-0 px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 ${activeTab === 'sea' && !activeLiner ? 'bg-blue-500 text-white shadow-md' : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'}`}
+              >
+                <Ship className="w-4 h-4" /> Sea Freight
+              </button>
+
+              {/* Sea Bond Rates Button */}
+              <button
+                onClick={handleSeaBondRatesClick}
+                className={`flex-shrink-0 px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 ${
+                  showSeaBondRates
+                    ? 'bg-teal-600 text-white shadow-md'
+                    : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'
+                }`}
+              >
+                <Ship className="w-4 h-4" /> Sea Bond Rates
+                <ChevronDown className={`w-4 h-4 transition-transform ${showSeaBondRates ? 'rotate-180' : ''}`} />
+              </button>
+
+              {/* Horizontal Divider */}
+              <div className="w-px h-8 bg-slate-300 mx-1 flex-shrink-0"></div>
+
+              {/* Sea Spot Rates Button */}
+              <button
+                onClick={handleSeaSpotRatesClick}
+                className={`flex-shrink-0 px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 ${
+                  showSeaSpotRates
+                    ? 'bg-indigo-600 text-white shadow-md'
+                    : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'
+                }`}
+              >
+                <Ship className="w-4 h-4" /> Sea Spot Rates
+                <ChevronDown className={`w-4 h-4 transition-transform ${showSeaSpotRates ? 'rotate-180' : ''}`} />
+              </button>
+
+              {/* Liner Header's Button */}
+              <button
+                onClick={handleLinearHeadersClick}
+                className={`flex-shrink-0 px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 ${
+                  showLinearHeaders || activeLinerCategory === 'linearheaders'
+                    ? 'bg-emerald-600 text-white shadow-md'
+                    : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'
+                }`}
+              >
+                <Ship className="w-4 h-4" /> Liner Header's
+                <ChevronDown className={`w-4 h-4 transition-transform ${showLinearHeaders || activeLinerCategory === 'linearheaders' ? 'rotate-180' : ''}`} />
+              </button>
+
+              {/* Destination Header's Button */}
+              <button
+                onClick={handleDestinationHeadersClick}
+                className={`flex-shrink-0 px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 ${
+                  showDestinationHeaders || activeLinerCategory === 'destinationheaders'
+                    ? 'bg-red-700 text-white shadow-md'
+                    : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'
+                }`}
+              >
+                <MapPin className="w-4 h-4" /> Destination Header's
+                <ChevronDown className={`w-4 h-4 transition-transform ${showDestinationHeaders || activeLinerCategory === 'destinationheaders' ? 'rotate-180' : ''}`} />
+              </button>
+            </div>
+          </div>
+
+          {/* Sub-filter + Search Row */}
           <div className="flex flex-wrap items-center gap-2 mb-4">
-            {/* Regular Tabs */}
-            <button
-              onClick={() => handleRegularTabClick('air')}
-              className={`px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 ${activeTab === 'air' && !activeLiner ? 'bg-yellow-500 text-white shadow-md' : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'}`}
-            >
-              <Plane className="w-4 h-4" /> Air Freight
-            </button>
+            {/* Sub-filter buttons for Air Freight */}
+            {activeTab === 'air' && !activeLiner && (
+              <div className="flex items-center gap-1 bg-yellow-50 border border-yellow-200 rounded-lg p-1">
+                {['all', 'import', 'export'].map((f) => (
+                  <button
+                    key={f}
+                    onClick={() => setAirSubFilter(f)}
+                    className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${
+                      airSubFilter === f
+                        ? 'bg-yellow-500 text-white shadow-sm'
+                        : 'text-yellow-700 hover:bg-yellow-100'
+                    }`}
+                  >
+                    {f === 'all' ? 'All' : f === 'import' ? 'Import' : 'Export'}
+                  </button>
+                ))}
+              </div>
+            )}
 
-            {/* Air Export Rates Button - next to Air Freight */}
-            <button
-              onClick={handleAirExportClick}
-              className={`px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 ${
-                showAirExport
-                  ? 'bg-sky-600 text-white shadow-md'
-                  : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'
-              }`}
-            >
-              <Plane className="w-4 h-4" /> Air Export Rates
-              <ChevronDown className={`w-4 h-4 transition-transform ${showAirExport ? 'rotate-180' : ''}`} />
-            </button>
+            {/* Sub-filter buttons for Sea Freight */}
+            {activeTab === 'sea' && !activeLiner && (
+              <div className="flex items-center gap-1 bg-blue-50 border border-blue-200 rounded-lg p-1">
+                {['all', 'import', 'export'].map((f) => (
+                  <button
+                    key={f}
+                    onClick={() => setSeaSubFilter(f)}
+                    className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${
+                      seaSubFilter === f
+                        ? 'bg-blue-500 text-white shadow-sm'
+                        : 'text-blue-700 hover:bg-blue-100'
+                    }`}
+                  >
+                    {f === 'all' ? 'All' : f === 'import' ? 'Import' : 'Export'}
+                  </button>
+                ))}
+              </div>
+            )}
 
-            <button
-              onClick={() => handleRegularTabClick('sea')}
-              className={`px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 ${activeTab === 'sea' && !activeLiner ? 'bg-blue-500 text-white shadow-md' : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'}`}
-            >
-              <Ship className="w-4 h-4" /> Sea Freight
-            </button>
-
-            {/* Sea Bond Rates Button */}
-            <button
-              onClick={handleSeaBondRatesClick}
-              className={`px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 ${
-                showSeaBondRates
-                  ? 'bg-teal-600 text-white shadow-md'
-                  : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'
-              }`}
-            >
-              <Ship className="w-4 h-4" /> Sea Bond Rates
-              <ChevronDown className={`w-4 h-4 transition-transform ${showSeaBondRates ? 'rotate-180' : ''}`} />
-            </button>
-
-            {/* Horizontal Divider */}
-            <div className="w-px h-8 bg-slate-300 mx-2"></div>
-
-            {/* Sea Spot Rates Button */}
-            <button
-              onClick={handleSeaSpotRatesClick}
-              className={`px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 ${
-                showSeaSpotRates
-                  ? 'bg-indigo-600 text-white shadow-md'
-                  : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'
-              }`}
-            >
-              <Ship className="w-4 h-4" /> Sea Spot Rates
-              <ChevronDown className={`w-4 h-4 transition-transform ${showSeaSpotRates ? 'rotate-180' : ''}`} />
-            </button>
-
-            {/* Liner Header's Button */}
-            <button
-              onClick={handleLinearHeadersClick}
-              className={`px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 ${
-                showLinearHeaders || activeLinerCategory === 'linearheaders'
-                  ? 'bg-emerald-600 text-white shadow-md'
-                  : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'
-              }`}
-            >
-              <Ship className="w-4 h-4" /> Liner Header's
-              <ChevronDown className={`w-4 h-4 transition-transform ${showLinearHeaders || activeLinerCategory === 'linearheaders' ? 'rotate-180' : ''}`} />
-            </button>
-
-            {/* Destination Header's Button */}
-            <button
-              onClick={handleDestinationHeadersClick}
-              className={`px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 ${
-                showDestinationHeaders || activeLinerCategory === 'destinationheaders'
-                  ? 'bg-red-700 text-white shadow-md'
-                  : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'
-              }`}
-            >
-              <MapPin className="w-4 h-4" /> Destination Header's
-              <ChevronDown className={`w-4 h-4 transition-transform ${showDestinationHeaders || activeLinerCategory === 'destinationheaders' ? 'rotate-180' : ''}`} />
-            </button>
-
-            {/* Spacer to push search bar to right */}
+            {/* Spacer */}
             <div className="flex-1"></div>
 
-            {/* Search Bar - Right side of header */}
-            <div className="relative w-full sm:w-auto sm:min-w-[300px] lg:min-w-[400px]">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5" />
+            {/* Search Bar - Context-aware placeholder */}
+            <div className="relative w-full sm:w-auto sm:min-w-[280px] lg:min-w-[360px]">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
               <input
                 type="text"
-                placeholder="Search by origin, destination, carrier, or route..."
+                placeholder={
+                  activeTab === 'airexport' || showAirExport ? 'Search by city or airline...' :
+                  activeTab === 'seaspot' || showSeaSpotRates ? 'Search by destination (POD)...' :
+                  activeTab === 'seabond' || showSeaBondRates ? 'Search by origin or vessel...' :
+                  (showLinearHeaders || activeLinerCategory === 'linearheaders') ? 'Search by destination...' :
+                  (showDestinationHeaders || activeLinerCategory === 'destinationheaders') ? 'Search by destination...' :
+                  'Search by origin, destination, carrier, or route...'
+                }
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                className="w-full pl-9 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white text-sm"
               />
             </div>
           </div>
@@ -1875,7 +1977,7 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
-                      {getFilteredSeaSpotRates().map((rate) => (
+                      {getPaginatedData(getFilteredSeaSpotRates()).map((rate) => (
                         <tr key={rate.id} className="hover:bg-slate-50">
                           <td className="px-3 py-2 font-semibold text-indigo-700">{rate.liner || '—'}</td>
                           <td className="px-3 py-2 text-slate-700">{rate.pol || '—'}</td>
@@ -1905,6 +2007,23 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
                       ))}
                     </tbody>
                   </table>
+                  {/* Pagination */}
+                  {getTotalPages(getFilteredSeaSpotRates()) > 1 && (
+                    <div className="flex items-center justify-between mt-3 px-1">
+                      <span className="text-xs text-slate-500">
+                        Showing {((currentPage - 1) * ITEMS_PER_PAGE) + 1}–{Math.min(currentPage * ITEMS_PER_PAGE, getFilteredSeaSpotRates().length)} of {getFilteredSeaSpotRates().length}
+                      </span>
+                      <div className="flex items-center gap-1">
+                        <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="px-2 py-1 text-xs rounded border border-slate-300 hover:bg-slate-100 disabled:opacity-40">
+                          <ChevronLeft className="w-3.5 h-3.5" />
+                        </button>
+                        <span className="text-xs text-slate-600 px-2">Page {currentPage} of {getTotalPages(getFilteredSeaSpotRates())}</span>
+                        <button onClick={() => setCurrentPage(p => Math.min(getTotalPages(getFilteredSeaSpotRates()), p + 1))} disabled={currentPage >= getTotalPages(getFilteredSeaSpotRates())} className="px-2 py-1 text-xs rounded border border-slate-300 hover:bg-slate-100 disabled:opacity-40">
+                          <ChevronRight className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div className="text-center py-6 text-slate-400 text-sm">
@@ -1999,7 +2118,7 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
-                      {getFilteredSeaBondRates().map((rate) => (
+                      {getPaginatedData(getFilteredSeaBondRates()).map((rate) => (
                         <tr key={rate.id} className="hover:bg-slate-50">
                           <td className="px-3 py-2 font-semibold text-teal-700">{rate.origin || '—'}</td>
                           <td className="px-3 py-2 text-slate-900 font-medium">{rate.rate || '—'}</td>
@@ -2028,6 +2147,23 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
                       ))}
                     </tbody>
                   </table>
+                  {/* Pagination */}
+                  {getTotalPages(getFilteredSeaBondRates()) > 1 && (
+                    <div className="flex items-center justify-between mt-3 px-1">
+                      <span className="text-xs text-slate-500">
+                        Showing {((currentPage - 1) * ITEMS_PER_PAGE) + 1}–{Math.min(currentPage * ITEMS_PER_PAGE, getFilteredSeaBondRates().length)} of {getFilteredSeaBondRates().length}
+                      </span>
+                      <div className="flex items-center gap-1">
+                        <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="px-2 py-1 text-xs rounded border border-slate-300 hover:bg-slate-100 disabled:opacity-40">
+                          <ChevronLeft className="w-3.5 h-3.5" />
+                        </button>
+                        <span className="text-xs text-slate-600 px-2">Page {currentPage} of {getTotalPages(getFilteredSeaBondRates())}</span>
+                        <button onClick={() => setCurrentPage(p => Math.min(getTotalPages(getFilteredSeaBondRates()), p + 1))} disabled={currentPage >= getTotalPages(getFilteredSeaBondRates())} className="px-2 py-1 text-xs rounded border border-slate-300 hover:bg-slate-100 disabled:opacity-40">
+                          <ChevronRight className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div className="text-center py-6 text-slate-400 text-sm">
@@ -2252,8 +2388,9 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
                     <p className="text-sm text-slate-500">Loading air export rates...</p>
                   </div>
                 ) : airExportRates.length > 0 ? (
+                  <>
                   <div className="divide-y divide-slate-100">
-                    {getFilteredAirExportRates().map((rate) => (
+                    {getPaginatedData(getFilteredAirExportRates()).map((rate) => (
                       <div key={rate.id} className="p-4 hover:bg-slate-50 transition-colors">
                         {/* Desktop Grid View */}
                         <div className="hidden md:grid grid-cols-12 gap-4 items-center">
@@ -2428,6 +2565,24 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
                       </div>
                     ))}
                   </div>
+                  {/* Air Export Pagination */}
+                  {getTotalPages(getFilteredAirExportRates()) > 1 && (
+                    <div className="flex items-center justify-between px-4 py-3 border-t border-slate-200">
+                      <span className="text-xs text-slate-500">
+                        Showing {((currentPage - 1) * ITEMS_PER_PAGE) + 1}–{Math.min(currentPage * ITEMS_PER_PAGE, getFilteredAirExportRates().length)} of {getFilteredAirExportRates().length}
+                      </span>
+                      <div className="flex items-center gap-1">
+                        <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="px-2 py-1 text-xs rounded border border-slate-300 hover:bg-slate-100 disabled:opacity-40">
+                          <ChevronLeft className="w-3.5 h-3.5" />
+                        </button>
+                        <span className="text-xs text-slate-600 px-2">Page {currentPage} of {getTotalPages(getFilteredAirExportRates())}</span>
+                        <button onClick={() => setCurrentPage(p => Math.min(getTotalPages(getFilteredAirExportRates()), p + 1))} disabled={currentPage >= getTotalPages(getFilteredAirExportRates())} className="px-2 py-1 text-xs rounded border border-slate-300 hover:bg-slate-100 disabled:opacity-40">
+                          <ChevronRight className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  </>
                 ) : (
                   <div className="text-center py-8 text-slate-400 text-sm">
                     <Plane className="w-12 h-12 text-slate-300 mx-auto mb-3" />
@@ -2584,6 +2739,7 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
 
         {/* Rates List */}
         {!isLoadingData && !error && (
+          <>
           <div className="space-y-3">
             {activeLiner && (
               <div className={`${activeLinerDetails?.color || 'bg-blue-600'} text-white rounded-xl p-4 mb-4 shadow-md`}>
@@ -3211,6 +3367,25 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
               );
             })}
           </div>
+
+          {/* Main Card Pagination */}
+          {totalDisplayPages > 1 && (
+            <div className="flex items-center justify-between mt-4 px-2">
+              <span className="text-sm text-slate-500">
+                Showing {((currentPage - 1) * ITEMS_PER_PAGE) + 1}–{Math.min(currentPage * ITEMS_PER_PAGE, allDisplayData.length)} of {allDisplayData.length}
+              </span>
+              <div className="flex items-center gap-2">
+                <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="px-3 py-1.5 text-sm rounded-lg border border-slate-300 hover:bg-slate-100 disabled:opacity-40 flex items-center gap-1">
+                  <ChevronLeft className="w-4 h-4" /> Prev
+                </button>
+                <span className="text-sm text-slate-600 px-2">Page {currentPage} of {totalDisplayPages}</span>
+                <button onClick={() => setCurrentPage(p => Math.min(totalDisplayPages, p + 1))} disabled={currentPage >= totalDisplayPages} className="px-3 py-1.5 text-sm rounded-lg border border-slate-300 hover:bg-slate-100 disabled:opacity-40 flex items-center gap-1">
+                  Next <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          )}
+          </>
         )}
 
         {/* Prompt to select a sub-category when header is open */}
