@@ -18,6 +18,7 @@ import {
   User,
   AlertCircle,
   Check,
+  Search,
 } from "lucide-react";
 
 // Month labels
@@ -88,6 +89,7 @@ export default function SalesTargetSec() {
   const [loading, setLoading] = useState(false);
   const [savingRow, setSavingRow] = useState(null); // employeeId currently saving
   const [saveSuccess, setSaveSuccess] = useState(null); // employeeId that just saved
+  const [searchQuery, setSearchQuery] = useState("");
 
   // Load config
   const loadConfig = useCallback(async () => {
@@ -381,30 +383,43 @@ export default function SalesTargetSec() {
         {/* Target Table */}
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
           {/* Table Header Bar */}
-          <div className="bg-gradient-to-r from-orange-600 to-orange-700 text-white p-4 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Target className="w-5 h-5" />
-              <h3 className="text-lg font-bold">
-                Employee Targets — {selectedYear}
-              </h3>
-              <span className="text-sm opacity-80">
-                ({employees.length} employees)
-              </span>
+          <div className="bg-gradient-to-r from-orange-600 to-orange-700 text-white p-4">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-3">
+                <Target className="w-5 h-5" />
+                <h3 className="text-lg font-bold">
+                  Employee Targets — {selectedYear}
+                </h3>
+                <span className="text-sm opacity-80">
+                  ({employees.length} employees)
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => scrollTable("left")}
+                  className="p-1.5 rounded-lg bg-white/20 hover:bg-white/30 transition-colors"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => scrollTable("right")}
+                  className="p-1.5 rounded-lg bg-white/20 hover:bg-white/30 transition-colors"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => scrollTable("left")}
-                className="p-1.5 rounded-lg bg-white/20 hover:bg-white/30 transition-colors"
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-              <button
-                onClick={() => scrollTable("right")}
-                className="p-1.5 rounded-lg bg-white/20 hover:bg-white/30 transition-colors"
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
+            {/* Search Bar */}
+            {/* <div className="relative max-w-sm">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-orange-300" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search employee by name, position, department..."
+                className="w-full pl-9 pr-4 py-2 bg-white/15 border border-white/25 rounded-lg text-sm text-white placeholder-orange-200 focus:outline-none focus:ring-2 focus:ring-white/40 focus:bg-white/20"
+              />
+            </div> */}
           </div>
 
           {loading ? (
