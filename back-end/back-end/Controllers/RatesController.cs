@@ -1042,5 +1042,118 @@ namespace back_end.Controllers
                 }
             }
         }
+
+        // ============================================================================
+        // SEA BOND RATES ENDPOINTS
+        // ============================================================================
+
+        // GET: api/rates/sea-bond - Get all sea bond rates
+        [HttpGet, Route("sea-bond")]
+        public ActionResult GetSeaBondRates()
+        {
+            string query = @"SELECT * FROM [dbo].[sea_bond_rates] ORDER BY id DESC;";
+            DataTable bondTb = new DataTable();
+
+            using (SqlConnection con = new SqlConnection(_dbConnectionString))
+            {
+                con.Open();
+                using (SqlCommand cmd = new SqlCommand(query, con))
+                {
+                    using (SqlDataReader reader = cmd.ExecuteReader())
+                    {
+                        bondTb.Load(reader);
+                    }
+                }
+                con.Close();
+            }
+
+            return new OkObjectResult(bondTb);
+        }
+
+        // POST: api/rates/sea-bond/bulk - Bulk upload sea bond rates
+        [HttpPost, Route("sea-bond/bulk")]
+        public IActionResult BulkInsertSeaBondRates([FromBody] SeaBondRateBulkRequest request)
+        {
+            if (request?.Rates == null || request.Rates.Count == 0)
+                return BadRequest(new { message = "No rates provided." });
+
+            int successCount = 0;
+            int failCount = 0;
+
+            using (SqlConnection con = new SqlConnection(_dbConnectionString))
+            {
+                con.Open();
+
+                foreach (var rate in request.Rates)
+                {
+                    try
+                    {
+                        string query = @"INSERT INTO [dbo].[sea_bond_rates]
+                            (origin, rate, vessel, etd, cutoff, transit, validity, created_at)
+                            VALUES
+                            (@origin, @rate, @vessel, @etd, @cutoff, @transit, @validity, GETDATE());";
+
+                        using (SqlCommand cmd = new SqlCommand(query, con))
+                        {
+                            cmd.Parameters.AddWithValue("@origin", rate.Origin ?? (object)DBNull.Value);
+                            cmd.Parameters.AddWithValue("@rate", rate.Rate ?? (object)DBNull.Value);
+                            cmd.Parameters.AddWithValue("@vessel", rate.Vessel ?? (object)DBNull.Value);
+                            cmd.Parameters.AddWithValue("@etd", rate.Etd ?? (object)DBNull.Value);
+                            cmd.Parameters.AddWithValue("@cutoff", rate.Cutoff ?? (object)DBNull.Value);
+                            cmd.Parameters.AddWithValue("@transit", rate.Transit ?? (object)DBNull.Value);
+                            cmd.Parameters.AddWithValue("@validity", rate.Validity ?? (object)DBNull.Value);
+
+                            cmd.ExecuteNonQuery();
+                            successCount++;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        failCount++;
+                        Console.WriteLine($"Failed to insert sea bond rate: {ex.Message}");
+                    }
+                }
+                con.Close();
+            }
+
+            return Ok(new { successCount, failCount, message = $"Inserted {successCount} sea bond rates." });
+        }
+
+        // DELETE: api/rates/sea-bond/{id} - Delete single sea bond rate
+        [HttpDelete, Route("sea-bond/{id:int}")]
+        public IActionResult DeleteSeaBondRate(int id)
+        {
+            using (SqlConnection con = new SqlConnection(_dbConnectionString))
+            {
+                con.Open();
+                using (SqlCommand cmd = new SqlCommand("DELETE FROM [dbo].[sea_bond_rates] WHERE id = @id;", con))
+                {
+                    cmd.Parameters.AddWithValue("@id", id);
+                    int rowsAffected = cmd.ExecuteNonQuery();
+
+                    if (rowsAffected == 0)
+                        return NotFound(new { message = $"Sea bond rate with id {id} not found." });
+
+                    return Ok(new { message = "Deleted successfully." });
+                }
+            }
+        }
+
+        // DELETE: api/rates/sea-bond/all - Delete all sea bond rates
+        [HttpDelete, Route("sea-bond/all")]
+        public IActionResult DeleteAllSeaBondRates()
+        {
+            string query = @"DELETE FROM [dbo].[sea_bond_rates];";
+
+            using (SqlConnection con = new SqlConnection(_dbConnectionString))
+            {
+                con.Open();
+                using (SqlCommand cmd = new SqlCommand(query, con))
+                {
+                    int rowsAffected = cmd.ExecuteNonQuery();
+                    return Ok(new { message = $"Deleted {rowsAffected} sea bond rates.", count = rowsAffected });
+                }
+            }
+        }
     }
 }

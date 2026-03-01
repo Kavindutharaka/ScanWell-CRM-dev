@@ -77,3 +77,43 @@ export const deleteSubCategory = async (id) => {
     throw new Error('Failed to delete sub-category');
   }
 };
+
+// ============================================================================
+// SEA BOND RATES
+// ============================================================================
+
+export const fetchSeaBondRates = async () => {
+  try {
+    const response = await axios.get(`${BASE_URL}/rates/sea-bond`);
+    return response.data;
+  } catch (error) {
+    throw new Error('Failed to fetch sea bond rates');
+  }
+};
+
+export const bulkUploadSeaBondRates = async (data) => {
+  try {
+    const response = await axios.post(`${BASE_URL}/rates/sea-bond/bulk`, data);
+    return response.data;
+  } catch (error) {
+    throw new Error('Failed to upload sea bond rates');
+  }
+};
+
+export const deleteSeaBondRate = async (id) => {
+  try {
+    const response = await axios.delete(`${BASE_URL}/rates/sea-bond/${id}`);
+    return response.data;
+  } catch (error) {
+    throw new Error('Failed to delete sea bond rate');
+  }
+};
+
+export const deleteAllSeaBondRates = async () => {
+  try {
+    const response = await axios.delete(`${BASE_URL}/rates/sea-bond/all`);
+    return response.data;
+  } catch (error) {
+    throw new Error('Failed to delete all sea bond rates');
+  }
+};

@@ -56,6 +56,14 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
   const [seaSpotExcelFile, setSeaSpotExcelFile] = useState(null);
   const [seaSpotUploadProgress, setSeaSpotUploadProgress] = useState(false);
 
+  // Sea Bond Rates state
+  const [seaBondRates, setSeaBondRates] = useState([]);
+  const [seaBondLoading, setSeaBondLoading] = useState(false);
+  const [showSeaBondRates, setShowSeaBondRates] = useState(false);
+  const [showSeaBondUploadModal, setShowSeaBondUploadModal] = useState(false);
+  const [seaBondExcelFile, setSeaBondExcelFile] = useState(null);
+  const [seaBondUploadProgress, setSeaBondUploadProgress] = useState(false);
+
   // Air Export Rates state
   const [showAirExport, setShowAirExport] = useState(false);
   const [airExportRates, setAirExportRates] = useState([]);
@@ -386,6 +394,152 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
     }
   };
 
+  // ====== SEA BOND RATES FUNCTIONS ======
+
+  const loadSeaBondRates = async () => {
+    setSeaBondLoading(true);
+    try {
+      const data = await RateAPI.fetchSeaBondRates();
+      const transformed = data.map(rate => ({
+        id: rate.Id || rate.id,
+        origin: rate.Origin || rate.origin,
+        rate: rate.Rate || rate.rate,
+        vessel: rate.Vessel || rate.vessel,
+        etd: rate.Etd || rate.etd,
+        cutoff: rate.Cutoff || rate.cutoff,
+        transit: rate.Transit || rate.transit,
+        validity: rate.Validity || rate.validity,
+      }));
+      setSeaBondRates(transformed);
+    } catch (err) {
+      console.error('Error fetching sea bond rates:', err);
+      setSeaBondRates([]);
+    } finally {
+      setSeaBondLoading(false);
+    }
+  };
+
+  const handleSeaBondExcelUpload = async () => {
+    if (!seaBondExcelFile) {
+      window.alert('Please select an Excel file.');
+      return;
+    }
+
+    setSeaBondUploadProgress(true);
+    try {
+      const data = await seaBondExcelFile.arrayBuffer();
+      const workbook = XLSX.read(data, { type: "array" });
+      const sheet = workbook.Sheets[workbook.SheetNames[0]];
+      const excelData = XLSX.utils.sheet_to_json(sheet);
+
+      if (!excelData || excelData.length === 0) {
+        window.alert('Excel file is empty.');
+        setSeaBondUploadProgress(false);
+        return;
+      }
+
+      const columnHeaders = Object.keys(excelData[0] || {});
+      const hasOrigin = columnHeaders.some(c => c.toUpperCase() === 'ORIGIN');
+      const hasRate = columnHeaders.some(c => c.toUpperCase() === 'RATE');
+
+      if (!hasOrigin || !hasRate) {
+        let msg = '❌ Excel format error!\n\nMissing required columns:\n';
+        if (!hasOrigin) msg += '• ORIGIN\n';
+        if (!hasRate) msg += '• RATE\n';
+        msg += '\n✅ Required: ORIGIN | RATE | VESSEL | ETD | CUTOFF | TRANSIT | VALIDITY';
+        window.alert(msg);
+        setSeaBondUploadProgress(false);
+        return;
+      }
+
+      const transformedData = excelData.map(row => {
+        const origin = row.ORIGIN || row.Origin || row.origin || null;
+        const rate = row.RATE || row.Rate || row.rate || null;
+        const vessel = row.VESSEL || row.Vessel || row.vessel || null;
+        const etd = row.ETD || row.Etd || row.etd || null;
+        const cutoff = row.CUTOFF || row.Cutoff || row.cutoff || row['CUT OFF'] || row['Cut Off'] || null;
+        const transit = row.TRANSIT || row.Transit || row.transit || null;
+        const validity = row.VALIDITY || row.Validity || row.validity || null;
+
+        return {
+          Origin: origin ? String(origin) : null,
+          Rate: rate ? String(rate) : null,
+          Vessel: vessel ? String(vessel) : null,
+          Etd: etd ? String(etd) : null,
+          Cutoff: cutoff ? String(cutoff) : null,
+          Transit: transit ? String(transit) : null,
+          Validity: validity ? String(validity) : null,
+        };
+      });
+
+      const validRows = transformedData.filter(r => r.Origin && r.Rate);
+
+      if (validRows.length === 0) {
+        window.alert('❌ No valid rows found. Each row needs at least ORIGIN and RATE.');
+        setSeaBondUploadProgress(false);
+        return;
+      }
+
+      if (validRows.length < transformedData.length) {
+        const skipped = transformedData.length - validRows.length;
+        if (!window.confirm(`⚠️ ${skipped} rows will be skipped (missing required fields).\n\nContinue uploading ${validRows.length} valid rows?`)) {
+          setSeaBondUploadProgress(false);
+          return;
+        }
+      }
+
+      const result = await RateAPI.bulkUploadSeaBondRates({ Rates: validRows });
+      window.alert(`✅ Uploaded ${result.successCount} sea bond rates successfully.`);
+      setShowSeaBondUploadModal(false);
+      setSeaBondExcelFile(null);
+      loadSeaBondRates();
+    } catch (err) {
+      console.error('Error uploading sea bond Excel:', err);
+      window.alert('❌ Failed to process Excel file. Check format and try again.');
+    } finally {
+      setSeaBondUploadProgress(false);
+    }
+  };
+
+  const handleDeleteAllSeaBondRates = async () => {
+    if (!window.confirm('⚠️ Delete ALL sea bond rates? This cannot be undone.')) return;
+    try {
+      await RateAPI.deleteAllSeaBondRates();
+      window.alert('✅ All sea bond rates deleted.');
+      loadSeaBondRates();
+    } catch (err) {
+      window.alert('❌ Failed to delete rates.');
+    }
+  };
+
+  const handleSeaBondRatesClick = () => {
+    const willShow = !showSeaBondRates;
+    setShowSeaBondRates(willShow);
+    setShowSeaSpotRates(false);
+    setShowLinearHeaders(false);
+    setShowDestinationHeaders(false);
+    setShowAirExport(false);
+    setActiveLiner(null);
+    setActiveLinerCategory(null);
+    if (willShow) {
+      setActiveTab('seabond');
+      loadSeaBondRates();
+    } else {
+      setActiveTab('all');
+    }
+  };
+
+  // Filter Sea Bond rates by search query
+  const getFilteredSeaBondRates = () => {
+    if (!searchQuery.trim()) return seaBondRates;
+    const q = searchQuery.toLowerCase();
+    return seaBondRates.filter(rate =>
+      rate.origin?.toLowerCase().includes(q) ||
+      rate.vessel?.toLowerCase().includes(q) ||
+      rate.rate?.toLowerCase().includes(q)
+    );
+  };
+
   // ====== AIR EXPORT RATES FUNCTIONS ======
 
   const loadAirExportRates = async () => {
@@ -425,6 +579,7 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
     const willShow = !showAirExport;
     setShowAirExport(willShow);
     setShowSeaSpotRates(false);
+    setShowSeaBondRates(false);
     setShowLinearHeaders(false);
     setShowDestinationHeaders(false);
     setActiveLiner(null);
@@ -808,6 +963,7 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
     setActiveLinerCategory('linearheaders');
     setActiveTab('liner');
     setShowSeaSpotRates(false);
+    setShowSeaBondRates(false);
     setShowDestinationHeaders(false);
     setShowAirExport(false);
     loadLinerRates(linerCode);
@@ -819,6 +975,7 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
     setActiveLinerCategory('destinationheaders');
     setActiveTab('liner');
     setShowSeaSpotRates(false);
+    setShowSeaBondRates(false);
     setShowLinearHeaders(false);
     setShowAirExport(false);
     loadDestinationRates(linerCode);
@@ -830,6 +987,7 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
     setActiveLiner(null);
     setActiveLinerCategory(null);
     setShowSeaSpotRates(false);
+    setShowSeaBondRates(false);
     setShowLinearHeaders(false);
     setShowDestinationHeaders(false);
     setShowAirExport(false);
@@ -839,6 +997,7 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
   const handleSeaSpotRatesClick = () => {
     const willShow = !showSeaSpotRates;
     setShowSeaSpotRates(willShow);
+    setShowSeaBondRates(false);
     setShowLinearHeaders(false);
     setShowDestinationHeaders(false);
     setShowAirExport(false);
@@ -857,6 +1016,7 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
     const willShow = !showLinearHeaders;
     setShowLinearHeaders(willShow);
     setShowSeaSpotRates(false);
+    setShowSeaBondRates(false);
     setShowDestinationHeaders(false);
     setShowAirExport(false);
     if (!willShow) {
@@ -881,6 +1041,7 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
     const willShow = !showDestinationHeaders;
     setShowDestinationHeaders(willShow);
     setShowSeaSpotRates(false);
+    setShowSeaBondRates(false);
     setShowLinearHeaders(false);
     setShowAirExport(false);
     if (!willShow) {
@@ -970,6 +1131,8 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
       loadAirExportRates();
     } else if (activeTab === 'seaspot') {
       loadSeaSpotRates();
+    } else if (activeTab === 'seabond') {
+      loadSeaBondRates();
     } else if (activeLinerCategory === 'destinationheaders') {
       loadDestinationRates(activeLiner);
     } else if (activeLiner) {
@@ -1508,14 +1671,14 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
   // Determine which data to display based on active category
   // Sea Spot & Air Export rates are shown in their own inline sections, not in the card list
   // When activeTab is null, a header section is open but no sub-category selected yet — show nothing
-  const displayData = (activeTab === 'seaspot' || activeTab === 'airexport' || activeTab === null)
+  const displayData = (activeTab === 'seaspot' || activeTab === 'seabond' || activeTab === 'airexport' || activeTab === null)
     ? []
     : activeLinerCategory === 'destinationheaders'
       ? destinationRates
       : activeLiner
         ? linerRates
         : filteredRates;
-  const isLoadingData = (activeTab === 'seaspot' || activeTab === 'airexport' || activeTab === null)
+  const isLoadingData = (activeTab === 'seaspot' || activeTab === 'seabond' || activeTab === 'airexport' || activeTab === null)
     ? false
     : activeLinerCategory === 'destinationheaders'
       ? destinationLoading
@@ -1542,7 +1705,7 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
             </div>
             
             {/* Conditional Button Display */}
-            {activeTab === 'seaspot' || activeTab === 'airexport' || activeTab === null ? null : !activeLiner ? (
+            {activeTab === 'seaspot' || activeTab === 'seabond' || activeTab === 'airexport' || activeTab === null ? null : !activeLiner ? (
               <button
                 onClick={modalOpen}
                 className="inline-flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 transition-colors shadow-lg hover:shadow-xl"
@@ -1589,6 +1752,19 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
               className={`px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 ${activeTab === 'sea' && !activeLiner ? 'bg-blue-500 text-white shadow-md' : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'}`}
             >
               <Ship className="w-4 h-4" /> Sea Freight
+            </button>
+
+            {/* Sea Bond Rates Button */}
+            <button
+              onClick={handleSeaBondRatesClick}
+              className={`px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 ${
+                showSeaBondRates
+                  ? 'bg-teal-600 text-white shadow-md'
+                  : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'
+              }`}
+            >
+              <Ship className="w-4 h-4" /> Sea Bond Rates
+              <ChevronDown className={`w-4 h-4 transition-transform ${showSeaBondRates ? 'rotate-180' : ''}`} />
             </button>
 
             {/* Horizontal Divider */}
@@ -1767,6 +1943,129 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
                     <button onClick={() => { setShowSeaSpotUploadModal(false); setSeaSpotExcelFile(null); }} className="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 text-sm font-medium">Cancel</button>
                     <button onClick={handleSeaSpotExcelUpload} disabled={!seaSpotExcelFile || seaSpotUploadProgress} className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm font-medium disabled:opacity-50 flex items-center gap-2">
                       {seaSpotUploadProgress ? <><RefreshCw className="w-4 h-4 animate-spin" /> Uploading...</> : <><Upload className="w-4 h-4" /> Upload</>}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Sea Bond Rates Section */}
+          {showSeaBondRates && (
+            <div className="mb-4 p-4 bg-teal-50 rounded-lg border border-teal-200">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <Ship className="w-5 h-5 text-teal-600" />
+                  <span className="text-sm font-semibold text-teal-700">Sea Bond Rates ({seaBondRates.length})</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setShowSeaBondUploadModal(true)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-teal-600 text-white rounded-lg text-xs font-medium hover:bg-teal-700 transition-colors"
+                  >
+                    <Upload className="w-3.5 h-3.5" />
+                    Upload Excel
+                  </button>
+                  {isAdmin && seaBondRates.length > 0 && (
+                    <button
+                      onClick={handleDeleteAllSeaBondRates}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600 text-white rounded-lg text-xs font-medium hover:bg-red-700 transition-colors"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      Clear All
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {seaBondLoading ? (
+                <div className="text-center py-6">
+                  <RefreshCw className="w-6 h-6 text-teal-600 animate-spin mx-auto mb-2" />
+                  <p className="text-sm text-slate-500">Loading sea bond rates...</p>
+                </div>
+              ) : seaBondRates.length > 0 ? (
+                <div className="overflow-x-auto bg-white rounded-lg border border-slate-200">
+                  <table className="w-full text-sm">
+                    <thead className="bg-slate-50 border-b border-slate-200">
+                      <tr>
+                        <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase">Origin</th>
+                        <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase">Rate</th>
+                        <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase">Vessel</th>
+                        <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase">ETD</th>
+                        <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase">Cutoff</th>
+                        <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase">Transit</th>
+                        <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase">Validity</th>
+                        {isAdmin && <th className="px-3 py-2.5 w-10"></th>}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {getFilteredSeaBondRates().map((rate) => (
+                        <tr key={rate.id} className="hover:bg-slate-50">
+                          <td className="px-3 py-2 font-semibold text-teal-700">{rate.origin || '—'}</td>
+                          <td className="px-3 py-2 text-slate-900 font-medium">{rate.rate || '—'}</td>
+                          <td className="px-3 py-2 text-slate-700">{rate.vessel || '—'}</td>
+                          <td className="px-3 py-2 text-slate-600">{rate.etd || '—'}</td>
+                          <td className="px-3 py-2 text-slate-600">{rate.cutoff || '—'}</td>
+                          <td className="px-3 py-2 text-slate-600">{rate.transit || '—'}</td>
+                          <td className="px-3 py-2 text-slate-600">{rate.validity || '—'}</td>
+                          {isAdmin && (
+                            <td className="px-3 py-2 text-center">
+                              <button
+                                onClick={async () => {
+                                  if (!window.confirm('Delete this rate?')) return;
+                                  try {
+                                    await RateAPI.deleteSeaBondRate(rate.id);
+                                    setSeaBondRates(prev => prev.filter(r => r.id !== rate.id));
+                                  } catch (err) { console.error(err); }
+                                }}
+                                className="p-1 hover:bg-red-50 rounded text-red-500 hover:text-red-700"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </td>
+                          )}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="text-center py-6 text-slate-400 text-sm">
+                  No sea bond rates. Upload an Excel file to get started.
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Sea Bond Upload Modal */}
+          {showSeaBondUploadModal && (
+            <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+              <div className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden">
+                <div className="bg-gradient-to-r from-teal-600 to-teal-700 px-6 py-4 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Upload className="w-5 h-5 text-white" />
+                    <h3 className="text-lg font-bold text-white">Upload Sea Bond Rates</h3>
+                  </div>
+                  <button onClick={() => { setShowSeaBondUploadModal(false); setSeaBondExcelFile(null); }} className="text-white hover:bg-white/20 rounded-lg p-2">
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+                <div className="p-6 space-y-4">
+                  <p className="text-sm text-slate-600">
+                    Upload an Excel file with headers:<br/>
+                    <code className="text-xs bg-slate-100 px-2 py-1 rounded mt-1 inline-block">ORIGIN | RATE | VESSEL | ETD | CUTOFF | TRANSIT | VALIDITY</code>
+                  </p>
+                  <div>
+                    <label className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed border-slate-300 rounded-lg cursor-pointer hover:bg-slate-50">
+                      <FileSpreadsheet className="w-6 h-6 text-slate-400 mb-1" />
+                      <p className="text-xs text-slate-500">{seaBondExcelFile ? seaBondExcelFile.name : 'Click to select Excel file'}</p>
+                      <input type="file" accept=".xlsx,.xls" className="hidden" onChange={(e) => setSeaBondExcelFile(e.target.files[0])} />
+                    </label>
+                  </div>
+                  <div className="flex justify-end gap-3">
+                    <button onClick={() => { setShowSeaBondUploadModal(false); setSeaBondExcelFile(null); }} className="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 text-sm font-medium">Cancel</button>
+                    <button onClick={handleSeaBondExcelUpload} disabled={!seaBondExcelFile || seaBondUploadProgress} className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 text-sm font-medium disabled:opacity-50 flex items-center gap-2">
+                      {seaBondUploadProgress ? <><RefreshCw className="w-4 h-4 animate-spin" /> Uploading...</> : <><Upload className="w-4 h-4" /> Upload</>}
                     </button>
                   </div>
                 </div>
@@ -2932,7 +3231,7 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
         )}
 
         {/* Empty & Refresh */}
-        {!isLoadingData && !error && displayData.length === 0 && activeTab !== 'seaspot' && activeTab !== 'airexport' && activeTab !== null && (
+        {!isLoadingData && !error && displayData.length === 0 && activeTab !== 'seaspot' && activeTab !== 'seabond' && activeTab !== 'airexport' && activeTab !== null && (
           <div className="bg-white rounded-xl shadow-sm border p-12 text-center">
             <DollarSign className="w-16 h-16 text-slate-300 mx-auto mb-4" />
             <h3 className="text-lg font-medium mb-2">No rates found</h3>
