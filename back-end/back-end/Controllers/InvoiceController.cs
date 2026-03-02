@@ -100,7 +100,7 @@ namespace back_end.Controllers
                     con.Open();
 
                     string query = @"
-                        SELECT id, quote_id, entry_date, invoice_number, amount, created_at
+                        SELECT id, quote_id, entry_date, invoice_number, amount, cost_invoice, invoice_margin, created_at
                         FROM invoice_entries
                         WHERE quote_id = @QuoteId
                         ORDER BY id DESC";
@@ -122,6 +122,8 @@ namespace back_end.Controllers
                                         : null,
                                     invoiceNumber = reader["invoice_number"]?.ToString(),
                                     amount = reader["amount"] != DBNull.Value ? Convert.ToDecimal(reader["amount"]) : 0m,
+                                    costInvoice = reader["cost_invoice"] != DBNull.Value ? Convert.ToDecimal(reader["cost_invoice"]) : (decimal?)null,
+                                    invoiceMargin = reader["invoice_margin"] != DBNull.Value ? Convert.ToDecimal(reader["invoice_margin"]) : (decimal?)null,
                                     createdAt = reader["created_at"] != DBNull.Value
                                         ? DateTime.SpecifyKind(Convert.ToDateTime(reader["created_at"]), DateTimeKind.Utc)
                                         : (DateTime?)null
@@ -176,9 +178,16 @@ namespace back_end.Controllers
                     int count = 0;
                     foreach (var entry in request.Entries)
                     {
+                        // Calculate invoice_margin = amount - cost_invoice
+                        decimal? margin = null;
+                        if (entry.Amount.HasValue && entry.CostInvoice.HasValue)
+                        {
+                            margin = entry.Amount.Value - entry.CostInvoice.Value;
+                        }
+
                         string insertQuery = @"
-                            INSERT INTO invoice_entries (quote_id, entry_date, invoice_number, amount, created_at)
-                            VALUES (@QuoteId, @EntryDate, @InvoiceNumber, @Amount, GETUTCDATE())";
+                            INSERT INTO invoice_entries (quote_id, entry_date, invoice_number, amount, cost_invoice, invoice_margin, created_at)
+                            VALUES (@QuoteId, @EntryDate, @InvoiceNumber, @Amount, @CostInvoice, @InvoiceMargin, GETUTCDATE())";
 
                         using (var cmd = new SqlCommand(insertQuery, con))
                         {
@@ -189,6 +198,10 @@ namespace back_end.Controllers
                                 !string.IsNullOrEmpty(entry.InvoiceNumber) ? (object)entry.InvoiceNumber : DBNull.Value);
                             cmd.Parameters.AddWithValue("@Amount",
                                 entry.Amount.HasValue ? (object)entry.Amount.Value : DBNull.Value);
+                            cmd.Parameters.AddWithValue("@CostInvoice",
+                                entry.CostInvoice.HasValue ? (object)entry.CostInvoice.Value : DBNull.Value);
+                            cmd.Parameters.AddWithValue("@InvoiceMargin",
+                                margin.HasValue ? (object)margin.Value : DBNull.Value);
 
                             cmd.ExecuteNonQuery();
                             count++;
@@ -300,5 +313,6 @@ namespace back_end.Controllers
         public string EntryDate { get; set; }
         public string InvoiceNumber { get; set; }
         public decimal? Amount { get; set; }
+        public decimal? CostInvoice { get; set; }
     }
 }
