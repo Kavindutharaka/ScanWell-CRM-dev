@@ -809,6 +809,11 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
         rate300: '',
         rate500: '',
         rate1000: '',
+        rate1_167: '',
+        rate1_200: '',
+        rate1_300: '',
+        rate1_400: '',
+        rate1_500: '',
         rate20GP: 850,
         rate40GP: 1200,
         rate40HQ: 1300,
@@ -828,7 +833,7 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
         routingType: 'DIRECT',
         validateDate: '2025-06-30',
         note: '',
-        remark: 'Contact sales for bulk',
+        remark: 'KG based rate sample',
         owner: 'Jane Smith',
         currency: 'USD',
         category: activeLiner || 'MSC',
@@ -839,6 +844,46 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
         rate300: 2.50,
         rate500: 2.20,
         rate1000: 2.00,
+        rate1_167: '',
+        rate1_200: '',
+        rate1_300: '',
+        rate1_400: '',
+        rate1_500: '',
+        rate20GP: '',
+        rate40GP: '',
+        rate40HQ: '',
+        lclRate: '',
+      },
+      {
+        freightType: 'AIR-EXPORT',
+        origin: 'COLOMBO',
+        destination: 'LONDON',
+        airline: 'QATAR AIRWAYS',
+        liner: '',
+        route: 'CMB-DOH-LHR',
+        surcharges: '',
+        transitTime: 2,
+        transshipmentTime: '4 hours',
+        frequency: '5x Weekly',
+        routingType: 'TRANSSHIP',
+        validateDate: '2025-09-30',
+        note: '',
+        remark: 'Ratio based rate sample',
+        owner: 'Admin',
+        currency: 'USD',
+        category: activeLiner || 'MSC',
+        rate45Minus: '',
+        rate45MinusM: '',
+        rate45Plus: '',
+        rate100: '',
+        rate300: '',
+        rate500: '',
+        rate1000: '',
+        rate1_167: 1.80,
+        rate1_200: 1.60,
+        rate1_300: 1.40,
+        rate1_400: 1.25,
+        rate1_500: 1.10,
         rate20GP: '',
         rate40GP: '',
         rate40HQ: '',
@@ -869,6 +914,11 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
         rate300: '',
         rate500: '',
         rate1000: '',
+        rate1_167: '',
+        rate1_200: '',
+        rate1_300: '',
+        rate1_400: '',
+        rate1_500: '',
         rate20GP: '',
         rate40GP: '',
         rate40HQ: '',
@@ -905,6 +955,11 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
       { wch: 10 }, // rate300
       { wch: 10 }, // rate500
       { wch: 10 }, // rate1000
+      { wch: 10 }, // rate1_167
+      { wch: 10 }, // rate1_200
+      { wch: 10 }, // rate1_300
+      { wch: 10 }, // rate1_400
+      { wch: 10 }, // rate1_500
       { wch: 10 }, // rate20GP
       { wch: 10 }, // rate40GP
       { wch: 10 }, // rate40HQ
@@ -1678,8 +1733,16 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
     return formatted;
   };
 
+  const isRatioBasedRate = (rate) => {
+    return rate.rate1_167 || rate.rate1_200 || rate.rate1_300 || rate.rate1_400 || rate.rate1_500;
+  };
+
   const getQuickRate = (rate) => {
     if (rate.freightType?.toLowerCase().includes('air')) {
+      // Check ratio-based rates first
+      if (isRatioBasedRate(rate)) {
+        return rate.rate1_167 ?? rate.rate1_200 ?? rate.rate1_300 ?? rate.rate1_400 ?? rate.rate1_500 ?? '-';
+      }
       return rate.rate45Plus ?? rate.rate45MinusM ?? rate.rate45Minus ?? rate.rate100 ?? rate.rateM ?? '-';
     } else if (rate.freightType?.toLowerCase().includes('fcl')) {
       return rate.rate20GP ?? rate.rate40GP ?? rate.rate40HQ ?? '-';
@@ -1687,6 +1750,16 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
       return rate.lclRate ?? '-';
     }
     return '-';
+  };
+
+  const getQuickRateLabel = (rate) => {
+    if (rate.freightType?.toLowerCase().includes('air')) {
+      if (isRatioBasedRate(rate)) return 'ratio (1:167)';
+      return 'per kg (+45)';
+    }
+    if (rate.freightType?.toLowerCase().includes('fcl')) return 'per container';
+    if (rate.freightType?.toLowerCase().includes('lcl')) return 'per CBM';
+    return '';
   };
 
   const getRoutingBadge = (type) => {
@@ -3086,9 +3159,7 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
                           <div className="col-span-2">
                             <div className="text-lg font-bold text-indigo-600">{formatCurrency(getQuickRate(rate))}</div>
                             <div className="text-xs text-slate-500">
-                              {isAir && 'per kg (+45)'}
-                              {isFCL && 'per container'}
-                              {isLCL && 'per CBM'}
+                              {getQuickRateLabel(rate)}
                             </div>
                           </div>
 
@@ -3161,9 +3232,7 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
                             </div>
                             <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-3">
                               <div className="text-xs text-indigo-600 mb-1">
-                                {isAir && 'per kg (+45)'}
-                                {isFCL && 'per container'}
-                                {isLCL && 'per CBM'}
+                                {getQuickRateLabel(rate)}
                               </div>
                               <div className="text-lg font-bold text-indigo-700">{formatCurrency(getQuickRate(rate))}</div>
                             </div>
@@ -3194,35 +3263,78 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
                           <div className="bg-white rounded-lg p-5">
                             {/* Air Freight Rates */}
                             {isAir && (
-                              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-                                {/* Minimum (M) */}
-                                {rate.rate45MinusM != null && rate.rate45MinusM !== '' && (
-                                  <div className="bg-amber-50 border border-amber-300 rounded-lg p-4 text-center">
-                                    <div className="text-xs font-semibold text-amber-700">Minimum (M)</div>
-                                    <div className="text-xl font-bold text-amber-800 mt-1">{formatCurrency(rate.rate45MinusM)}</div>
+                              <div>
+                                {/* Check if ratio-based rates exist */}
+                                {(rate.rate1_167 || rate.rate1_200 || rate.rate1_300 || rate.rate1_400 || rate.rate1_500) ? (
+                                  /* Ratio-Based Rates Display */
+                                  <div>
+                                    <div className="text-xs font-semibold text-purple-600 uppercase tracking-wide mb-3">Ratio Based Rates</div>
+                                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+                                      {rate.rate1_167 && (
+                                        <div className="bg-purple-50 border-2 border-purple-400 rounded-lg p-4 text-center shadow-sm">
+                                          <div className="text-sm font-bold text-purple-700">1:167</div>
+                                          <div className="text-2xl font-bold text-purple-600 mt-1">{formatCurrency(rate.rate1_167)}</div>
+                                        </div>
+                                      )}
+                                      {rate.rate1_200 && (
+                                        <div className="bg-purple-50 border border-purple-300 rounded-lg p-4 text-center">
+                                          <div className="text-xs font-semibold text-purple-700">1:200</div>
+                                          <div className="text-xl font-bold text-purple-800 mt-1">{formatCurrency(rate.rate1_200)}</div>
+                                        </div>
+                                      )}
+                                      {rate.rate1_300 && (
+                                        <div className="bg-purple-50 border border-purple-300 rounded-lg p-4 text-center">
+                                          <div className="text-xs font-semibold text-purple-700">1:300</div>
+                                          <div className="text-xl font-bold text-purple-800 mt-1">{formatCurrency(rate.rate1_300)}</div>
+                                        </div>
+                                      )}
+                                      {rate.rate1_400 && (
+                                        <div className="bg-purple-50 border border-purple-300 rounded-lg p-4 text-center">
+                                          <div className="text-xs font-semibold text-purple-700">1:400</div>
+                                          <div className="text-xl font-bold text-purple-800 mt-1">{formatCurrency(rate.rate1_400)}</div>
+                                        </div>
+                                      )}
+                                      {rate.rate1_500 && (
+                                        <div className="bg-purple-50 border border-purple-300 rounded-lg p-4 text-center">
+                                          <div className="text-xs font-semibold text-purple-700">1:500</div>
+                                          <div className="text-xl font-bold text-purple-800 mt-1">{formatCurrency(rate.rate1_500)}</div>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                ) : (
+                                  /* KG-Based Rates Display */
+                                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+                                    {/* Minimum (M) */}
+                                    {rate.rate45MinusM != null && rate.rate45MinusM !== '' && (
+                                      <div className="bg-amber-50 border border-amber-300 rounded-lg p-4 text-center">
+                                        <div className="text-xs font-semibold text-amber-700">Minimum (M)</div>
+                                        <div className="text-xl font-bold text-amber-800 mt-1">{formatCurrency(rate.rate45MinusM)}</div>
+                                      </div>
+                                    )}
+
+                                    {/* -45 kg */}
+                                    {rate.rate45Minus != null && rate.rate45Minus !== '' && (
+                                      <div className="bg-slate-50 rounded-lg p-4 text-center">
+                                        <div className="text-xs text-slate-600">-45 kg</div>
+                                        <div className="text-xl font-bold text-slate-900 mt-1">{formatCurrency(rate.rate45Minus)}</div>
+                                      </div>
+                                    )}
+
+                                    {/* +45 kg - Highlighted */}
+                                    {rate.rate45Plus != null && rate.rate45Plus !== '' && (
+                                      <div className="bg-indigo-50 border-2 border-indigo-400 rounded-lg p-4 text-center shadow-sm">
+                                        <div className="text-sm font-bold text-indigo-700">+45 kg</div>
+                                        <div className="text-2xl font-bold text-indigo-600 mt-1">{formatCurrency(rate.rate45Plus)}</div>
+                                      </div>
+                                    )}
+
+                                    {rate.rate100 && <div className="bg-slate-50 rounded-lg p-4 text-center"><div className="text-xs text-slate-600">+100 kg</div><div className="text-xl font-bold mt-1">{formatCurrency(rate.rate100)}</div></div>}
+                                    {rate.rate300 && <div className="bg-slate-50 rounded-lg p-4 text-center"><div className="text-xs text-slate-600">+300 kg</div><div className="text-xl font-bold mt-1">{formatCurrency(rate.rate300)}</div></div>}
+                                    {rate.rate500 && <div className="bg-slate-50 rounded-lg p-4 text-center"><div className="text-xs text-slate-600">+500 kg</div><div className="text-xl font-bold mt-1">{formatCurrency(rate.rate500)}</div></div>}
+                                    {rate.rate1000 && <div className="bg-slate-50 rounded-lg p-4 text-center"><div className="text-xs text-slate-600">+1000 kg</div><div className="text-xl font-bold mt-1">{formatCurrency(rate.rate1000)}</div></div>}
                                   </div>
                                 )}
-
-                                {/* -45 kg */}
-                                {rate.rate45Minus != null && rate.rate45Minus !== '' && (
-                                  <div className="bg-slate-50 rounded-lg p-4 text-center">
-                                    <div className="text-xs text-slate-600">-45 kg</div>
-                                    <div className="text-xl font-bold text-slate-900 mt-1">{formatCurrency(rate.rate45Minus)}</div>
-                                  </div>
-                                )}
-
-                                {/* +45 kg - Highlighted */}
-                                {rate.rate45Plus != null && rate.rate45Plus !== '' && (
-                                  <div className="bg-indigo-50 border-2 border-indigo-400 rounded-lg p-4 text-center shadow-sm">
-                                    <div className="text-sm font-bold text-indigo-700">+45 kg</div>
-                                    <div className="text-2xl font-bold text-indigo-600 mt-1">{formatCurrency(rate.rate45Plus)}</div>
-                                  </div>
-                                )}
-
-                                {rate.rate100 && <div className="bg-slate-50 rounded-lg p-4 text-center"><div className="text-xs text-slate-600">+100 kg</div><div className="text-xl font-bold mt-1">{formatCurrency(rate.rate100)}</div></div>}
-                                {rate.rate300 && <div className="bg-slate-50 rounded-lg p-4 text-center"><div className="text-xs text-slate-600">+300 kg</div><div className="text-xl font-bold mt-1">{formatCurrency(rate.rate300)}</div></div>}
-                                {rate.rate500 && <div className="bg-slate-50 rounded-lg p-4 text-center"><div className="text-xs text-slate-600">+500 kg</div><div className="text-xl font-bold mt-1">{formatCurrency(rate.rate500)}</div></div>}
-                                {rate.rate1000 && <div className="bg-slate-50 rounded-lg p-4 text-center"><div className="text-xs text-slate-600">+1000 kg</div><div className="text-xl font-bold mt-1">{formatCurrency(rate.rate1000)}</div></div>}
                               </div>
                             )}
 
@@ -3303,6 +3415,36 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
                                     <div className="bg-slate-50 rounded p-3">
                                       <div className="text-xs text-slate-500">+1000 kg</div>
                                       <div className="text-lg font-bold">{formatCurrency(rate.rate1000)}</div>
+                                    </div>
+                                  )}
+                                  {rate.rate1_167 && (
+                                    <div className="bg-purple-50 rounded p-3">
+                                      <div className="text-xs text-purple-600">1:167</div>
+                                      <div className="text-lg font-bold text-purple-800">{formatCurrency(rate.rate1_167)}</div>
+                                    </div>
+                                  )}
+                                  {rate.rate1_200 && (
+                                    <div className="bg-purple-50 rounded p-3">
+                                      <div className="text-xs text-purple-600">1:200</div>
+                                      <div className="text-lg font-bold text-purple-800">{formatCurrency(rate.rate1_200)}</div>
+                                    </div>
+                                  )}
+                                  {rate.rate1_300 && (
+                                    <div className="bg-purple-50 rounded p-3">
+                                      <div className="text-xs text-purple-600">1:300</div>
+                                      <div className="text-lg font-bold text-purple-800">{formatCurrency(rate.rate1_300)}</div>
+                                    </div>
+                                  )}
+                                  {rate.rate1_400 && (
+                                    <div className="bg-purple-50 rounded p-3">
+                                      <div className="text-xs text-purple-600">1:400</div>
+                                      <div className="text-lg font-bold text-purple-800">{formatCurrency(rate.rate1_400)}</div>
+                                    </div>
+                                  )}
+                                  {rate.rate1_500 && (
+                                    <div className="bg-purple-50 rounded p-3">
+                                      <div className="text-xs text-purple-600">1:500</div>
+                                      <div className="text-lg font-bold text-purple-800">{formatCurrency(rate.rate1_500)}</div>
                                     </div>
                                   )}
                                   {rate.rate20GP && (
@@ -3505,7 +3647,7 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
                   <li>Ensure your Excel file has a header row with column names</li>
                   <li>Include columns like: Origin, Destination, Rate fields, Currency, etc.</li>
                   <li>All rows will be automatically tagged with category: {activeLiner}</li>
-                  <li>Rate fields (rate45Plus, rate20GP, etc.) will be stored in rateDataJson</li>
+                  <li>Rate fields (rate45Plus, rate1_167, rate20GP, etc.) will be stored in rateDataJson</li>
                 </ul>
               </div>
 

@@ -26,7 +26,8 @@
       "Bash(tee:*)",
       "Bash(node -e:*)",
       "Bash(Select-String \"error CS\")",
-      "Bash(npx vite build)"
+      "Bash(npx vite build)",
+      "Bash(xargs grep -l \"salesplan\\\\|sales.plan\\\\|sales plan\" -i)"
     ]
   }
 }
