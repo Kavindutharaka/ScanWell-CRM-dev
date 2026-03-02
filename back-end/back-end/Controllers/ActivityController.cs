@@ -302,10 +302,10 @@ namespace back_end.Controllers
         public ActionResult createActivity(Activitys activity)
         {
             string query = @"
-                INSERT INTO [dbo].[activity] 
-                    (activity_name, activity_type, owner, start_time, end_time, status, related_account) 
-                VALUES 
-                    (@activityName, @activityType, @owner, @startTime, @endTime, @status, @relatedItem);
+                INSERT INTO [dbo].[activity]
+                    (activity_name, activity_type, owner, start_time, end_time, status, related_account, reschedule_date)
+                VALUES
+                    (@activityName, @activityType, @owner, @startTime, @endTime, @status, @relatedItem, @rescheduleDate);
                 SELECT CAST(SCOPE_IDENTITY() AS INT);";
 
             int newActivityId;
@@ -324,7 +324,6 @@ namespace back_end.Controllers
                     // ═══════════════════════════════════════════════════════════════
                     if (activity.startTime.HasValue)
                     {
-                        // Remove any timezone info and store as-is
                         var localStart = DateTime.SpecifyKind(activity.startTime.Value, DateTimeKind.Unspecified);
                         myCom.Parameters.Add("@startTime", SqlDbType.DateTime2).Value = localStart;
                     }
@@ -335,13 +334,22 @@ namespace back_end.Controllers
 
                     if (activity.endTime.HasValue)
                     {
-                        // Remove any timezone info and store as-is
                         var localEnd = DateTime.SpecifyKind(activity.endTime.Value, DateTimeKind.Unspecified);
                         myCom.Parameters.Add("@endTime", SqlDbType.DateTime2).Value = localEnd;
                     }
                     else
                     {
                         myCom.Parameters.AddWithValue("@endTime", DBNull.Value);
+                    }
+
+                    if (activity.rescheduleDate.HasValue)
+                    {
+                        var localReschedule = DateTime.SpecifyKind(activity.rescheduleDate.Value, DateTimeKind.Unspecified);
+                        myCom.Parameters.Add("@rescheduleDate", SqlDbType.DateTime2).Value = localReschedule;
+                    }
+                    else
+                    {
+                        myCom.Parameters.AddWithValue("@rescheduleDate", DBNull.Value);
                     }
                     // ═══════════════════════════════════════════════════════════════
 
@@ -365,9 +373,10 @@ namespace back_end.Controllers
         [HttpPut]
         public ActionResult updateActivity(Activitys activity)
         {
-            string query = @"update [dbo].[activity] 
-                             set activity_name = @activityName, activity_type = @activityType, owner = @owner, 
-                                 start_time = @startTime, end_time = @endTime, status = @status, related_account = @relatedItem 
+            string query = @"update [dbo].[activity]
+                             set activity_name = @activityName, activity_type = @activityType, owner = @owner,
+                                 start_time = @startTime, end_time = @endTime, status = @status,
+                                 related_account = @relatedItem, reschedule_date = @rescheduleDate
                              where id = @id;";
             using (SqlConnection myCon = new SqlConnection(_dbConnectionString))
             {
@@ -384,7 +393,6 @@ namespace back_end.Controllers
                     // ═══════════════════════════════════════════════════════════════
                     if (activity.startTime.HasValue)
                     {
-                        // Remove any timezone info and store as-is
                         var localStart = DateTime.SpecifyKind(activity.startTime.Value, DateTimeKind.Unspecified);
                         myCom.Parameters.Add("@startTime", SqlDbType.DateTime2).Value = localStart;
                     }
@@ -395,13 +403,22 @@ namespace back_end.Controllers
 
                     if (activity.endTime.HasValue)
                     {
-                        // Remove any timezone info and store as-is
                         var localEnd = DateTime.SpecifyKind(activity.endTime.Value, DateTimeKind.Unspecified);
                         myCom.Parameters.Add("@endTime", SqlDbType.DateTime2).Value = localEnd;
                     }
                     else
                     {
                         myCom.Parameters.AddWithValue("@endTime", DBNull.Value);
+                    }
+
+                    if (activity.rescheduleDate.HasValue)
+                    {
+                        var localReschedule = DateTime.SpecifyKind(activity.rescheduleDate.Value, DateTimeKind.Unspecified);
+                        myCom.Parameters.Add("@rescheduleDate", SqlDbType.DateTime2).Value = localReschedule;
+                    }
+                    else
+                    {
+                        myCom.Parameters.AddWithValue("@rescheduleDate", DBNull.Value);
                     }
                     // ═══════════════════════════════════════════════════════════════
 

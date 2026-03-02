@@ -36,6 +36,8 @@ export default function ReportsSec() {
   const [saDateFrom, setSaDateFrom] = useState("");
   const [saDateTo, setSaDateTo] = useState("");
   const [saSalesPerson, setSaSalesPerson] = useState("all");
+  const [saActivityTypes, setSaActivityTypes] = useState([]);
+  const [saStatuses, setSaStatuses] = useState([]);
 
   // Customer List filters
   const [clSalesPerson, setClSalesPerson] = useState("all");
@@ -51,6 +53,25 @@ export default function ReportsSec() {
     { value: "sea-fcl", label: "Sea FCL" },
     { value: "sea-lcl", label: "Sea LCL" },
     { value: "multimodal-mixed", label: "Multimodal" },
+  ];
+
+  // Activity type options
+  const activityTypeOptions = [
+    { value: "site_visit", label: "Site Visit" },
+    { value: "call", label: "Phone Call" },
+    { value: "meeting", label: "Meeting" },
+    { value: "email", label: "Email" },
+    { value: "presentation", label: "Presentation" },
+  ];
+
+  // Activity status options
+  const activityStatusOptions = [
+    { value: "planned", label: "Planned" },
+    { value: "scheduled", label: "Scheduled" },
+    { value: "in_progress", label: "In Progress" },
+    { value: "completed", label: "Completed" },
+    { value: "cancelled", label: "Cancelled" },
+    { value: "reschedule", label: "Reschedule" },
   ];
 
   // Load filter data on mount
@@ -93,6 +114,18 @@ export default function ReportsSec() {
     );
   };
 
+  const toggleActivityType = (type) => {
+    setSaActivityTypes(prev =>
+      prev.includes(type) ? prev.filter(t => t !== type) : [...prev, type]
+    );
+  };
+
+  const toggleActivityStatus = (status) => {
+    setSaStatuses(prev =>
+      prev.includes(status) ? prev.filter(s => s !== status) : [...prev, status]
+    );
+  };
+
   // ====== GENERATE REPORT ======
   const generateReport = async () => {
     setLoading(true);
@@ -117,6 +150,8 @@ export default function ReportsSec() {
           if (saDateFrom) params.append("dateFrom", saDateFrom);
           if (saDateTo) params.append("dateTo", saDateTo);
           if (saSalesPerson !== "all") params.append("salesPerson", saSalesPerson);
+          if (saActivityTypes.length > 0) params.append("activityType", saActivityTypes.join(","));
+          if (saStatuses.length > 0) params.append("status", saStatuses.join(","));
           break;
         case "user-list":
           url = `${BASE_URL}/report/user-list`;
@@ -228,6 +263,7 @@ export default function ReportsSec() {
             'Sales Person': row.SalesPerson || row.salesPerson || row.owner_name || '—',
             'Start': formatDateTimeForExport(row.StartTime || row.startTime || row.start_time),
             'End': formatDateTimeForExport(row.EndTime || row.endTime || row.end_time),
+            'Reschedule Date': formatDateTimeForExport(row.RescheduleDate || row.rescheduleDate || row.reschedule_date),
             'Status': (row.Status || row.status || '—').toUpperCase(),
             'Account': row.RelatedAccount || row.relatedAccount || row.related_account || '—',
             'Comment': row.LatestComment || row.latestComment || '—'
@@ -361,13 +397,24 @@ export default function ReportsSec() {
       }
       case "sales-activity": {
         const total = reportData.length;
-        const scheduled = reportData.filter(r => (r.Status || r.status || "").toLowerCase() === "scheduled").length;
-        const completed = reportData.filter(r => (r.Status || r.status || "").toLowerCase() === "completed").length;
+        const statusCounts = {};
+        reportData.forEach(r => {
+          const s = (r.Status || r.status || "unknown").toLowerCase();
+          statusCounts[s] = (statusCounts[s] || 0) + 1;
+        });
+        const statusColors = {
+          planned: "#64748b", scheduled: "#2563eb", in_progress: "#3b82f6",
+          completed: "#16a34a", cancelled: "#dc2626", reschedule: "#d97706"
+        };
         return (
           <div className="summary">
             <div className="summary-item"><strong>{total}</strong>Total Activities</div>
-            <div className="summary-item"><strong style={{ color: "#2563eb" }}>{scheduled}</strong>Scheduled</div>
-            <div className="summary-item"><strong style={{ color: "#16a34a" }}>{completed}</strong>Completed</div>
+            {Object.entries(statusCounts).map(([s, count]) => (
+              <div key={s} className="summary-item">
+                <strong style={{ color: statusColors[s] || "#64748b" }}>{count}</strong>
+                {s === "in_progress" ? "In Progress" : s.charAt(0).toUpperCase() + s.slice(1)}
+              </div>
+            ))}
           </div>
         );
       }
@@ -401,8 +448,10 @@ export default function ReportsSec() {
         if (qDepartment !== "all") parts.push(`Department: ${qDepartment}`);
         break;
       case "sales-activity":
-        if (saDateFrom || saDateTo) parts.push(`Date: ${saDateFrom || "start"} to ${saDateTo || "now"}`);
+        if (saDateFrom || saDateTo) parts.push(`End Date: ${saDateFrom || "start"} to ${saDateTo || "now"}`);
         if (saSalesPerson !== "all") parts.push(`Sales Person: ${saSalesPerson}`);
+        if (saActivityTypes.length > 0) parts.push(`Type: ${saActivityTypes.map(t => activityTypeOptions.find(o => o.value === t)?.label || t).join(", ")}`);
+        if (saStatuses.length > 0) parts.push(`Status: ${saStatuses.map(s => activityStatusOptions.find(o => o.value === s)?.label || s).join(", ")}`);
         break;
       case "customer-list":
         if (clSalesPerson !== "all") parts.push(`Sales Person: ${clSalesPerson}`);
@@ -542,27 +591,71 @@ export default function ReportsSec() {
 
           {/* Sales Activity Filters */}
           {activeReport === "sales-activity" && (
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div>
-                <label className="block text-xs font-medium text-slate-600 mb-1">Date From</label>
-                <div className="relative">
-                  <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                  <input type="date" value={saDateFrom} onChange={e => setSaDateFrom(e.target.value)} className="w-full pl-10 pr-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 mb-1">End Date From</label>
+                  <div className="relative">
+                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <input type="date" value={saDateFrom} onChange={e => setSaDateFrom(e.target.value)} className="w-full pl-10 pr-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 mb-1">End Date To</label>
+                  <div className="relative">
+                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <input type="date" value={saDateTo} onChange={e => setSaDateTo(e.target.value)} className="w-full pl-10 pr-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 mb-1">Sales Person</label>
+                  <select value={saSalesPerson} onChange={e => setSaSalesPerson(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+                    <option value="all">All</option>
+                    {salespersons.map(sp => <option key={sp} value={sp}>{sp}</option>)}
+                  </select>
                 </div>
               </div>
+
+              {/* Activity Type - Multi-select */}
               <div>
-                <label className="block text-xs font-medium text-slate-600 mb-1">Date To</label>
-                <div className="relative">
-                  <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                  <input type="date" value={saDateTo} onChange={e => setSaDateTo(e.target.value)} className="w-full pl-10 pr-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                <label className="block text-xs font-medium text-slate-600 mb-2">Activity Type (multiple selection)</label>
+                <div className="flex flex-wrap gap-2">
+                  {activityTypeOptions.map(opt => (
+                    <button
+                      key={opt.value}
+                      onClick={() => toggleActivityType(opt.value)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${
+                        saActivityTypes.includes(opt.value)
+                          ? "bg-blue-100 text-blue-700 border-blue-300"
+                          : "bg-white text-slate-500 border-slate-200 hover:bg-slate-50"
+                      }`}
+                    >
+                      {saActivityTypes.includes(opt.value) && <CheckCircle2 className="w-3 h-3 inline mr-1" />}
+                      {opt.label}
+                    </button>
+                  ))}
                 </div>
               </div>
+
+              {/* Activity Status - Multi-select */}
               <div>
-                <label className="block text-xs font-medium text-slate-600 mb-1">Sales Person</label>
-                <select value={saSalesPerson} onChange={e => setSaSalesPerson(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
-                  <option value="all">All</option>
-                  {salespersons.map(sp => <option key={sp} value={sp}>{sp}</option>)}
-                </select>
+                <label className="block text-xs font-medium text-slate-600 mb-2">Status (multiple selection)</label>
+                <div className="flex flex-wrap gap-2">
+                  {activityStatusOptions.map(opt => (
+                    <button
+                      key={opt.value}
+                      onClick={() => toggleActivityStatus(opt.value)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${
+                        saStatuses.includes(opt.value)
+                          ? "bg-blue-100 text-blue-700 border-blue-300"
+                          : "bg-white text-slate-500 border-slate-200 hover:bg-slate-50"
+                      }`}
+                    >
+                      {saStatuses.includes(opt.value) && <CheckCircle2 className="w-3 h-3 inline mr-1" />}
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
           )}
@@ -713,6 +806,7 @@ export default function ReportsSec() {
                           <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-600">Sales Person</th>
                           <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-600">Start</th>
                           <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-600">End</th>
+                          <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-600">Reschedule Date</th>
                           <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-600">Status</th>
                           <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-600">Account</th>
                           <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-600">Comment</th>
@@ -721,6 +815,7 @@ export default function ReportsSec() {
                       <tbody className="divide-y divide-slate-100">
                         {reportData.map((row, i) => {
                           const status = (row.Status || row.status || "").toLowerCase();
+                          const rescheduleDate = row.RescheduleDate || row.rescheduleDate || row.reschedule_date;
                           return (
                             <tr key={i} className="hover:bg-slate-50">
                               <td className="px-3 py-2 text-slate-400 text-xs">{i + 1}</td>
@@ -729,8 +824,22 @@ export default function ReportsSec() {
                               <td className="px-3 py-2 text-slate-700">{row.SalesPerson || row.salesPerson || row.owner_name || "—"}</td>
                               <td className="px-3 py-2 text-slate-600 whitespace-nowrap text-xs">{formatDateTime(row.StartTime || row.startTime || row.start_time)}</td>
                               <td className="px-3 py-2 text-slate-600 whitespace-nowrap text-xs">{formatDateTime(row.EndTime || row.endTime || row.end_time)}</td>
+                              <td className="px-3 py-2 whitespace-nowrap text-xs">
+                                {rescheduleDate ? (
+                                  <span className="text-amber-600 font-medium">{formatDateTime(rescheduleDate)}</span>
+                                ) : (
+                                  <span className="text-slate-400">—</span>
+                                )}
+                              </td>
                               <td className="px-3 py-2">
-                                <span className={`badge ${status === "completed" ? "badge-completed" : status === "scheduled" ? "badge-scheduled" : "bg-slate-100 text-slate-600"}`}>
+                                <span className={`badge ${
+                                  status === "completed" ? "badge-completed" :
+                                  status === "scheduled" || status === "planned" ? "badge-scheduled" :
+                                  status === "cancelled" ? "badge-lost" :
+                                  status === "reschedule" ? "bg-amber-100 text-amber-700" :
+                                  status === "in_progress" ? "bg-blue-100 text-blue-700" :
+                                  "bg-slate-100 text-slate-600"
+                                }`}>
                                   {(row.Status || row.status || "—").toUpperCase()}
                                 </span>
                               </td>

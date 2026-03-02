@@ -135,27 +135,29 @@ namespace back_end.Controllers
 
         // ====================================================================
         // 2. SALES ACTIVITY REPORT
-        // Filters: dateFrom, dateTo, salesPerson
+        // Filters: dateFrom, dateTo, salesPerson, activityType, status
         // ====================================================================
         [HttpGet, Route("sales-activity")]
         public ActionResult GetSalesActivityReport(
             [FromQuery] string? dateFrom,
             [FromQuery] string? dateTo,
-            [FromQuery] string? salesPerson)
+            [FromQuery] string? salesPerson,
+            [FromQuery] string? activityType,
+            [FromQuery] string? status)
         {
             var conditions = new List<string>();
             var parameters = new List<SqlParameter>();
 
             if (!string.IsNullOrEmpty(dateFrom))
             {
-                conditions.Add("CAST(a.start_time AS DATE) >= @DateFrom");
+                conditions.Add("CAST(a.end_time AS DATE) >= @DateFrom");
                 var pFrom = new SqlParameter("@DateFrom", System.Data.SqlDbType.Date);
                 pFrom.Value = DateTime.Parse(dateFrom);
                 parameters.Add(pFrom);
             }
             if (!string.IsNullOrEmpty(dateTo))
             {
-                conditions.Add("CAST(a.start_time AS DATE) <= @DateTo");
+                conditions.Add("CAST(a.end_time AS DATE) <= @DateTo");
                 var pTo = new SqlParameter("@DateTo", System.Data.SqlDbType.Date);
                 pTo.Value = DateTime.Parse(dateTo);
                 parameters.Add(pTo);
@@ -164,6 +166,44 @@ namespace back_end.Controllers
             {
                 conditions.Add("(ISNULL(e.fname, '') + ' ' + ISNULL(e.lname, '')) = @SalesPerson");
                 parameters.Add(new SqlParameter("@SalesPerson", salesPerson));
+            }
+            if (!string.IsNullOrEmpty(activityType) && activityType != "all")
+            {
+                var types = activityType.Split(',').Select(t => t.Trim()).Where(t => !string.IsNullOrEmpty(t)).ToList();
+                if (types.Count == 1)
+                {
+                    conditions.Add("a.activity_type = @ActivityType");
+                    parameters.Add(new SqlParameter("@ActivityType", types[0]));
+                }
+                else if (types.Count > 1)
+                {
+                    var typeParams = new List<string>();
+                    for (int i = 0; i < types.Count; i++)
+                    {
+                        typeParams.Add($"@ActivityType{i}");
+                        parameters.Add(new SqlParameter($"@ActivityType{i}", types[i]));
+                    }
+                    conditions.Add($"a.activity_type IN ({string.Join(",", typeParams)})");
+                }
+            }
+            if (!string.IsNullOrEmpty(status) && status != "all")
+            {
+                var statuses = status.Split(',').Select(s => s.Trim()).Where(s => !string.IsNullOrEmpty(s)).ToList();
+                if (statuses.Count == 1)
+                {
+                    conditions.Add("a.status = @Status");
+                    parameters.Add(new SqlParameter("@Status", statuses[0]));
+                }
+                else if (statuses.Count > 1)
+                {
+                    var statusParams = new List<string>();
+                    for (int i = 0; i < statuses.Count; i++)
+                    {
+                        statusParams.Add($"@Status{i}");
+                        parameters.Add(new SqlParameter($"@Status{i}", statuses[i]));
+                    }
+                    conditions.Add($"a.status IN ({string.Join(",", statusParams)})");
+                }
             }
 
             string whereClause = conditions.Count > 0 ? "WHERE " + string.Join(" AND ", conditions) : "";
@@ -178,13 +218,14 @@ namespace back_end.Controllers
                     a.end_time AS EndTime,
                     a.status AS Status,
                     a.related_account AS RelatedAccount,
+                    a.reschedule_date AS RescheduleDate,
                     (SELECT TOP 1 sl.note FROM [dbo].[status_logs] sl
                      WHERE sl.activity_id = a.id
                      ORDER BY sl.created_at DESC) AS LatestComment
                 FROM [dbo].[activity] a
                 LEFT JOIN [dbo].[emp_reg] e ON a.owner = e.SysID
                 {whereClause}
-                ORDER BY a.start_time DESC, a.id DESC;";
+                ORDER BY a.end_time DESC, a.id DESC;";
 
             DataTable tb = new DataTable();
             using (SqlConnection con = new SqlConnection(_dbConnectionString))
