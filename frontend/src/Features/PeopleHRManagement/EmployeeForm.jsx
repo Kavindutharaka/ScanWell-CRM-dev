@@ -1,6 +1,6 @@
-import { X, UserCheck, Mail, Phone, MapPin, Briefcase, Building, User, FileText } from "lucide-react";
-import { useState, useEffect } from "react";
-import { createEmployee, updateEmployee } from "../../api/PMApi";
+import { X, UserCheck, Mail, Phone, MapPin, Briefcase, Building, User, FileText, ChevronDown, Users } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { createEmployee, updateEmployee, fetchEmployees } from "../../api/PMApi";
 import { fetchDepartment } from "../../api/DepartmentApi";
 import { fetchPosition } from "../../api/PositionApi";
 
@@ -20,10 +20,17 @@ export default function EmployeeForm({ onClose, editEmployee = null, onSuccess }
     note: ''
   });
 
+  const isEditing = editEmployee && editEmployee.sysID;
+
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [departments, setDepartments] = useState([]);
   const [positions, setPositions] = useState([]);
+  const [allEmployees, setAllEmployees] = useState([]);
+  const [selectedManagers, setSelectedManagers] = useState([]);
+  const [managerSearch, setManagerSearch] = useState('');
+  const [managerDropdownOpen, setManagerDropdownOpen] = useState(false);
+  const managerDropdownRef = useRef(null);
 
   // Populate form when editing
   useEffect(() => {
@@ -42,25 +49,76 @@ export default function EmployeeForm({ onClose, editEmployee = null, onSuccess }
         status: editEmployee.status || 'Active',
         note: editEmployee.note || ''
       });
+      // Parse existing managers (comma-separated) into array
+      if (editEmployee.a_manager) {
+        const managers = editEmployee.a_manager.split(',').map(m => m.trim()).filter(Boolean);
+        setSelectedManagers(managers);
+      }
     }
   }, [editEmployee]);
 
-  // Fetch departments and positions from backend
+  // Fetch departments, positions, and employees from backend
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [departmentsData, positionsData] = await Promise.all([
+        const [departmentsData, positionsData, employeesData] = await Promise.all([
           fetchDepartment(),
-          fetchPosition()
+          fetchPosition(),
+          fetchEmployees()
         ]);
         setDepartments(departmentsData || []);
         setPositions(positionsData || []);
+        setAllEmployees(employeesData || []);
       } catch (error) {
-        console.error('Error fetching departments and positions:', error);
+        console.error('Error fetching departments, positions and employees:', error);
       }
     };
     fetchData();
   }, []);
+
+  // Close manager dropdown on outside click
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (managerDropdownRef.current && !managerDropdownRef.current.contains(e.target)) {
+        setManagerDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Build employee name list for manager dropdown (exclude current employee being edited)
+  const managerOptions = allEmployees
+    .filter(emp => {
+      const name = `${emp.fname || ''} ${emp.lname || ''}`.trim();
+      // Exclude current employee if editing
+      if (isEditing && String(emp.sysID || emp.SysID) === String(formData.sysID)) return false;
+      // Filter by search
+      if (managerSearch && !name.toLowerCase().includes(managerSearch.toLowerCase())) return false;
+      // Exclude already selected
+      if (selectedManagers.includes(name)) return false;
+      return name.length > 0;
+    })
+    .map(emp => ({
+      id: emp.sysID || emp.SysID,
+      name: `${emp.fname || ''} ${emp.lname || ''}`.trim(),
+      position: emp.position || '',
+      department: emp.department || ''
+    }));
+
+  const addManager = (name) => {
+    const updated = [...selectedManagers, name];
+    setSelectedManagers(updated);
+    setFormData(prev => ({ ...prev, a_manager: updated.join(', ') }));
+    setManagerSearch('');
+    setManagerDropdownOpen(false);
+  };
+
+  const removeManager = (name) => {
+    const updated = selectedManagers.filter(m => m !== name);
+    setSelectedManagers(updated);
+    setFormData(prev => ({ ...prev, a_manager: updated.join(', ') }));
+  };
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -149,8 +207,6 @@ export default function EmployeeForm({ onClose, editEmployee = null, onSuccess }
     { value: 'Active', label: 'Active' },
     { value: 'Inactive', label: 'Inactive' }
   ];
-
-  const isEditing = editEmployee && editEmployee.sysID;
 
   return (
     <div className="w-full max-w-4xl mx-auto bg-white rounded-2xl shadow-xl max-h-[90vh] flex flex-col">
@@ -382,20 +438,82 @@ export default function EmployeeForm({ onClose, editEmployee = null, onSuccess }
                 />
               </div>
 
-              {/* Assigned Manager */}
-              <div>
+              {/* Assigned Manager - Multi-select */}
+              <div className="lg:col-span-2" ref={managerDropdownRef}>
                 <label className="flex items-center gap-2 text-sm font-semibold text-slate-700 mb-3">
-                  <User className="w-4 h-4 text-cyan-600" />
-                  Assigned Manager
+                  <Users className="w-4 h-4 text-cyan-600" />
+                  Assigned Manager(s)
                 </label>
-                <input
-                  type="text"
-                  name="a_manager"
-                  value={formData.a_manager}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent hover:border-slate-400 transition-all"
-                  placeholder="Enter assigned manager's name"
-                />
+
+                {/* Selected Manager Tags */}
+                {selectedManagers.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mb-2">
+                    {selectedManagers.map((name) => (
+                      <span
+                        key={name}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg text-sm font-medium"
+                      >
+                        <User className="w-3.5 h-3.5" />
+                        {name}
+                        <button
+                          type="button"
+                          onClick={() => removeManager(name)}
+                          className="ml-1 hover:bg-emerald-200 rounded-full p-0.5 transition-colors"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+
+                {/* Search & Dropdown */}
+                <div className="relative">
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={managerSearch}
+                      onChange={(e) => {
+                        setManagerSearch(e.target.value);
+                        setManagerDropdownOpen(true);
+                      }}
+                      onFocus={() => setManagerDropdownOpen(true)}
+                      className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent hover:border-slate-400 transition-all pr-10"
+                      placeholder="Search and select managers..."
+                    />
+                    <ChevronDown className={`absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 transition-transform ${managerDropdownOpen ? 'rotate-180' : ''}`} />
+                  </div>
+
+                  {/* Dropdown List */}
+                  {managerDropdownOpen && (
+                    <div className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                      {managerOptions.length > 0 ? (
+                        managerOptions.map((emp) => (
+                          <button
+                            type="button"
+                            key={emp.id}
+                            onClick={() => addManager(emp.name)}
+                            className="w-full text-left px-4 py-2.5 hover:bg-emerald-50 transition-colors flex items-center justify-between group"
+                          >
+                            <div>
+                              <span className="text-sm font-medium text-slate-800 group-hover:text-emerald-700">{emp.name}</span>
+                              {(emp.position || emp.department) && (
+                                <span className="ml-2 text-xs text-slate-400">
+                                  {[emp.position, emp.department].filter(Boolean).join(' · ')}
+                                </span>
+                              )}
+                            </div>
+                            <span className="text-xs text-emerald-500 opacity-0 group-hover:opacity-100">+ Add</span>
+                          </button>
+                        ))
+                      ) : (
+                        <div className="px-4 py-3 text-sm text-slate-400 text-center">
+                          {managerSearch ? 'No matching employees found' : 'No more employees to add'}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>

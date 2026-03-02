@@ -11,6 +11,7 @@ import {
   Eye,
   UserX,
   User,
+  Users,
   Building,
   ToggleLeft,
   ToggleRight
@@ -277,6 +278,7 @@ export default function HREmployeeList({ onOpen, loading = false, delay = 0, emp
                   <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider min-w-48">Contact</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider min-w-36">Position</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider min-w-32">Department</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider min-w-44">Assigned Manager</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider min-w-24">Status</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider min-w-24">Available</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider min-w-32">Task Load</th>
@@ -358,8 +360,25 @@ export default function HREmployeeList({ onOpen, loading = false, delay = 0, emp
                         <DepartmentBadge department={employee.department} />
                       </td>
                       <td className="px-4 py-4">
-                        <StatusToggle 
-                          employee={employee} 
+                        {employee.a_manager ? (
+                          <div className="flex flex-wrap gap-1">
+                            {employee.a_manager.split(',').map((m, idx) => (
+                              <span
+                                key={idx}
+                                className="inline-flex items-center gap-1 px-2 py-0.5 bg-cyan-50 text-cyan-700 border border-cyan-200 rounded-full text-xs font-medium"
+                              >
+                                <User className="w-3 h-3" />
+                                {m.trim()}
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="text-xs text-slate-400">—</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-4">
+                        <StatusToggle
+                          employee={employee}
                           onToggle={toggleEmployeeStatus}
                         />
                       </td>
@@ -490,6 +509,24 @@ export default function HREmployeeList({ onOpen, loading = false, delay = 0, emp
                       </div>
                     </div>
                   </div>
+
+                  {/* Assigned Manager */}
+                  {employee.a_manager && (
+                    <div>
+                      <div className="text-xs text-slate-500 mb-1">Assigned Manager(s)</div>
+                      <div className="flex flex-wrap gap-1">
+                        {employee.a_manager.split(',').map((m, idx) => (
+                          <span
+                            key={idx}
+                            className="inline-flex items-center gap-1 px-2 py-0.5 bg-cyan-50 text-cyan-700 border border-cyan-200 rounded-full text-xs font-medium"
+                          >
+                            <User className="w-3 h-3" />
+                            {m.trim()}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
                   {/* Status and Actions */}
                   <div className="flex flex-wrap items-center justify-between gap-3">
