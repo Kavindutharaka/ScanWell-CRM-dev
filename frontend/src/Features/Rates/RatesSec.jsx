@@ -654,13 +654,18 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
       const firstRow = excelData[0];
       const commodityType = firstRow['Comodity Type'] || firstRow['Commodity Type'] || firstRow['COMMODITY TYPE'] || firstRow['commodity_type'] || firstRow['CommodityType'] || null;
 
+      // Fill-down: carry forward the last non-empty city/country value
+      let lastCountry = null;
       const transformedData = excelData.map(row => {
         const airline = row.AIRLINE || row.Airline || row.airline || null;
         // Skip rows with no airline - they're likely sub-headers or empty
         if (!airline) return null;
 
+        const rowCountry = row.COUNTRY || row.Country || row.country || null;
+        if (rowCountry) lastCountry = rowCountry;
+
         return {
-          Country: row.COUNTRY || row.Country || row.country || null,
+          Country: rowCountry || lastCountry,
           CommodityType: row['Comodity Type'] || row['Commodity Type'] || row['COMMODITY TYPE'] || row['commodity_type'] || commodityType,
           Airline: airline,
           RateM: parseNum(row.M || row.m || row['MIN'] || row['Min']),
@@ -2467,7 +2472,17 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
                       <div key={rate.id} className="p-4 hover:bg-slate-50 transition-colors">
                         {/* Desktop Grid View */}
                         <div className="hidden md:grid grid-cols-12 gap-4 items-center">
-                          {/* Airline Badge - Left */}
+                          {/* City - First Column */}
+                          <div className="col-span-2 flex items-center">
+                            {rate.country && (
+                              <div className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-slate-700 border border-slate-300 bg-white">
+                                <MapPin className="w-3 h-3 text-slate-400 flex-shrink-0" />
+                                <span className="truncate max-w-[100px]">{rate.country}</span>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Airline Badge */}
                           <div className="col-span-1 text-left">
                             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium text-white bg-sky-600">
                               <Plane className="w-4 h-4" />
@@ -2475,16 +2490,6 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
                             </div>
                             {rate.commodityType && (
                               <div className="text-[10px] text-slate-400 mt-1 truncate max-w-[100px]">{rate.commodityType}</div>
-                            )}
-                          </div>
-
-                          {/* Country Badge - Between airline and rates */}
-                          <div className="col-span-2 flex items-center justify-center">
-                            {rate.country && (
-                              <div className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-slate-700 border border-slate-300 bg-white">
-                                <MapPin className="w-3 h-3 text-slate-400 flex-shrink-0" />
-                                <span className="truncate max-w-[100px]">{rate.country}</span>
-                              </div>
                             )}
                           </div>
 
