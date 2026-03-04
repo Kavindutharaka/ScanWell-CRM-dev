@@ -289,7 +289,7 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
       const data = await seaSpotExcelFile.arrayBuffer();
       const workbook = XLSX.read(data, { type: "array" });
       const sheet = workbook.Sheets[workbook.SheetNames[0]];
-      const excelData = XLSX.utils.sheet_to_json(sheet);
+      const excelData = XLSX.utils.sheet_to_json(sheet, { raw: false });
 
       if (!excelData || excelData.length === 0) {
         window.alert('Excel file is empty.');
@@ -441,7 +441,7 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
       const data = await seaBondExcelFile.arrayBuffer();
       const workbook = XLSX.read(data, { type: "array" });
       const sheet = workbook.Sheets[workbook.SheetNames[0]];
-      const excelData = XLSX.utils.sheet_to_json(sheet);
+      const excelData = XLSX.utils.sheet_to_json(sheet, { raw: false });
 
       if (!excelData || excelData.length === 0) {
         window.alert('Excel file is empty.');
@@ -614,7 +614,7 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
       const data = await airExportExcelFile.arrayBuffer();
       const workbook = XLSX.read(data, { type: 'array' });
       const sheet = workbook.Sheets[workbook.SheetNames[0]];
-      const excelData = XLSX.utils.sheet_to_json(sheet);
+      const excelData = XLSX.utils.sheet_to_json(sheet, { raw: false });
 
       if (!excelData || excelData.length === 0) {
         window.alert('Excel file is empty.');
@@ -1315,7 +1315,7 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
           throw new Error('Cannot read Excel sheet');
         }
         
-        const rawData = XLSX.utils.sheet_to_json(sheet);
+        const rawData = XLSX.utils.sheet_to_json(sheet, { raw: false });
         // Trim whitespace from column header keys (Excel often has trailing spaces)
         excelData = rawData.map(row => {
           const cleaned = {};
