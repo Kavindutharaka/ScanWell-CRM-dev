@@ -30,7 +30,21 @@
       "Bash(xargs grep -l \"salesplan\\\\|sales.plan\\\\|sales plan\" -i)",
       "Bash(xargs grep -l \"invoice\" -i)",
       "Bash(xargs grep -l \"invoice\")",
-      "Bash(npx --no vite build)"
+      "Bash(npx --no vite build)",
+      "Bash(python -c \":*)",
+      "Bash(where python3:*)",
+      "Bash(where py:*)",
+      "Bash(ls /c/Python*/python.exe)",
+      "Read(//c/Users/Admin/AppData/Local/Programs/**)",
+      "Bash(npm install:*)",
+      "Bash(mkdir -p /tmp/pdf_images)",
+      "Bash(npm list:*)",
+      "Bash(where qpdf:*)",
+      "Bash(where pdfimages:*)",
+      "Bash(where pdftoppm:*)",
+      "Bash(where magick:*)",
+      "Bash(rm -f /tmp/pdf_img_*.jpg)",
+      "Bash(npm uninstall:*)"
     ]
   }
 }
