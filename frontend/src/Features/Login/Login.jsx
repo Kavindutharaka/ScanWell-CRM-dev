@@ -77,12 +77,28 @@ export default function Login() {
 
       let errorMessage = "Invalid username or password. Please try again.";
 
-      if (error.response) {
-        errorMessage =
-          error.response.data?.message ||
-          error.response.data?.title ||
-          error.response.data ||
-          errorMessage;
+      if (error.code === 'ERR_NETWORK' || !error.response) {
+        errorMessage = "Unable to connect to server. Please check if the server is running and try again.";
+      } else if (error.response) {
+        const status = error.response.status;
+        const data = error.response.data;
+
+        // Check if response is HTML (server error page) - not user friendly
+        const isHtml = typeof data === 'string' && (data.trim().startsWith('<!') || data.trim().startsWith('<html') || data.includes('<script'));
+
+        if (isHtml) {
+          // Server returned an HTML error page - show friendly message based on status
+          if (status === 500) errorMessage = "Server error occurred. Please try again later or contact support.";
+          else if (status === 502 || status === 503) errorMessage = "Server is temporarily unavailable. Please try again in a few moments.";
+          else if (status === 404) errorMessage = "Login service not found. Please contact support.";
+          else errorMessage = "Something went wrong on the server. Please try again later.";
+        } else if (status === 401 || status === 403) {
+          errorMessage = data?.message || "Invalid username or password. Please try again.";
+        } else if (status >= 500) {
+          errorMessage = "Server error occurred. Please try again later.";
+        } else {
+          errorMessage = data?.message || data?.title || errorMessage;
+        }
       } else if (error.request) {
         errorMessage = "No response from server. Please check your connection.";
       } else {
