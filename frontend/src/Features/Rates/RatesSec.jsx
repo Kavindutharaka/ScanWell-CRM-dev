@@ -661,7 +661,7 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
         // Skip rows with no airline - they're likely sub-headers or empty
         if (!airline) return null;
 
-        const rowCountry = row.COUNTRY || row.Country || row.country || null;
+        const rowCountry = row.COUNTRY || row.Country || row.country || row.CITY || row.City || row.city || null;
         if (rowCountry) lastCountry = rowCountry;
 
         return {

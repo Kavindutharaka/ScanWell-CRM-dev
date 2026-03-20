@@ -44,7 +44,13 @@
       "Bash(where pdftoppm:*)",
       "Bash(where magick:*)",
       "Bash(rm -f /tmp/pdf_img_*.jpg)",
-      "Bash(npm uninstall:*)"
+      "Bash(npm uninstall:*)",
+      "Read(//c/Users/Admin/AppData/Roaming/Claude/local-agent-mode-sessions/skills-plugin/62ea37ec-a3fd-435c-a07c-c9320d2706cc/91541bbc-cea2-4a47-a6bb-54bb44853153/skills/xlsx/**)",
+      "Bash(where python:*)",
+      "Bash(ls \"C:/Python\"*)",
+      "Bash(ls \"C:/Users/Admin/AppData/Local/Programs/Python\"*)",
+      "Bash(pip install:*)",
+      "Bash(py -c \":*)"
     ]
   }
 }
