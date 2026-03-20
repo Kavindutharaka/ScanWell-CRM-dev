@@ -382,7 +382,6 @@ export default function ActivitiesForm({ onClose, initialActivity = null, isEdit
     { value: 'call', label: 'Phone Call', color: 'bg-blue-500' },
     { value: 'email', label: 'Email', color: 'bg-purple-500' },
     { value: 'meeting', label: 'Meeting', color: 'bg-green-500' },
-    { value: 'follow_up', label: 'Follow Up', color: 'bg-yellow-500' },
     { value: 'presentation', label: 'Presentation', color: 'bg-pink-500' },
     { value: 'site_visit', label: 'Site Visit', color: 'bg-indigo-500' },
     { value: 'other', label: 'Other', color: 'bg-gray-500' }

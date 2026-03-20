@@ -7,7 +7,7 @@ import {
 import { fetchWonQuotes, fetchInvoiceEntries, createInvoiceEntries, deleteInvoiceEntry, completeInvoice } from '../../api/InvoiceApi';
 import { AuthContext } from '../../context/AuthContext';
 
-const EMPTY_ROW = { entryDate: '', invoiceNumber: '', amount: '' };
+const EMPTY_ROW = { entryDate: '', invoiceNumber: '', amount: '', costInvoice: '' };
 
 export default function InvoicesSec() {
   const { permission } = useContext(AuthContext);
@@ -127,7 +127,8 @@ export default function InvoicesSec() {
       const entries = validRows.map(row => ({
         entryDate: row.entryDate || null,
         invoiceNumber: row.invoiceNumber || null,
-        amount: parseFloat(row.amount)
+        amount: parseFloat(row.amount),
+        costInvoice: row.costInvoice ? parseFloat(row.costInvoice) : null
       }));
 
       await createInvoiceEntries(quoteId, entries);
@@ -383,7 +384,9 @@ export default function InvoicesSec() {
                               <tr>
                                 <th className="px-3 py-2 text-left text-xs font-semibold text-slate-600 uppercase">Date</th>
                                 <th className="px-3 py-2 text-left text-xs font-semibold text-slate-600 uppercase">Invoice Number</th>
-                                <th className="px-3 py-2 text-right text-xs font-semibold text-slate-600 uppercase">Amount (LKR)</th>
+                                <th className="px-3 py-2 text-right text-xs font-semibold text-slate-600 uppercase">Invoice Amount (LKR)</th>
+                                <th className="px-3 py-2 text-right text-xs font-semibold text-slate-600 uppercase">Cost Invoice (LKR)</th>
+                                <th className="px-3 py-2 text-right text-xs font-semibold text-slate-600 uppercase">Margin (LKR)</th>
                                 {!isCompleted && (
                                   <th className="px-3 py-2 text-center text-xs font-semibold text-slate-600 uppercase w-12"></th>
                                 )}
@@ -399,6 +402,10 @@ export default function InvoicesSec() {
                                   </td>
                                   <td className="px-3 py-2 text-slate-700 font-medium">{entry.invoiceNumber || '—'}</td>
                                   <td className="px-3 py-2 text-right font-medium text-slate-900">{formatCurrency(entry.amount)}</td>
+                                  <td className="px-3 py-2 text-right font-medium text-slate-700">{entry.costInvoice != null ? formatCurrency(entry.costInvoice) : '—'}</td>
+                                  <td className={`px-3 py-2 text-right font-medium ${entry.invoiceMargin != null ? (entry.invoiceMargin >= 0 ? 'text-emerald-700' : 'text-red-600') : 'text-slate-400'}`}>
+                                    {entry.invoiceMargin != null ? formatCurrency(entry.invoiceMargin) : '—'}
+                                  </td>
                                   {!isCompleted && (
                                     <td className="px-3 py-2 text-center">
                                       <button
@@ -416,6 +423,12 @@ export default function InvoicesSec() {
                               <tr>
                                 <td colSpan="2" className="px-3 py-2 text-right text-xs font-semibold text-slate-600 uppercase">Total</td>
                                 <td className="px-3 py-2 text-right font-bold text-emerald-700 text-base">{formatCurrency(total)}</td>
+                                <td className="px-3 py-2 text-right font-bold text-slate-700 text-base">
+                                  {entries.some(e => e.costInvoice != null) ? formatCurrency(entries.reduce((sum, e) => sum + (e.costInvoice || 0), 0)) : '—'}
+                                </td>
+                                <td className="px-3 py-2 text-right font-bold text-emerald-700 text-base">
+                                  {entries.some(e => e.invoiceMargin != null) ? formatCurrency(entries.reduce((sum, e) => sum + (e.invoiceMargin || 0), 0)) : '—'}
+                                </td>
                                 {!isCompleted && <td></td>}
                               </tr>
                             </tfoot>
@@ -449,7 +462,7 @@ export default function InvoicesSec() {
                               className="grid grid-cols-12 gap-2 items-end p-3 bg-white rounded-lg border border-slate-200"
                             >
                               {/* Date */}
-                              <div className="col-span-4 sm:col-span-3">
+                              <div className="col-span-6 sm:col-span-2">
                                 {index === 0 && (
                                   <label className="block text-xs font-medium text-slate-500 mb-1">Date</label>
                                 )}
@@ -462,7 +475,7 @@ export default function InvoicesSec() {
                               </div>
 
                               {/* Invoice Number */}
-                              <div className="col-span-4 sm:col-span-5">
+                              <div className="col-span-6 sm:col-span-4">
                                 {index === 0 && (
                                   <label className="block text-xs font-medium text-slate-500 mb-1">Invoice Number</label>
                                 )}
@@ -475,10 +488,10 @@ export default function InvoicesSec() {
                                 />
                               </div>
 
-                              {/* Amount */}
-                              <div className="col-span-3 sm:col-span-3">
+                              {/* Invoice Amount */}
+                              <div className="col-span-5 sm:col-span-3">
                                 {index === 0 && (
-                                  <label className="block text-xs font-medium text-slate-500 mb-1">Amount</label>
+                                  <label className="block text-xs font-medium text-slate-500 mb-1">Invoice Amount</label>
                                 )}
                                 <input
                                   type="number"
@@ -490,8 +503,23 @@ export default function InvoicesSec() {
                                 />
                               </div>
 
+                              {/* Cost Invoice */}
+                              <div className="col-span-5 sm:col-span-2">
+                                {index === 0 && (
+                                  <label className="block text-xs font-medium text-slate-500 mb-1">Cost Invoice</label>
+                                )}
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  value={row.costInvoice}
+                                  onChange={(e) => updateNewRow(quote.quoteId, index, 'costInvoice', e.target.value)}
+                                  placeholder="0.00"
+                                  className="w-full px-2 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                                />
+                              </div>
+
                               {/* Remove */}
-                              <div className="col-span-1 flex justify-center">
+                              <div className="col-span-2 sm:col-span-1 flex justify-center">
                                 {(newRows[quote.quoteId] || []).length > 1 && (
                                   <button
                                     onClick={() => removeNewRow(quote.quoteId, index)}

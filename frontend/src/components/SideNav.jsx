@@ -22,7 +22,8 @@ import {
   ChartLine,
   Shield,
   Globe,
-  ClipboardCheck
+  ClipboardCheck,
+  Target
 } from "lucide-react";
 import { AuthContext } from "../context/AuthContext";
 
@@ -136,6 +137,12 @@ export default function SideNav({ isOpen, onClose, scrollBottom = false }) {
       path: "/rolebase",
       icon: Shield,
       label: "Role Manage",
+      permissionKey: "SystemManagementView"
+    },
+    {
+      path: "/hr/sales-target",
+      icon: Target,
+      label: "Sales Target",
       permissionKey: "SystemManagementView"
     }
   ];

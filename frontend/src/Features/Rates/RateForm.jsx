@@ -43,7 +43,8 @@ export default function RateForm({ onClose, editRate, onSuccess }) {
       validateDate: '',
       note: '', // Note field for all categories
       remark: '', // New for Air Freight
-      // Air Freight rates
+      airRateType: 'kg', // 'kg' or 'ratio' - Air Freight rate type selection
+      // Air Freight rates (kg-based)
       rate45Minus: '',
       rate45MinusM: '', // New -45Kg(M)
       rate45Plus: '',
@@ -51,6 +52,12 @@ export default function RateForm({ onClose, editRate, onSuccess }) {
       rate300: '',
       rate500: '',
       rate1000: '',
+      // Air Freight rates (ratio-based)
+      rate1_167: '',
+      rate1_200: '',
+      rate1_300: '',
+      rate1_400: '',
+      rate1_500: '',
       // Sea FCL rates
       rate20GP: '',
       rate40GP: '',
@@ -71,6 +78,10 @@ export default function RateForm({ onClose, editRate, onSuccess }) {
         destination: editRate.destination || '',
       });
 
+      // Determine airRateType from existing data
+      const hasRatioData = editRate.rate1_167 || editRate.rate1_200 || editRate.rate1_300 || editRate.rate1_400 || editRate.rate1_500;
+      const detectedAirRateType = hasRatioData ? 'ratio' : 'kg';
+
       // Load the single rate into the first route
       setRoutes([{
         id: 1,
@@ -86,6 +97,7 @@ export default function RateForm({ onClose, editRate, onSuccess }) {
         validateDate: editRate.validateDate || '',
         note: editRate.note || '',
         remark: editRate.remark || '',
+        airRateType: detectedAirRateType,
         rate45Minus: editRate.rate45Minus || '',
         rate45MinusM: editRate.rate45MinusM || '',
         rate45Plus: editRate.rate45Plus || '',
@@ -93,6 +105,11 @@ export default function RateForm({ onClose, editRate, onSuccess }) {
         rate300: editRate.rate300 || '',
         rate500: editRate.rate500 || '',
         rate1000: editRate.rate1000 || '',
+        rate1_167: editRate.rate1_167 || '',
+        rate1_200: editRate.rate1_200 || '',
+        rate1_300: editRate.rate1_300 || '',
+        rate1_400: editRate.rate1_400 || '',
+        rate1_500: editRate.rate1_500 || '',
         rate20GP: editRate.rate20GP || '',
         rate40GP: editRate.rate40GP || '',
         rate40HQ: editRate.rate40HQ || '',
@@ -129,6 +146,7 @@ export default function RateForm({ onClose, editRate, onSuccess }) {
     validateDate: '',
     note: '',
     remark: '',
+    airRateType: 'kg',
     rate45Minus: '',
     rate45MinusM: '',
     rate45Plus: '',
@@ -136,6 +154,11 @@ export default function RateForm({ onClose, editRate, onSuccess }) {
     rate300: '',
     rate500: '',
     rate1000: '',
+    rate1_167: '',
+    rate1_200: '',
+    rate1_300: '',
+    rate1_400: '',
+    rate1_500: '',
     rate20GP: '',
     rate40GP: '',
     rate40HQ: '',
@@ -176,11 +199,11 @@ export default function RateForm({ onClose, editRate, onSuccess }) {
     if (!baseInfo.destination) newErrors.destination = 'Destination is required';
 
     // Validate at least one route has data
-    const hasValidRoute = routes.some(route => 
-      route.route || 
-      route.airline || 
+    const hasValidRoute = routes.some(route =>
+      route.route ||
+      route.airline ||
       route.liner ||
-      (freightType.includes('air') && (route.rate45Plus || route.rate100)) ||
+      (freightType.includes('air') && (route.rate45Plus || route.rate100 || route.rate1_167 || route.rate1_200)) ||
       (freightType.includes('fcl') && (route.rate20GP || route.rate40GP)) ||
       (freightType.includes('lcl') && route.lclRate)
     );
@@ -192,7 +215,7 @@ export default function RateForm({ onClose, editRate, onSuccess }) {
     // Validate Note and Remark for each route with data
     routes.forEach((route, index) => {
       const hasRouteData = route.route || route.airline || route.liner ||
-        (freightType.includes('air') && (route.rate45Plus || route.rate100)) ||
+        (freightType.includes('air') && (route.rate45Plus || route.rate100 || route.rate1_167 || route.rate1_200)) ||
         (freightType.includes('fcl') && (route.rate20GP || route.rate40GP)) ||
         (freightType.includes('lcl') && route.lclRate);
 
@@ -244,13 +267,18 @@ export default function RateForm({ onClose, editRate, onSuccess }) {
           note: routeData.note || null,
           remark: routeData.remark || null,
           rateDataJson: JSON.stringify({
-            rate45Minus: routeData.rate45Minus || null,
-            rate45MinusM: routeData.rate45MinusM || null,
-            rate45Plus: routeData.rate45Plus || null,
-            rate100: routeData.rate100 || null,
-            rate300: routeData.rate300 || null,
-            rate500: routeData.rate500 || null,
-            rate1000: routeData.rate1000 || null,
+            rate45Minus: routeData.airRateType === 'kg' ? (routeData.rate45Minus || null) : null,
+            rate45MinusM: routeData.airRateType === 'kg' ? (routeData.rate45MinusM || null) : null,
+            rate45Plus: routeData.airRateType === 'kg' ? (routeData.rate45Plus || null) : null,
+            rate100: routeData.airRateType === 'kg' ? (routeData.rate100 || null) : null,
+            rate300: routeData.airRateType === 'kg' ? (routeData.rate300 || null) : null,
+            rate500: routeData.airRateType === 'kg' ? (routeData.rate500 || null) : null,
+            rate1000: routeData.airRateType === 'kg' ? (routeData.rate1000 || null) : null,
+            rate1_167: routeData.airRateType === 'ratio' ? (routeData.rate1_167 || null) : null,
+            rate1_200: routeData.airRateType === 'ratio' ? (routeData.rate1_200 || null) : null,
+            rate1_300: routeData.airRateType === 'ratio' ? (routeData.rate1_300 || null) : null,
+            rate1_400: routeData.airRateType === 'ratio' ? (routeData.rate1_400 || null) : null,
+            rate1_500: routeData.airRateType === 'ratio' ? (routeData.rate1_500 || null) : null,
             rate20GP: routeData.rate20GP || null,
             rate40GP: routeData.rate40GP || null,
             rate40HQ: routeData.rate40HQ || null,
@@ -262,12 +290,12 @@ export default function RateForm({ onClose, editRate, onSuccess }) {
       } else {
         // Save each route individually
         const savePromises = routes
-          .filter(route => 
+          .filter(route =>
             // Only save routes that have meaningful data
-            route.route || 
-            route.airline || 
+            route.route ||
+            route.airline ||
             route.liner ||
-            (freightType.includes('air') && (route.rate45Plus || route.rate100)) ||
+            (freightType.includes('air') && (route.rate45Plus || route.rate100 || route.rate1_167 || route.rate1_200)) ||
             (freightType.includes('fcl') && (route.rate20GP || route.rate40GP)) ||
             (freightType.includes('lcl') && route.lclRate)
           )
@@ -289,13 +317,18 @@ export default function RateForm({ onClose, editRate, onSuccess }) {
               note: route.note || null,
               remark: route.remark || null,
               rateDataJson: JSON.stringify({
-                rate45Minus: route.rate45Minus || null,
-                rate45MinusM: route.rate45MinusM || null,
-                rate45Plus: route.rate45Plus || null,
-                rate100: route.rate100 || null,
-                rate300: route.rate300 || null,
-                rate500: route.rate500 || null,
-                rate1000: route.rate1000 || null,
+                rate45Minus: route.airRateType === 'kg' ? (route.rate45Minus || null) : null,
+                rate45MinusM: route.airRateType === 'kg' ? (route.rate45MinusM || null) : null,
+                rate45Plus: route.airRateType === 'kg' ? (route.rate45Plus || null) : null,
+                rate100: route.airRateType === 'kg' ? (route.rate100 || null) : null,
+                rate300: route.airRateType === 'kg' ? (route.rate300 || null) : null,
+                rate500: route.airRateType === 'kg' ? (route.rate500 || null) : null,
+                rate1000: route.airRateType === 'kg' ? (route.rate1000 || null) : null,
+                rate1_167: route.airRateType === 'ratio' ? (route.rate1_167 || null) : null,
+                rate1_200: route.airRateType === 'ratio' ? (route.rate1_200 || null) : null,
+                rate1_300: route.airRateType === 'ratio' ? (route.rate1_300 || null) : null,
+                rate1_400: route.airRateType === 'ratio' ? (route.rate1_400 || null) : null,
+                rate1_500: route.airRateType === 'ratio' ? (route.rate1_500 || null) : null,
                 rate20GP: route.rate20GP || null,
                 rate40GP: route.rate40GP || null,
                 rate40HQ: route.rate40HQ || null,
@@ -586,86 +619,178 @@ export default function RateForm({ onClose, editRate, onSuccess }) {
           {/* Air Freight Rates */}
           {isAirFreight && (
             <div className="space-y-4">
-              <h5 className="font-medium text-slate-700 text-sm uppercase tracking-wide">Air Freight Rates (USD/KG)</h5>
-              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
-                <div>
-                  <label className="block text-xs font-medium text-slate-600 mb-2">-45 KG</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={route.rate45Minus}
-                    onChange={(e) => handleRouteChange(route.id, 'rate45Minus', e.target.value)}
-                    placeholder="0.00"
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-slate-600 mb-2">-45 KG (M)</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={route.rate45MinusM}
-                    onChange={(e) => handleRouteChange(route.id, 'rate45MinusM', e.target.value)}
-                    placeholder="0.00"
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-slate-600 mb-2">+45 KG</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={route.rate45Plus}
-                    onChange={(e) => handleRouteChange(route.id, 'rate45Plus', e.target.value)}
-                    placeholder="0.00"
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-slate-600 mb-2">+100 KG</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={route.rate100}
-                    onChange={(e) => handleRouteChange(route.id, 'rate100', e.target.value)}
-                    placeholder="0.00"
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-slate-600 mb-2">+300 KG</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={route.rate300}
-                    onChange={(e) => handleRouteChange(route.id, 'rate300', e.target.value)}
-                    placeholder="0.00"
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-slate-600 mb-2">+500 KG</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={route.rate500}
-                    onChange={(e) => handleRouteChange(route.id, 'rate500', e.target.value)}
-                    placeholder="0.00"
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-slate-600 mb-2">+1000 KG</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={route.rate1000}
-                    onChange={(e) => handleRouteChange(route.id, 'rate1000', e.target.value)}
-                    placeholder="0.00"
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
-                  />
+              <div className="flex items-center justify-between">
+                <h5 className="font-medium text-slate-700 text-sm uppercase tracking-wide">Air Freight Rates</h5>
+                {/* Rate Type Toggle */}
+                <div className="flex items-center bg-slate-100 rounded-lg p-1">
+                  <button
+                    type="button"
+                    onClick={() => handleRouteChange(route.id, 'airRateType', 'kg')}
+                    className={`px-4 py-1.5 text-xs font-semibold rounded-md transition-all ${
+                      route.airRateType === 'kg'
+                        ? 'bg-indigo-600 text-white shadow-sm'
+                        : 'text-slate-600 hover:text-slate-800'
+                    }`}
+                  >
+                    KG Based
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleRouteChange(route.id, 'airRateType', 'ratio')}
+                    className={`px-4 py-1.5 text-xs font-semibold rounded-md transition-all ${
+                      route.airRateType === 'ratio'
+                        ? 'bg-indigo-600 text-white shadow-sm'
+                        : 'text-slate-600 hover:text-slate-800'
+                    }`}
+                  >
+                    Ratio Based
+                  </button>
                 </div>
               </div>
+
+              {/* KG-Based Rate Fields */}
+              {route.airRateType === 'kg' && (
+                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 mb-2">-45 KG</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={route.rate45Minus}
+                      onChange={(e) => handleRouteChange(route.id, 'rate45Minus', e.target.value)}
+                      placeholder="0.00"
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 mb-2">-45 KG (M)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={route.rate45MinusM}
+                      onChange={(e) => handleRouteChange(route.id, 'rate45MinusM', e.target.value)}
+                      placeholder="0.00"
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 mb-2">+45 KG</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={route.rate45Plus}
+                      onChange={(e) => handleRouteChange(route.id, 'rate45Plus', e.target.value)}
+                      placeholder="0.00"
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 mb-2">+100 KG</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={route.rate100}
+                      onChange={(e) => handleRouteChange(route.id, 'rate100', e.target.value)}
+                      placeholder="0.00"
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 mb-2">+300 KG</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={route.rate300}
+                      onChange={(e) => handleRouteChange(route.id, 'rate300', e.target.value)}
+                      placeholder="0.00"
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 mb-2">+500 KG</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={route.rate500}
+                      onChange={(e) => handleRouteChange(route.id, 'rate500', e.target.value)}
+                      placeholder="0.00"
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 mb-2">+1000 KG</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={route.rate1000}
+                      onChange={(e) => handleRouteChange(route.id, 'rate1000', e.target.value)}
+                      placeholder="0.00"
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Ratio-Based Rate Fields */}
+              {route.airRateType === 'ratio' && (
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 mb-2">1:167</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={route.rate1_167}
+                      onChange={(e) => handleRouteChange(route.id, 'rate1_167', e.target.value)}
+                      placeholder="0.00"
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 mb-2">1:200</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={route.rate1_200}
+                      onChange={(e) => handleRouteChange(route.id, 'rate1_200', e.target.value)}
+                      placeholder="0.00"
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 mb-2">1:300</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={route.rate1_300}
+                      onChange={(e) => handleRouteChange(route.id, 'rate1_300', e.target.value)}
+                      placeholder="0.00"
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 mb-2">1:400</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={route.rate1_400}
+                      onChange={(e) => handleRouteChange(route.id, 'rate1_400', e.target.value)}
+                      placeholder="0.00"
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 mb-2">1:500</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={route.rate1_500}
+                      onChange={(e) => handleRouteChange(route.id, 'rate1_500', e.target.value)}
+                      placeholder="0.00"
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
+                    />
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

@@ -41,7 +41,7 @@ export default function Activities() {
     activity_id: 0
   });
   const [userDetails, setUserDetails] = useState(null);
-  const [typeCounts, setTypeCounts] = useState({ total: 0, siteVisit: 0, call: 0, meeting: 0, email: 0, followUp: 0, presentation: 0, other: 0 });
+  const [typeCounts, setTypeCounts] = useState({ total: 0, siteVisit: 0, call: 0, meeting: 0, email: 0, presentation: 0, other: 0 });
 
   // Filters
   const { filters, setFilter, clearAllFilters, getApiParams } = useFilters(['activityType', 'status']);
@@ -51,7 +51,6 @@ export default function Activities() {
       { value: 'call', label: 'Phone Call' },
       { value: 'email', label: 'Email' },
       { value: 'meeting', label: 'Meeting' },
-      { value: 'follow-up', label: 'Follow-up' },
       { value: 'presentation', label: 'Presentation' },
       { value: 'site-visit', label: 'Site Visit' },
       { value: 'other', label: 'Other' }
@@ -203,7 +202,6 @@ export default function Activities() {
       'email': 'Email',
       'meeting': 'Meeting',
       'demo': 'Demo',
-      'follow-up': 'Follow-up',
       'presentation': 'Presentation',
       'proposal': 'Proposal',
       'negotiation': 'Negotiation',
@@ -224,7 +222,6 @@ export default function Activities() {
       'email': 'bg-purple-500',
       'meeting': 'bg-indigo-500',
       'demo': 'bg-green-500',
-      'follow-up': 'bg-amber-500',
       'presentation': 'bg-pink-500',
       'proposal': 'bg-cyan-500',
       'negotiation': 'bg-red-500',
@@ -245,7 +242,6 @@ export default function Activities() {
       'email': Mail,
       'meeting': Users,
       'demo': Calendar,
-      'follow-up': Mail,
       'presentation': Users,
       'proposal': Calendar,
       'negotiation': Users,

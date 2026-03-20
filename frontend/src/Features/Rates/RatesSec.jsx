@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from "react";
+import React, { useState, useEffect, useContext, useRef, useCallback } from "react";
 import { BASE_URL } from '../../config/apiConfig';
 import {
   Search,
@@ -14,6 +14,8 @@ import {
   AlertCircle,
   ChevronDown,
   ChevronUp,
+  ChevronLeft,
+  ChevronRight,
   Clock,
   ArrowRight,
   Package,
@@ -32,12 +34,23 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
   const { permission } = useContext(AuthContext);
   const isAdmin = permission?.IsAdmin;
   const canManageRates = isAdmin || permission?.RateManageView;
-  const [activeTab, setActiveTab] = useState('all');
+  const [activeTab, setActiveTab] = useState('air');
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [rates, setRates] = useState([]);
   const [error, setError] = useState(null);
   const [expandedRows, setExpandedRows] = useState(new Set());
+
+  // Sub-filter for Air Freight / Sea Freight (Import/Export)
+  const [airSubFilter, setAirSubFilter] = useState('all'); // 'all' | 'import' | 'export'
+  const [seaSubFilter, setSeaSubFilter] = useState('all'); // 'all' | 'import' | 'export'
+
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 20;
+
+  // Button scroll ref
+  const tabScrollRef = useRef(null);
 
   // Shipping Line States
   const [activeLiner, setActiveLiner] = useState(null);
@@ -54,6 +67,14 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
   const [seaSpotExcelFile, setSeaSpotExcelFile] = useState(null);
   const [seaSpotUploadProgress, setSeaSpotUploadProgress] = useState(false);
 
+  // Sea Bond Rates state
+  const [seaBondRates, setSeaBondRates] = useState([]);
+  const [seaBondLoading, setSeaBondLoading] = useState(false);
+  const [showSeaBondRates, setShowSeaBondRates] = useState(false);
+  const [showSeaBondUploadModal, setShowSeaBondUploadModal] = useState(false);
+  const [seaBondExcelFile, setSeaBondExcelFile] = useState(null);
+  const [seaBondUploadProgress, setSeaBondUploadProgress] = useState(false);
+
   // Air Export Rates state
   const [showAirExport, setShowAirExport] = useState(false);
   const [airExportRates, setAirExportRates] = useState([]);
@@ -64,24 +85,101 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
   const [editingAirExportRate, setEditingAirExportRate] = useState(null);
   const [showAirExportEditModal, setShowAirExportEditModal] = useState(false);
 
-  // Shipping lines configuration - Linear Header's
-  const linearHeaderLines = [
-    { code: 'EMC', name: 'EMC', color: 'bg-green-600' },
-    { code: 'WAN HAI', name: 'WAN HAI', color: 'bg-sky-600' },
-    { code: 'HMM', name: 'HMM', color: 'bg-rose-600' },
-    { code: 'COSCO', name: 'COSCO', color: 'bg-blue-700' },
-    { code: 'ZIM', name: 'ZIM', color: 'bg-yellow-600' },
-    { code: 'SML', name: 'SML', color: 'bg-violet-600' },
-    { code: 'AIYER LANKA', name: 'AIYER LANKA', color: 'bg-lime-600' },
-  ];
+  // Dynamic sub-categories from DB (replaces hardcoded arrays)
+  const [linearHeaderLines, setLinearHeaderLines] = useState([]);
+  const [destinationHeaderLines, setDestinationHeaderLines] = useState([]);
+  const [subCategoriesLoading, setSubCategoriesLoading] = useState(false);
+  // Add sub-category modal state
+  const [showAddSubCategoryModal, setShowAddSubCategoryModal] = useState(false);
+  const [addSubCategoryType, setAddSubCategoryType] = useState(null); // 'linear' or 'destination'
+  const [newSubCategoryName, setNewSubCategoryName] = useState('');
+  const [addingSubCategory, setAddingSubCategory] = useState(false);
+  // Scroll refs for horizontal scroll
+  const linearScrollRef = useRef(null);
+  const destinationScrollRef = useRef(null);
 
-  // Destination Header's configuration
-  const destinationHeaderLines = [
-    { code: 'USEC/USWC HEADERS', name: 'USEC/USWC HEADERS', color: 'bg-red-700' },
-    { code: 'CANADA HEADERS', name: 'CANADA HEADERS', color: 'bg-red-600' },
-    { code: 'JEBAL ALI HEADERS', name: 'JEBAL ALI HEADERS', color: 'bg-amber-700' },
-    { code: 'EU/UK HEADERS', name: 'EU/UK HEADERS', color: 'bg-blue-800' },
-  ];
+  // Default color palettes for auto-assigning
+  const linearColors = ['bg-green-600', 'bg-sky-600', 'bg-rose-600', 'bg-blue-700', 'bg-yellow-600', 'bg-violet-600', 'bg-lime-600', 'bg-teal-600', 'bg-orange-600', 'bg-pink-600', 'bg-cyan-600', 'bg-emerald-600'];
+  const destinationColors = ['bg-red-700', 'bg-red-600', 'bg-amber-700', 'bg-blue-800', 'bg-rose-700', 'bg-orange-700', 'bg-purple-700', 'bg-indigo-700', 'bg-slate-700', 'bg-teal-700'];
+
+  // Load sub-categories from DB
+  const loadSubCategories = useCallback(async () => {
+    setSubCategoriesLoading(true);
+    try {
+      const [linearData, destData] = await Promise.all([
+        RateAPI.fetchSubCategories('linear'),
+        RateAPI.fetchSubCategories('destination')
+      ]);
+      const mapCats = (data, colorPalette) =>
+        (Array.isArray(data) ? data : []).map((cat, idx) => ({
+          id: cat.id,
+          code: cat.code || cat.name?.toUpperCase(),
+          name: cat.name,
+          color: cat.color || colorPalette[idx % colorPalette.length],
+        }));
+      setLinearHeaderLines(mapCats(linearData, linearColors));
+      setDestinationHeaderLines(mapCats(destData, destinationColors));
+    } catch (err) {
+      console.error('Error loading sub-categories:', err);
+    } finally {
+      setSubCategoriesLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadSubCategories();
+  }, [loadSubCategories]);
+
+  // Add new sub-category
+  const handleAddSubCategory = async () => {
+    if (!newSubCategoryName.trim()) return;
+    setAddingSubCategory(true);
+    try {
+      const palette = addSubCategoryType === 'linear' ? linearColors : destinationColors;
+      const existingCount = addSubCategoryType === 'linear' ? linearHeaderLines.length : destinationHeaderLines.length;
+      const color = palette[existingCount % palette.length];
+
+      await RateAPI.createSubCategory({
+        name: newSubCategoryName.trim(),
+        type: addSubCategoryType,
+        color: color
+      });
+      setShowAddSubCategoryModal(false);
+      setNewSubCategoryName('');
+      setAddSubCategoryType(null);
+      await loadSubCategories();
+    } catch (err) {
+      console.error('Error creating sub-category:', err);
+      alert('Failed to create sub-category. ' + err.message);
+    } finally {
+      setAddingSubCategory(false);
+    }
+  };
+
+  // Delete sub-category
+  const handleDeleteSubCategory = async (id, name, type) => {
+    if (!window.confirm(`Are you sure you want to delete "${name}"? This will NOT delete the rates data associated with it.`)) return;
+    try {
+      await RateAPI.deleteSubCategory(id);
+      // If the deleted category was active, reset
+      if (activeLiner === name.toUpperCase() || activeLiner === name) {
+        setActiveLiner(null);
+        setActiveLinerCategory(null);
+      }
+      await loadSubCategories();
+    } catch (err) {
+      console.error('Error deleting sub-category:', err);
+      alert('Failed to delete sub-category.');
+    }
+  };
+
+  // Horizontal scroll handler
+  const scrollContainer = (ref, direction) => {
+    if (ref.current) {
+      const scrollAmount = 200;
+      ref.current.scrollBy({ left: direction === 'left' ? -scrollAmount : scrollAmount, behavior: 'smooth' });
+    }
+  };
 
   const loadRates = async () => {
     setLoading(true);
@@ -191,7 +289,7 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
       const data = await seaSpotExcelFile.arrayBuffer();
       const workbook = XLSX.read(data, { type: "array" });
       const sheet = workbook.Sheets[workbook.SheetNames[0]];
-      const excelData = XLSX.utils.sheet_to_json(sheet);
+      const excelData = XLSX.utils.sheet_to_json(sheet, { raw: false });
 
       if (!excelData || excelData.length === 0) {
         window.alert('Excel file is empty.');
@@ -307,6 +405,152 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
     }
   };
 
+  // ====== SEA BOND RATES FUNCTIONS ======
+
+  const loadSeaBondRates = async () => {
+    setSeaBondLoading(true);
+    try {
+      const data = await RateAPI.fetchSeaBondRates();
+      const transformed = data.map(rate => ({
+        id: rate.Id || rate.id,
+        origin: rate.Origin || rate.origin,
+        rate: rate.Rate || rate.rate,
+        vessel: rate.Vessel || rate.vessel,
+        etd: rate.Etd || rate.etd,
+        cutoff: rate.Cutoff || rate.cutoff,
+        transit: rate.Transit || rate.transit,
+        validity: rate.Validity || rate.validity,
+      }));
+      setSeaBondRates(transformed);
+    } catch (err) {
+      console.error('Error fetching sea bond rates:', err);
+      setSeaBondRates([]);
+    } finally {
+      setSeaBondLoading(false);
+    }
+  };
+
+  const handleSeaBondExcelUpload = async () => {
+    if (!seaBondExcelFile) {
+      window.alert('Please select an Excel file.');
+      return;
+    }
+
+    setSeaBondUploadProgress(true);
+    try {
+      const data = await seaBondExcelFile.arrayBuffer();
+      const workbook = XLSX.read(data, { type: "array" });
+      const sheet = workbook.Sheets[workbook.SheetNames[0]];
+      const excelData = XLSX.utils.sheet_to_json(sheet, { raw: false });
+
+      if (!excelData || excelData.length === 0) {
+        window.alert('Excel file is empty.');
+        setSeaBondUploadProgress(false);
+        return;
+      }
+
+      const columnHeaders = Object.keys(excelData[0] || {});
+      const hasOrigin = columnHeaders.some(c => c.toUpperCase() === 'ORIGIN');
+      const hasRate = columnHeaders.some(c => c.toUpperCase() === 'RATE');
+
+      if (!hasOrigin || !hasRate) {
+        let msg = '❌ Excel format error!\n\nMissing required columns:\n';
+        if (!hasOrigin) msg += '• ORIGIN\n';
+        if (!hasRate) msg += '• RATE\n';
+        msg += '\n✅ Required: ORIGIN | RATE | VESSEL | ETD | CUTOFF | TRANSIT | VALIDITY';
+        window.alert(msg);
+        setSeaBondUploadProgress(false);
+        return;
+      }
+
+      const transformedData = excelData.map(row => {
+        const origin = row.ORIGIN || row.Origin || row.origin || null;
+        const rate = row.RATE || row.Rate || row.rate || null;
+        const vessel = row.VESSEL || row.Vessel || row.vessel || null;
+        const etd = row.ETD || row.Etd || row.etd || null;
+        const cutoff = row.CUTOFF || row.Cutoff || row.cutoff || row['CUT OFF'] || row['Cut Off'] || null;
+        const transit = row.TRANSIT || row.Transit || row.transit || null;
+        const validity = row.VALIDITY || row.Validity || row.validity || null;
+
+        return {
+          Origin: origin ? String(origin) : null,
+          Rate: rate ? String(rate) : null,
+          Vessel: vessel ? String(vessel) : null,
+          Etd: etd ? String(etd) : null,
+          Cutoff: cutoff ? String(cutoff) : null,
+          Transit: transit ? String(transit) : null,
+          Validity: validity ? String(validity) : null,
+        };
+      });
+
+      const validRows = transformedData.filter(r => r.Origin && r.Rate);
+
+      if (validRows.length === 0) {
+        window.alert('❌ No valid rows found. Each row needs at least ORIGIN and RATE.');
+        setSeaBondUploadProgress(false);
+        return;
+      }
+
+      if (validRows.length < transformedData.length) {
+        const skipped = transformedData.length - validRows.length;
+        if (!window.confirm(`⚠️ ${skipped} rows will be skipped (missing required fields).\n\nContinue uploading ${validRows.length} valid rows?`)) {
+          setSeaBondUploadProgress(false);
+          return;
+        }
+      }
+
+      const result = await RateAPI.bulkUploadSeaBondRates({ Rates: validRows });
+      window.alert(`✅ Uploaded ${result.successCount} sea bond rates successfully.`);
+      setShowSeaBondUploadModal(false);
+      setSeaBondExcelFile(null);
+      loadSeaBondRates();
+    } catch (err) {
+      console.error('Error uploading sea bond Excel:', err);
+      window.alert('❌ Failed to process Excel file. Check format and try again.');
+    } finally {
+      setSeaBondUploadProgress(false);
+    }
+  };
+
+  const handleDeleteAllSeaBondRates = async () => {
+    if (!window.confirm('⚠️ Delete ALL sea bond rates? This cannot be undone.')) return;
+    try {
+      await RateAPI.deleteAllSeaBondRates();
+      window.alert('✅ All sea bond rates deleted.');
+      loadSeaBondRates();
+    } catch (err) {
+      window.alert('❌ Failed to delete rates.');
+    }
+  };
+
+  const handleSeaBondRatesClick = () => {
+    const willShow = !showSeaBondRates;
+    setShowSeaBondRates(willShow);
+    setShowSeaSpotRates(false);
+    setShowLinearHeaders(false);
+    setShowDestinationHeaders(false);
+    setShowAirExport(false);
+    setActiveLiner(null);
+    setActiveLinerCategory(null);
+    if (willShow) {
+      setActiveTab('seabond');
+      loadSeaBondRates();
+    } else {
+      setActiveTab('all');
+    }
+  };
+
+  // Filter Sea Bond rates by search query
+  const getFilteredSeaBondRates = () => {
+    if (!searchQuery.trim()) return seaBondRates;
+    const q = searchQuery.toLowerCase();
+    return seaBondRates.filter(rate =>
+      rate.origin?.toLowerCase().includes(q) ||
+      rate.vessel?.toLowerCase().includes(q) ||
+      rate.rate?.toLowerCase().includes(q)
+    );
+  };
+
   // ====== AIR EXPORT RATES FUNCTIONS ======
 
   const loadAirExportRates = async () => {
@@ -346,6 +590,7 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
     const willShow = !showAirExport;
     setShowAirExport(willShow);
     setShowSeaSpotRates(false);
+    setShowSeaBondRates(false);
     setShowLinearHeaders(false);
     setShowDestinationHeaders(false);
     setActiveLiner(null);
@@ -369,7 +614,7 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
       const data = await airExportExcelFile.arrayBuffer();
       const workbook = XLSX.read(data, { type: 'array' });
       const sheet = workbook.Sheets[workbook.SheetNames[0]];
-      const excelData = XLSX.utils.sheet_to_json(sheet);
+      const excelData = XLSX.utils.sheet_to_json(sheet, { raw: false });
 
       if (!excelData || excelData.length === 0) {
         window.alert('Excel file is empty.');
@@ -409,13 +654,18 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
       const firstRow = excelData[0];
       const commodityType = firstRow['Comodity Type'] || firstRow['Commodity Type'] || firstRow['COMMODITY TYPE'] || firstRow['commodity_type'] || firstRow['CommodityType'] || null;
 
+      // Fill-down: carry forward the last non-empty city/country value
+      let lastCountry = null;
       const transformedData = excelData.map(row => {
         const airline = row.AIRLINE || row.Airline || row.airline || null;
         // Skip rows with no airline - they're likely sub-headers or empty
         if (!airline) return null;
 
+        const rowCountry = row.COUNTRY || row.Country || row.country || row.CITY || row.City || row.city || null;
+        if (rowCountry) lastCountry = rowCountry;
+
         return {
-          Country: row.COUNTRY || row.Country || row.country || null,
+          Country: rowCountry || lastCountry,
           CommodityType: row['Comodity Type'] || row['Commodity Type'] || row['COMMODITY TYPE'] || row['commodity_type'] || commodityType,
           Airline: airline,
           RateM: parseNum(row.M || row.m || row['MIN'] || row['Min']),
@@ -564,6 +814,11 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
         rate300: '',
         rate500: '',
         rate1000: '',
+        rate1_167: '',
+        rate1_200: '',
+        rate1_300: '',
+        rate1_400: '',
+        rate1_500: '',
         rate20GP: 850,
         rate40GP: 1200,
         rate40HQ: 1300,
@@ -583,7 +838,7 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
         routingType: 'DIRECT',
         validateDate: '2025-06-30',
         note: '',
-        remark: 'Contact sales for bulk',
+        remark: 'KG based rate sample',
         owner: 'Jane Smith',
         currency: 'USD',
         category: activeLiner || 'MSC',
@@ -594,6 +849,46 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
         rate300: 2.50,
         rate500: 2.20,
         rate1000: 2.00,
+        rate1_167: '',
+        rate1_200: '',
+        rate1_300: '',
+        rate1_400: '',
+        rate1_500: '',
+        rate20GP: '',
+        rate40GP: '',
+        rate40HQ: '',
+        lclRate: '',
+      },
+      {
+        freightType: 'AIR-EXPORT',
+        origin: 'COLOMBO',
+        destination: 'LONDON',
+        airline: 'QATAR AIRWAYS',
+        liner: '',
+        route: 'CMB-DOH-LHR',
+        surcharges: '',
+        transitTime: 2,
+        transshipmentTime: '4 hours',
+        frequency: '5x Weekly',
+        routingType: 'TRANSSHIP',
+        validateDate: '2025-09-30',
+        note: '',
+        remark: 'Ratio based rate sample',
+        owner: 'Admin',
+        currency: 'USD',
+        category: activeLiner || 'MSC',
+        rate45Minus: '',
+        rate45MinusM: '',
+        rate45Plus: '',
+        rate100: '',
+        rate300: '',
+        rate500: '',
+        rate1000: '',
+        rate1_167: 1.80,
+        rate1_200: 1.60,
+        rate1_300: 1.40,
+        rate1_400: 1.25,
+        rate1_500: 1.10,
         rate20GP: '',
         rate40GP: '',
         rate40HQ: '',
@@ -624,6 +919,11 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
         rate300: '',
         rate500: '',
         rate1000: '',
+        rate1_167: '',
+        rate1_200: '',
+        rate1_300: '',
+        rate1_400: '',
+        rate1_500: '',
         rate20GP: '',
         rate40GP: '',
         rate40HQ: '',
@@ -660,6 +960,11 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
       { wch: 10 }, // rate300
       { wch: 10 }, // rate500
       { wch: 10 }, // rate1000
+      { wch: 10 }, // rate1_167
+      { wch: 10 }, // rate1_200
+      { wch: 10 }, // rate1_300
+      { wch: 10 }, // rate1_400
+      { wch: 10 }, // rate1_500
       { wch: 10 }, // rate20GP
       { wch: 10 }, // rate40GP
       { wch: 10 }, // rate40HQ
@@ -729,6 +1034,7 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
     setActiveLinerCategory('linearheaders');
     setActiveTab('liner');
     setShowSeaSpotRates(false);
+    setShowSeaBondRates(false);
     setShowDestinationHeaders(false);
     setShowAirExport(false);
     loadLinerRates(linerCode);
@@ -740,6 +1046,7 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
     setActiveLinerCategory('destinationheaders');
     setActiveTab('liner');
     setShowSeaSpotRates(false);
+    setShowSeaBondRates(false);
     setShowLinearHeaders(false);
     setShowAirExport(false);
     loadDestinationRates(linerCode);
@@ -751,15 +1058,18 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
     setActiveLiner(null);
     setActiveLinerCategory(null);
     setShowSeaSpotRates(false);
+    setShowSeaBondRates(false);
     setShowLinearHeaders(false);
     setShowDestinationHeaders(false);
     setShowAirExport(false);
+    setCurrentPage(1);
   };
 
   // Handle Sea Spot Rates button click
   const handleSeaSpotRatesClick = () => {
     const willShow = !showSeaSpotRates;
     setShowSeaSpotRates(willShow);
+    setShowSeaBondRates(false);
     setShowLinearHeaders(false);
     setShowDestinationHeaders(false);
     setShowAirExport(false);
@@ -778,17 +1088,20 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
     const willShow = !showLinearHeaders;
     setShowLinearHeaders(willShow);
     setShowSeaSpotRates(false);
+    setShowSeaBondRates(false);
     setShowDestinationHeaders(false);
     setShowAirExport(false);
-    // Reset active liner if closing, or if switching from destination headers
     if (!willShow) {
+      // Closing liner headers
       if (activeLinerCategory === 'linearheaders') {
         setActiveLiner(null);
         setActiveLinerCategory(null);
       }
+      setActiveTab('all');
     } else {
-      // Opening liner headers - clear destination active state
-      if (activeLinerCategory === 'destinationheaders') {
+      // Opening liner headers - clear other content and wait for sub-category click
+      setActiveTab(null);
+      if (activeLinerCategory !== 'linearheaders') {
         setActiveLiner(null);
         setActiveLinerCategory(null);
       }
@@ -800,17 +1113,20 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
     const willShow = !showDestinationHeaders;
     setShowDestinationHeaders(willShow);
     setShowSeaSpotRates(false);
+    setShowSeaBondRates(false);
     setShowLinearHeaders(false);
     setShowAirExport(false);
-    // Reset active liner if closing, or if switching from liner headers
     if (!willShow) {
+      // Closing destination headers
       if (activeLinerCategory === 'destinationheaders') {
         setActiveLiner(null);
         setActiveLinerCategory(null);
       }
+      setActiveTab('all');
     } else {
-      // Opening destination headers - clear liner active state
-      if (activeLinerCategory === 'linearheaders') {
+      // Opening destination headers - clear other content and wait for sub-category click
+      setActiveTab(null);
+      if (activeLinerCategory !== 'destinationheaders') {
         setActiveLiner(null);
         setActiveLinerCategory(null);
       }
@@ -833,9 +1149,21 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
     switch (activeTab) {
       case 'air':
         filtered = rates.filter(rate => rate.freightType?.toLowerCase().includes('air'));
+        // Apply Import/Export sub-filter
+        if (airSubFilter === 'import') {
+          filtered = filtered.filter(rate => rate.freightType?.toLowerCase().includes('import'));
+        } else if (airSubFilter === 'export') {
+          filtered = filtered.filter(rate => rate.freightType?.toLowerCase().includes('export'));
+        }
         break;
       case 'sea':
         filtered = rates.filter(rate => rate.freightType?.toLowerCase().includes('sea'));
+        // Apply Import/Export sub-filter
+        if (seaSubFilter === 'import') {
+          filtered = filtered.filter(rate => rate.freightType?.toLowerCase().includes('import'));
+        } else if (seaSubFilter === 'export') {
+          filtered = filtered.filter(rate => rate.freightType?.toLowerCase().includes('export'));
+        }
         break;
       case 'liner':
         // Liner tab uses its own data, return empty for regular rates
@@ -857,7 +1185,7 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
     return filtered;
   };
 
-  // Filter Air Export rates by search query
+  // Filter Air Export rates by search query (search by city/country)
   const getFilteredAirExportRates = () => {
     if (!searchQuery.trim()) return airExportRates;
     const q = searchQuery.toLowerCase();
@@ -869,24 +1197,36 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
     );
   };
 
-  // Filter Sea Spot rates by search query
+  // Filter Sea Spot rates by search query (search by destination/POD)
   const getFilteredSeaSpotRates = () => {
     if (!searchQuery.trim()) return seaSpotRates;
     const q = searchQuery.toLowerCase();
     return seaSpotRates.filter(rate =>
       rate.pol?.toLowerCase().includes(q) ||
       rate.pod?.toLowerCase().includes(q) ||
-      rate.carrier?.toLowerCase().includes(q) ||
-      rate.liner?.toLowerCase().includes(q) ||
-      rate.route?.toLowerCase().includes(q)
+      rate.liner?.toLowerCase().includes(q)
     );
   };
+
+  // Pagination helper
+  const getPaginatedData = (data) => {
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    return data.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+  };
+  const getTotalPages = (data) => Math.ceil(data.length / ITEMS_PER_PAGE);
+
+  // Reset page when switching tabs or searching
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeTab, searchQuery, airSubFilter, seaSubFilter]);
 
   const handleRefresh = () => {
     if (activeTab === 'airexport') {
       loadAirExportRates();
     } else if (activeTab === 'seaspot') {
       loadSeaSpotRates();
+    } else if (activeTab === 'seabond') {
+      loadSeaBondRates();
     } else if (activeLinerCategory === 'destinationheaders') {
       loadDestinationRates(activeLiner);
     } else if (activeLiner) {
@@ -980,7 +1320,7 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
           throw new Error('Cannot read Excel sheet');
         }
         
-        const rawData = XLSX.utils.sheet_to_json(sheet);
+        const rawData = XLSX.utils.sheet_to_json(sheet, { raw: false });
         // Trim whitespace from column header keys (Excel often has trailing spaces)
         excelData = rawData.map(row => {
           const cleaned = {};
@@ -1398,8 +1738,16 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
     return formatted;
   };
 
+  const isRatioBasedRate = (rate) => {
+    return rate.rate1_167 || rate.rate1_200 || rate.rate1_300 || rate.rate1_400 || rate.rate1_500;
+  };
+
   const getQuickRate = (rate) => {
     if (rate.freightType?.toLowerCase().includes('air')) {
+      // Check ratio-based rates first
+      if (isRatioBasedRate(rate)) {
+        return rate.rate1_167 ?? rate.rate1_200 ?? rate.rate1_300 ?? rate.rate1_400 ?? rate.rate1_500 ?? '-';
+      }
       return rate.rate45Plus ?? rate.rate45MinusM ?? rate.rate45Minus ?? rate.rate100 ?? rate.rateM ?? '-';
     } else if (rate.freightType?.toLowerCase().includes('fcl')) {
       return rate.rate20GP ?? rate.rate40GP ?? rate.rate40HQ ?? '-';
@@ -1407,6 +1755,16 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
       return rate.lclRate ?? '-';
     }
     return '-';
+  };
+
+  const getQuickRateLabel = (rate) => {
+    if (rate.freightType?.toLowerCase().includes('air')) {
+      if (isRatioBasedRate(rate)) return 'ratio (1:167)';
+      return 'per kg (+45)';
+    }
+    if (rate.freightType?.toLowerCase().includes('fcl')) return 'per container';
+    if (rate.freightType?.toLowerCase().includes('lcl')) return 'per CBM';
+    return '';
   };
 
   const getRoutingBadge = (type) => {
@@ -1424,14 +1782,29 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
 
   // Determine which data to display based on active category
   // Sea Spot & Air Export rates are shown in their own inline sections, not in the card list
-  const displayData = (activeTab === 'seaspot' || activeTab === 'airexport')
-    ? []
-    : activeLinerCategory === 'destinationheaders'
+  // When activeTab is null, a header section is open but no sub-category selected yet — show nothing
+  const allDisplayData = (() => {
+    if (activeTab === 'seaspot' || activeTab === 'seabond' || activeTab === 'airexport' || activeTab === null) return [];
+    let data = activeLinerCategory === 'destinationheaders'
       ? destinationRates
       : activeLiner
         ? linerRates
         : filteredRates;
-  const isLoadingData = (activeTab === 'seaspot' || activeTab === 'airexport')
+    // Apply search to liner/destination header data
+    if (searchQuery.trim() && (activeLinerCategory === 'destinationheaders' || (activeLiner && activeLinerCategory === 'linearheaders'))) {
+      const q = searchQuery.toLowerCase();
+      data = data.filter(rate =>
+        rate.destination?.toLowerCase().includes(q) ||
+        rate.pod?.toLowerCase().includes(q) ||
+        rate.pol?.toLowerCase().includes(q) ||
+        rate.liner?.toLowerCase().includes(q)
+      );
+    }
+    return data;
+  })();
+  const totalDisplayPages = getTotalPages(allDisplayData);
+  const displayData = getPaginatedData(allDisplayData);
+  const isLoadingData = (activeTab === 'seaspot' || activeTab === 'seabond' || activeTab === 'airexport' || activeTab === null)
     ? false
     : activeLinerCategory === 'destinationheaders'
       ? destinationLoading
@@ -1458,7 +1831,7 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
             </div>
             
             {/* Conditional Button Display */}
-            {activeTab === 'seaspot' || activeTab === 'airexport' ? null : !activeLiner ? (
+            {activeTab === 'seaspot' || activeTab === 'seabond' || activeTab === 'airexport' || activeTab === null ? null : !activeLiner ? (
               <button
                 onClick={modalOpen}
                 className="inline-flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 transition-colors shadow-lg hover:shadow-xl"
@@ -1477,90 +1850,157 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
             )}
           </div>
 
-          {/* Tabs & Search - Header Line */}
+          {/* Tabs - Horizontally Scrollable */}
+          <div className="relative mb-2">
+            <div
+              ref={tabScrollRef}
+              className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide"
+              style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+            >
+              {/* Regular Tabs */}
+              <button
+                onClick={() => handleRegularTabClick('air')}
+                className={`flex-shrink-0 px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 ${activeTab === 'air' && !activeLiner ? 'bg-yellow-500 text-white shadow-md' : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'}`}
+              >
+                <Plane className="w-4 h-4" /> Air Freight
+              </button>
+
+              {/* Air Export Rates Button */}
+              <button
+                onClick={handleAirExportClick}
+                className={`flex-shrink-0 px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 ${
+                  showAirExport
+                    ? 'bg-sky-600 text-white shadow-md'
+                    : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'
+                }`}
+              >
+                <Plane className="w-4 h-4" /> Air Export Rates
+                <ChevronDown className={`w-4 h-4 transition-transform ${showAirExport ? 'rotate-180' : ''}`} />
+              </button>
+
+              <button
+                onClick={() => handleRegularTabClick('sea')}
+                className={`flex-shrink-0 px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 ${activeTab === 'sea' && !activeLiner ? 'bg-blue-500 text-white shadow-md' : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'}`}
+              >
+                <Ship className="w-4 h-4" /> Sea Freight
+              </button>
+
+              {/* Sea Bond Rates Button */}
+              <button
+                onClick={handleSeaBondRatesClick}
+                className={`flex-shrink-0 px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 ${
+                  showSeaBondRates
+                    ? 'bg-teal-600 text-white shadow-md'
+                    : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'
+                }`}
+              >
+                <Ship className="w-4 h-4" /> Sea Bond Rates
+                <ChevronDown className={`w-4 h-4 transition-transform ${showSeaBondRates ? 'rotate-180' : ''}`} />
+              </button>
+
+              {/* Horizontal Divider */}
+              <div className="w-px h-8 bg-slate-300 mx-1 flex-shrink-0"></div>
+
+              {/* Sea Spot Rates Button */}
+              <button
+                onClick={handleSeaSpotRatesClick}
+                className={`flex-shrink-0 px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 ${
+                  showSeaSpotRates
+                    ? 'bg-indigo-600 text-white shadow-md'
+                    : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'
+                }`}
+              >
+                <Ship className="w-4 h-4" /> Sea Spot Rates
+                <ChevronDown className={`w-4 h-4 transition-transform ${showSeaSpotRates ? 'rotate-180' : ''}`} />
+              </button>
+
+              {/* Liner Header's Button */}
+              <button
+                onClick={handleLinearHeadersClick}
+                className={`flex-shrink-0 px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 ${
+                  showLinearHeaders || activeLinerCategory === 'linearheaders'
+                    ? 'bg-emerald-600 text-white shadow-md'
+                    : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'
+                }`}
+              >
+                <Ship className="w-4 h-4" /> Liner Header's
+                <ChevronDown className={`w-4 h-4 transition-transform ${showLinearHeaders || activeLinerCategory === 'linearheaders' ? 'rotate-180' : ''}`} />
+              </button>
+
+              {/* Destination Header's Button */}
+              <button
+                onClick={handleDestinationHeadersClick}
+                className={`flex-shrink-0 px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 ${
+                  showDestinationHeaders || activeLinerCategory === 'destinationheaders'
+                    ? 'bg-red-700 text-white shadow-md'
+                    : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'
+                }`}
+              >
+                <MapPin className="w-4 h-4" /> Destination Header's
+                <ChevronDown className={`w-4 h-4 transition-transform ${showDestinationHeaders || activeLinerCategory === 'destinationheaders' ? 'rotate-180' : ''}`} />
+              </button>
+            </div>
+          </div>
+
+          {/* Sub-filter + Search Row */}
           <div className="flex flex-wrap items-center gap-2 mb-4">
-            {/* Regular Tabs */}
-            <button
-              onClick={() => handleRegularTabClick('air')}
-              className={`px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 ${activeTab === 'air' && !activeLiner ? 'bg-yellow-500 text-white shadow-md' : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'}`}
-            >
-              <Plane className="w-4 h-4" /> Air Freight
-            </button>
+            {/* Sub-filter buttons for Air Freight */}
+            {activeTab === 'air' && !activeLiner && (
+              <div className="flex items-center gap-1 bg-yellow-50 border border-yellow-200 rounded-lg p-1">
+                {['all', 'import', 'export'].map((f) => (
+                  <button
+                    key={f}
+                    onClick={() => setAirSubFilter(f)}
+                    className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${
+                      airSubFilter === f
+                        ? 'bg-yellow-500 text-white shadow-sm'
+                        : 'text-yellow-700 hover:bg-yellow-100'
+                    }`}
+                  >
+                    {f === 'all' ? 'All' : f === 'import' ? 'Import' : 'Export'}
+                  </button>
+                ))}
+              </div>
+            )}
 
-            {/* Air Export Rates Button - next to Air Freight */}
-            <button
-              onClick={handleAirExportClick}
-              className={`px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 ${
-                showAirExport
-                  ? 'bg-sky-600 text-white shadow-md'
-                  : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'
-              }`}
-            >
-              <Plane className="w-4 h-4" /> Air Export Rates
-              <ChevronDown className={`w-4 h-4 transition-transform ${showAirExport ? 'rotate-180' : ''}`} />
-            </button>
+            {/* Sub-filter buttons for Sea Freight */}
+            {activeTab === 'sea' && !activeLiner && (
+              <div className="flex items-center gap-1 bg-blue-50 border border-blue-200 rounded-lg p-1">
+                {['all', 'import', 'export'].map((f) => (
+                  <button
+                    key={f}
+                    onClick={() => setSeaSubFilter(f)}
+                    className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${
+                      seaSubFilter === f
+                        ? 'bg-blue-500 text-white shadow-sm'
+                        : 'text-blue-700 hover:bg-blue-100'
+                    }`}
+                  >
+                    {f === 'all' ? 'All' : f === 'import' ? 'Import' : 'Export'}
+                  </button>
+                ))}
+              </div>
+            )}
 
-            <button
-              onClick={() => handleRegularTabClick('sea')}
-              className={`px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 ${activeTab === 'sea' && !activeLiner ? 'bg-blue-500 text-white shadow-md' : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'}`}
-            >
-              <Ship className="w-4 h-4" /> Sea Freight
-            </button>
-
-            {/* Horizontal Divider */}
-            <div className="w-px h-8 bg-slate-300 mx-2"></div>
-
-            {/* Sea Spot Rates Button */}
-            <button
-              onClick={handleSeaSpotRatesClick}
-              className={`px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 ${
-                showSeaSpotRates
-                  ? 'bg-indigo-600 text-white shadow-md'
-                  : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'
-              }`}
-            >
-              <Ship className="w-4 h-4" /> Sea Spot Rates
-              <ChevronDown className={`w-4 h-4 transition-transform ${showSeaSpotRates ? 'rotate-180' : ''}`} />
-            </button>
-
-            {/* Liner Header's Button */}
-            <button
-              onClick={handleLinearHeadersClick}
-              className={`px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 ${
-                showLinearHeaders || activeLinerCategory === 'linearheaders'
-                  ? 'bg-emerald-600 text-white shadow-md'
-                  : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'
-              }`}
-            >
-              <Ship className="w-4 h-4" /> Liner Header's
-              <ChevronDown className={`w-4 h-4 transition-transform ${showLinearHeaders || activeLinerCategory === 'linearheaders' ? 'rotate-180' : ''}`} />
-            </button>
-
-            {/* Destination Header's Button */}
-            <button
-              onClick={handleDestinationHeadersClick}
-              className={`px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 ${
-                showDestinationHeaders || activeLinerCategory === 'destinationheaders'
-                  ? 'bg-red-700 text-white shadow-md'
-                  : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'
-              }`}
-            >
-              <MapPin className="w-4 h-4" /> Destination Header's
-              <ChevronDown className={`w-4 h-4 transition-transform ${showDestinationHeaders || activeLinerCategory === 'destinationheaders' ? 'rotate-180' : ''}`} />
-            </button>
-
-            {/* Spacer to push search bar to right */}
+            {/* Spacer */}
             <div className="flex-1"></div>
 
-            {/* Search Bar - Right side of header */}
-            <div className="relative w-full sm:w-auto sm:min-w-[300px] lg:min-w-[400px]">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5" />
+            {/* Search Bar - Context-aware placeholder */}
+            <div className="relative w-full sm:w-auto sm:min-w-[280px] lg:min-w-[360px]">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
               <input
                 type="text"
-                placeholder="Search by origin, destination, carrier, or route..."
+                placeholder={
+                  activeTab === 'airexport' || showAirExport ? 'Search by city or airline...' :
+                  activeTab === 'seaspot' || showSeaSpotRates ? 'Search by destination (POD)...' :
+                  activeTab === 'seabond' || showSeaBondRates ? 'Search by origin or vessel...' :
+                  (showLinearHeaders || activeLinerCategory === 'linearheaders') ? 'Search by destination...' :
+                  (showDestinationHeaders || activeLinerCategory === 'destinationheaders') ? 'Search by destination...' :
+                  'Search by origin, destination, carrier, or route...'
+                }
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                className="w-full pl-9 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white text-sm"
               />
             </div>
           </div>
@@ -1615,7 +2055,7 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
-                      {getFilteredSeaSpotRates().map((rate) => (
+                      {getPaginatedData(getFilteredSeaSpotRates()).map((rate) => (
                         <tr key={rate.id} className="hover:bg-slate-50">
                           <td className="px-3 py-2 font-semibold text-indigo-700">{rate.liner || '—'}</td>
                           <td className="px-3 py-2 text-slate-700">{rate.pol || '—'}</td>
@@ -1645,6 +2085,23 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
                       ))}
                     </tbody>
                   </table>
+                  {/* Pagination */}
+                  {getTotalPages(getFilteredSeaSpotRates()) > 1 && (
+                    <div className="flex items-center justify-between mt-3 px-1">
+                      <span className="text-xs text-slate-500">
+                        Showing {((currentPage - 1) * ITEMS_PER_PAGE) + 1}–{Math.min(currentPage * ITEMS_PER_PAGE, getFilteredSeaSpotRates().length)} of {getFilteredSeaSpotRates().length}
+                      </span>
+                      <div className="flex items-center gap-1">
+                        <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="px-2 py-1 text-xs rounded border border-slate-300 hover:bg-slate-100 disabled:opacity-40">
+                          <ChevronLeft className="w-3.5 h-3.5" />
+                        </button>
+                        <span className="text-xs text-slate-600 px-2">Page {currentPage} of {getTotalPages(getFilteredSeaSpotRates())}</span>
+                        <button onClick={() => setCurrentPage(p => Math.min(getTotalPages(getFilteredSeaSpotRates()), p + 1))} disabled={currentPage >= getTotalPages(getFilteredSeaSpotRates())} className="px-2 py-1 text-xs rounded border border-slate-300 hover:bg-slate-100 disabled:opacity-40">
+                          <ChevronRight className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div className="text-center py-6 text-slate-400 text-sm">
@@ -1690,43 +2147,275 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
             </div>
           )}
 
-          {/* Linear Header's Sub-section - Shipping Line Buttons */}
-          {(showLinearHeaders || activeLinerCategory === 'linearheaders') && (
-            <div className="flex flex-wrap gap-2 mb-4 p-3 bg-emerald-50 rounded-lg border border-emerald-200">
-              <span className="text-xs text-emerald-600 font-medium w-full mb-2">Liner Header's</span>
-              {linearHeaderLines.map((liner) => (
-                <button
-                  key={liner.code}
-                  onClick={() => handleLinearHeaderLinerClick(liner.code)}
-                  className={`px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 ${
-                    activeLiner === liner.code && activeLinerCategory === 'linearheaders'
-                      ? `${liner.color} text-white shadow-md`
-                      : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'
-                  }`}
-                >
-                  <Ship className="w-4 h-4" /> {liner.name}
-                </button>
-              ))}
+          {/* Sea Bond Rates Section */}
+          {showSeaBondRates && (
+            <div className="mb-4 p-4 bg-teal-50 rounded-lg border border-teal-200">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <Ship className="w-5 h-5 text-teal-600" />
+                  <span className="text-sm font-semibold text-teal-700">Sea Bond Rates ({seaBondRates.length})</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setShowSeaBondUploadModal(true)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-teal-600 text-white rounded-lg text-xs font-medium hover:bg-teal-700 transition-colors"
+                  >
+                    <Upload className="w-3.5 h-3.5" />
+                    Upload Excel
+                  </button>
+                  {isAdmin && seaBondRates.length > 0 && (
+                    <button
+                      onClick={handleDeleteAllSeaBondRates}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600 text-white rounded-lg text-xs font-medium hover:bg-red-700 transition-colors"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      Clear All
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {seaBondLoading ? (
+                <div className="text-center py-6">
+                  <RefreshCw className="w-6 h-6 text-teal-600 animate-spin mx-auto mb-2" />
+                  <p className="text-sm text-slate-500">Loading sea bond rates...</p>
+                </div>
+              ) : seaBondRates.length > 0 ? (
+                <div className="overflow-x-auto bg-white rounded-lg border border-slate-200">
+                  <table className="w-full text-sm">
+                    <thead className="bg-slate-50 border-b border-slate-200">
+                      <tr>
+                        <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase">Origin</th>
+                        <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase">Rate</th>
+                        <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase">Vessel</th>
+                        <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase">ETD</th>
+                        <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase">Cutoff</th>
+                        <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase">Transit</th>
+                        <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase">Validity</th>
+                        {isAdmin && <th className="px-3 py-2.5 w-10"></th>}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {getPaginatedData(getFilteredSeaBondRates()).map((rate) => (
+                        <tr key={rate.id} className="hover:bg-slate-50">
+                          <td className="px-3 py-2 font-semibold text-teal-700">{rate.origin || '—'}</td>
+                          <td className="px-3 py-2 text-slate-900 font-medium">{rate.rate || '—'}</td>
+                          <td className="px-3 py-2 text-slate-700">{rate.vessel || '—'}</td>
+                          <td className="px-3 py-2 text-slate-600">{rate.etd || '—'}</td>
+                          <td className="px-3 py-2 text-slate-600">{rate.cutoff || '—'}</td>
+                          <td className="px-3 py-2 text-slate-600">{rate.transit || '—'}</td>
+                          <td className="px-3 py-2 text-slate-600">{rate.validity || '—'}</td>
+                          {isAdmin && (
+                            <td className="px-3 py-2 text-center">
+                              <button
+                                onClick={async () => {
+                                  if (!window.confirm('Delete this rate?')) return;
+                                  try {
+                                    await RateAPI.deleteSeaBondRate(rate.id);
+                                    setSeaBondRates(prev => prev.filter(r => r.id !== rate.id));
+                                  } catch (err) { console.error(err); }
+                                }}
+                                className="p-1 hover:bg-red-50 rounded text-red-500 hover:text-red-700"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </td>
+                          )}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  {/* Pagination */}
+                  {getTotalPages(getFilteredSeaBondRates()) > 1 && (
+                    <div className="flex items-center justify-between mt-3 px-1">
+                      <span className="text-xs text-slate-500">
+                        Showing {((currentPage - 1) * ITEMS_PER_PAGE) + 1}–{Math.min(currentPage * ITEMS_PER_PAGE, getFilteredSeaBondRates().length)} of {getFilteredSeaBondRates().length}
+                      </span>
+                      <div className="flex items-center gap-1">
+                        <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="px-2 py-1 text-xs rounded border border-slate-300 hover:bg-slate-100 disabled:opacity-40">
+                          <ChevronLeft className="w-3.5 h-3.5" />
+                        </button>
+                        <span className="text-xs text-slate-600 px-2">Page {currentPage} of {getTotalPages(getFilteredSeaBondRates())}</span>
+                        <button onClick={() => setCurrentPage(p => Math.min(getTotalPages(getFilteredSeaBondRates()), p + 1))} disabled={currentPage >= getTotalPages(getFilteredSeaBondRates())} className="px-2 py-1 text-xs rounded border border-slate-300 hover:bg-slate-100 disabled:opacity-40">
+                          <ChevronRight className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="text-center py-6 text-slate-400 text-sm">
+                  No sea bond rates. Upload an Excel file to get started.
+                </div>
+              )}
             </div>
           )}
 
-          {/* Destination Header's Sub-section - Region Buttons */}
-          {(showDestinationHeaders || activeLinerCategory === 'destinationheaders') && (
-            <div className="flex flex-wrap gap-2 mb-4 p-3 bg-red-50 rounded-lg border border-red-200">
-              <span className="text-xs text-red-600 font-medium w-full mb-2">Destination Header's</span>
-              {destinationHeaderLines.map((liner) => (
+          {/* Sea Bond Upload Modal */}
+          {showSeaBondUploadModal && (
+            <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+              <div className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden">
+                <div className="bg-gradient-to-r from-teal-600 to-teal-700 px-6 py-4 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Upload className="w-5 h-5 text-white" />
+                    <h3 className="text-lg font-bold text-white">Upload Sea Bond Rates</h3>
+                  </div>
+                  <button onClick={() => { setShowSeaBondUploadModal(false); setSeaBondExcelFile(null); }} className="text-white hover:bg-white/20 rounded-lg p-2">
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+                <div className="p-6 space-y-4">
+                  <p className="text-sm text-slate-600">
+                    Upload an Excel file with headers:<br/>
+                    <code className="text-xs bg-slate-100 px-2 py-1 rounded mt-1 inline-block">ORIGIN | RATE | VESSEL | ETD | CUTOFF | TRANSIT | VALIDITY</code>
+                  </p>
+                  <div>
+                    <label className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed border-slate-300 rounded-lg cursor-pointer hover:bg-slate-50">
+                      <FileSpreadsheet className="w-6 h-6 text-slate-400 mb-1" />
+                      <p className="text-xs text-slate-500">{seaBondExcelFile ? seaBondExcelFile.name : 'Click to select Excel file'}</p>
+                      <input type="file" accept=".xlsx,.xls" className="hidden" onChange={(e) => setSeaBondExcelFile(e.target.files[0])} />
+                    </label>
+                  </div>
+                  <div className="flex justify-end gap-3">
+                    <button onClick={() => { setShowSeaBondUploadModal(false); setSeaBondExcelFile(null); }} className="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 text-sm font-medium">Cancel</button>
+                    <button onClick={handleSeaBondExcelUpload} disabled={!seaBondExcelFile || seaBondUploadProgress} className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 text-sm font-medium disabled:opacity-50 flex items-center gap-2">
+                      {seaBondUploadProgress ? <><RefreshCw className="w-4 h-4 animate-spin" /> Uploading...</> : <><Upload className="w-4 h-4" /> Upload</>}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Linear Header's Sub-section - Horizontally Scrollable Buttons */}
+          {(showLinearHeaders || activeLinerCategory === 'linearheaders') && (
+            <div className="mb-4 p-3 bg-emerald-50 rounded-lg border border-emerald-200">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs text-emerald-600 font-medium">Liner Header's</span>
                 <button
-                  key={liner.code}
-                  onClick={() => handleDestinationHeaderLinerClick(liner.code)}
-                  className={`px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 ${
-                    activeLiner === liner.code && activeLinerCategory === 'destinationheaders'
-                      ? `${liner.color} text-white shadow-md`
-                      : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'
-                  }`}
+                  onClick={() => { setAddSubCategoryType('linear'); setNewSubCategoryName(''); setShowAddSubCategoryModal(true); }}
+                  className="flex items-center gap-1 px-2.5 py-1 bg-emerald-600 text-white rounded-lg text-xs font-medium hover:bg-emerald-700 transition-colors"
+                  title="Add new liner sub-category"
                 >
-                  <MapPin className="w-4 h-4" /> {liner.name}
+                  <Plus className="w-3.5 h-3.5" /> Add
                 </button>
-              ))}
+              </div>
+              <div className="flex items-center gap-1">
+                {/* Left scroll button */}
+                <button
+                  onClick={() => scrollContainer(linearScrollRef, 'left')}
+                  className="flex-shrink-0 p-1 rounded-full hover:bg-emerald-200 text-emerald-600 transition-colors"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                {/* Scrollable container */}
+                <div
+                  ref={linearScrollRef}
+                  className="flex items-center gap-2 overflow-x-auto scrollbar-hide"
+                  style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+                >
+                  {linearHeaderLines.length === 0 && !subCategoriesLoading && (
+                    <span className="text-xs text-slate-400 italic px-2">No liner categories yet. Click "Add" to create one.</span>
+                  )}
+                  {linearHeaderLines.map((liner) => (
+                    <div key={liner.id || liner.code} className="relative group flex-shrink-0">
+                      <button
+                        onClick={() => handleLinearHeaderLinerClick(liner.code)}
+                        className={`px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 whitespace-nowrap text-sm ${
+                          activeLiner === liner.code && activeLinerCategory === 'linearheaders'
+                            ? `${liner.color} text-white shadow-md`
+                            : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'
+                        }`}
+                      >
+                        <Ship className="w-4 h-4" /> {liner.name}
+                      </button>
+                      {/* Delete button on hover */}
+                      {isAdmin && liner.id && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleDeleteSubCategory(liner.id, liner.name, 'linear'); }}
+                          className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-500 text-white rounded-full items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity hidden group-hover:flex shadow-sm"
+                          title={`Delete ${liner.name}`}
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                {/* Right scroll button */}
+                <button
+                  onClick={() => scrollContainer(linearScrollRef, 'right')}
+                  className="flex-shrink-0 p-1 rounded-full hover:bg-emerald-200 text-emerald-600 transition-colors"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Destination Header's Sub-section - Horizontally Scrollable Buttons */}
+          {(showDestinationHeaders || activeLinerCategory === 'destinationheaders') && (
+            <div className="mb-4 p-3 bg-red-50 rounded-lg border border-red-200">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs text-red-600 font-medium">Destination Header's</span>
+                <button
+                  onClick={() => { setAddSubCategoryType('destination'); setNewSubCategoryName(''); setShowAddSubCategoryModal(true); }}
+                  className="flex items-center gap-1 px-2.5 py-1 bg-red-600 text-white rounded-lg text-xs font-medium hover:bg-red-700 transition-colors"
+                  title="Add new destination sub-category"
+                >
+                  <Plus className="w-3.5 h-3.5" /> Add
+                </button>
+              </div>
+              <div className="flex items-center gap-1">
+                {/* Left scroll button */}
+                <button
+                  onClick={() => scrollContainer(destinationScrollRef, 'left')}
+                  className="flex-shrink-0 p-1 rounded-full hover:bg-red-200 text-red-600 transition-colors"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                {/* Scrollable container */}
+                <div
+                  ref={destinationScrollRef}
+                  className="flex items-center gap-2 overflow-x-auto scrollbar-hide"
+                  style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+                >
+                  {destinationHeaderLines.length === 0 && !subCategoriesLoading && (
+                    <span className="text-xs text-slate-400 italic px-2">No destination categories yet. Click "Add" to create one.</span>
+                  )}
+                  {destinationHeaderLines.map((liner) => (
+                    <div key={liner.id || liner.code} className="relative group flex-shrink-0">
+                      <button
+                        onClick={() => handleDestinationHeaderLinerClick(liner.code)}
+                        className={`px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 whitespace-nowrap text-sm ${
+                          activeLiner === liner.code && activeLinerCategory === 'destinationheaders'
+                            ? `${liner.color} text-white shadow-md`
+                            : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'
+                        }`}
+                      >
+                        <MapPin className="w-4 h-4" /> {liner.name}
+                      </button>
+                      {/* Delete button on hover */}
+                      {isAdmin && liner.id && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleDeleteSubCategory(liner.id, liner.name, 'destination'); }}
+                          className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-500 text-white rounded-full items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity hidden group-hover:flex shadow-sm"
+                          title={`Delete ${liner.name}`}
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                {/* Right scroll button */}
+                <button
+                  onClick={() => scrollContainer(destinationScrollRef, 'right')}
+                  className="flex-shrink-0 p-1 rounded-full hover:bg-red-200 text-red-600 transition-colors"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
             </div>
           )}
 
@@ -1777,30 +2466,35 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
                     <p className="text-sm text-slate-500">Loading air export rates...</p>
                   </div>
                 ) : airExportRates.length > 0 ? (
+                  <>
                   <div className="divide-y divide-slate-100">
-                    {getFilteredAirExportRates().map((rate) => (
+                    {getPaginatedData(getFilteredAirExportRates()).map((rate) => (
                       <div key={rate.id} className="p-4 hover:bg-slate-50 transition-colors">
                         {/* Desktop Grid View */}
                         <div className="hidden md:grid grid-cols-12 gap-4 items-center">
-                          {/* Country & Airline Badge - Left aligned */}
-                          <div className="col-span-2 text-left">
+                          {/* City - First Column */}
+                          <div className="col-span-2 flex items-center">
                             {rate.country && (
-                              <div className="text-xs font-semibold text-slate-700 mb-1 flex items-center gap-1 justify-start">
+                              <div className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-slate-700 border border-slate-300 bg-white">
                                 <MapPin className="w-3 h-3 text-slate-400 flex-shrink-0" />
-                                <span className="truncate">{rate.country}</span>
+                                <span className="truncate max-w-[100px]">{rate.country}</span>
                               </div>
                             )}
+                          </div>
+
+                          {/* Airline Badge */}
+                          <div className="col-span-1 text-left">
                             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium text-white bg-sky-600">
                               <Plane className="w-4 h-4" />
                               <span className="uppercase">{rate.airline || '—'}</span>
                             </div>
                             {rate.commodityType && (
-                              <div className="text-[10px] text-slate-400 mt-1 truncate max-w-[140px]">{rate.commodityType}</div>
+                              <div className="text-[10px] text-slate-400 mt-1 truncate max-w-[100px]">{rate.commodityType}</div>
                             )}
                           </div>
 
                           {/* Rates Grid - M, -45, 45, 100, 300, 500, 1000 */}
-                          <div className="col-span-5">
+                          <div className="col-span-4">
                             <div className="flex items-center gap-2 flex-wrap">
                               {rate.rateM != null && (
                                 <div className="bg-sky-50 border border-sky-200 rounded px-2 py-1 text-center min-w-[60px]">
@@ -1949,6 +2643,24 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
                       </div>
                     ))}
                   </div>
+                  {/* Air Export Pagination */}
+                  {getTotalPages(getFilteredAirExportRates()) > 1 && (
+                    <div className="flex items-center justify-between px-4 py-3 border-t border-slate-200">
+                      <span className="text-xs text-slate-500">
+                        Showing {((currentPage - 1) * ITEMS_PER_PAGE) + 1}–{Math.min(currentPage * ITEMS_PER_PAGE, getFilteredAirExportRates().length)} of {getFilteredAirExportRates().length}
+                      </span>
+                      <div className="flex items-center gap-1">
+                        <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="px-2 py-1 text-xs rounded border border-slate-300 hover:bg-slate-100 disabled:opacity-40">
+                          <ChevronLeft className="w-3.5 h-3.5" />
+                        </button>
+                        <span className="text-xs text-slate-600 px-2">Page {currentPage} of {getTotalPages(getFilteredAirExportRates())}</span>
+                        <button onClick={() => setCurrentPage(p => Math.min(getTotalPages(getFilteredAirExportRates()), p + 1))} disabled={currentPage >= getTotalPages(getFilteredAirExportRates())} className="px-2 py-1 text-xs rounded border border-slate-300 hover:bg-slate-100 disabled:opacity-40">
+                          <ChevronRight className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  </>
                 ) : (
                   <div className="text-center py-8 text-slate-400 text-sm">
                     <Plane className="w-12 h-12 text-slate-300 mx-auto mb-3" />
@@ -1976,7 +2688,7 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
                   <p className="text-sm text-slate-600">
                     Upload an Excel file with headers:<br/>
                     <code className="text-[10px] bg-slate-100 px-2 py-1 rounded mt-1 inline-block leading-relaxed">
-                      COUNTRY | Commodity Type | AIRLINE | M | -45 | 45 | 100 | 300 | 500 | 1000 | SURCHARGES | T/T | FREQUENCY | ROUTINE | REMARKS | UPDATED DATE
+                      City | Commodity Type | AIRLINE | M | -45 | 45 | 100 | 300 | 500 | 1000 | SURCHARGES | T/T | FREQUENCY | ROUTINE | REMARKS | UPDATED DATE
                     </code>
                   </p>
                   <div className="bg-sky-50 border border-sky-200 rounded-lg p-3">
@@ -2105,6 +2817,7 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
 
         {/* Rates List */}
         {!isLoadingData && !error && (
+          <>
           <div className="space-y-3">
             {activeLiner && (
               <div className={`${activeLinerDetails?.color || 'bg-blue-600'} text-white rounded-xl p-4 mb-4 shadow-md`}>
@@ -2451,9 +3164,7 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
                           <div className="col-span-2">
                             <div className="text-lg font-bold text-indigo-600">{formatCurrency(getQuickRate(rate))}</div>
                             <div className="text-xs text-slate-500">
-                              {isAir && 'per kg (+45)'}
-                              {isFCL && 'per container'}
-                              {isLCL && 'per CBM'}
+                              {getQuickRateLabel(rate)}
                             </div>
                           </div>
 
@@ -2526,9 +3237,7 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
                             </div>
                             <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-3">
                               <div className="text-xs text-indigo-600 mb-1">
-                                {isAir && 'per kg (+45)'}
-                                {isFCL && 'per container'}
-                                {isLCL && 'per CBM'}
+                                {getQuickRateLabel(rate)}
                               </div>
                               <div className="text-lg font-bold text-indigo-700">{formatCurrency(getQuickRate(rate))}</div>
                             </div>
@@ -2559,35 +3268,78 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
                           <div className="bg-white rounded-lg p-5">
                             {/* Air Freight Rates */}
                             {isAir && (
-                              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-                                {/* Minimum (M) */}
-                                {rate.rate45MinusM != null && rate.rate45MinusM !== '' && (
-                                  <div className="bg-amber-50 border border-amber-300 rounded-lg p-4 text-center">
-                                    <div className="text-xs font-semibold text-amber-700">Minimum (M)</div>
-                                    <div className="text-xl font-bold text-amber-800 mt-1">{formatCurrency(rate.rate45MinusM)}</div>
+                              <div>
+                                {/* Check if ratio-based rates exist */}
+                                {(rate.rate1_167 || rate.rate1_200 || rate.rate1_300 || rate.rate1_400 || rate.rate1_500) ? (
+                                  /* Ratio-Based Rates Display */
+                                  <div>
+                                    <div className="text-xs font-semibold text-purple-600 uppercase tracking-wide mb-3">Ratio Based Rates</div>
+                                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+                                      {rate.rate1_167 && (
+                                        <div className="bg-purple-50 border-2 border-purple-400 rounded-lg p-4 text-center shadow-sm">
+                                          <div className="text-sm font-bold text-purple-700">1:167</div>
+                                          <div className="text-2xl font-bold text-purple-600 mt-1">{formatCurrency(rate.rate1_167)}</div>
+                                        </div>
+                                      )}
+                                      {rate.rate1_200 && (
+                                        <div className="bg-purple-50 border border-purple-300 rounded-lg p-4 text-center">
+                                          <div className="text-xs font-semibold text-purple-700">1:200</div>
+                                          <div className="text-xl font-bold text-purple-800 mt-1">{formatCurrency(rate.rate1_200)}</div>
+                                        </div>
+                                      )}
+                                      {rate.rate1_300 && (
+                                        <div className="bg-purple-50 border border-purple-300 rounded-lg p-4 text-center">
+                                          <div className="text-xs font-semibold text-purple-700">1:300</div>
+                                          <div className="text-xl font-bold text-purple-800 mt-1">{formatCurrency(rate.rate1_300)}</div>
+                                        </div>
+                                      )}
+                                      {rate.rate1_400 && (
+                                        <div className="bg-purple-50 border border-purple-300 rounded-lg p-4 text-center">
+                                          <div className="text-xs font-semibold text-purple-700">1:400</div>
+                                          <div className="text-xl font-bold text-purple-800 mt-1">{formatCurrency(rate.rate1_400)}</div>
+                                        </div>
+                                      )}
+                                      {rate.rate1_500 && (
+                                        <div className="bg-purple-50 border border-purple-300 rounded-lg p-4 text-center">
+                                          <div className="text-xs font-semibold text-purple-700">1:500</div>
+                                          <div className="text-xl font-bold text-purple-800 mt-1">{formatCurrency(rate.rate1_500)}</div>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                ) : (
+                                  /* KG-Based Rates Display */
+                                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+                                    {/* Minimum (M) */}
+                                    {rate.rate45MinusM != null && rate.rate45MinusM !== '' && (
+                                      <div className="bg-amber-50 border border-amber-300 rounded-lg p-4 text-center">
+                                        <div className="text-xs font-semibold text-amber-700">Minimum (M)</div>
+                                        <div className="text-xl font-bold text-amber-800 mt-1">{formatCurrency(rate.rate45MinusM)}</div>
+                                      </div>
+                                    )}
+
+                                    {/* -45 kg */}
+                                    {rate.rate45Minus != null && rate.rate45Minus !== '' && (
+                                      <div className="bg-slate-50 rounded-lg p-4 text-center">
+                                        <div className="text-xs text-slate-600">-45 kg</div>
+                                        <div className="text-xl font-bold text-slate-900 mt-1">{formatCurrency(rate.rate45Minus)}</div>
+                                      </div>
+                                    )}
+
+                                    {/* +45 kg - Highlighted */}
+                                    {rate.rate45Plus != null && rate.rate45Plus !== '' && (
+                                      <div className="bg-indigo-50 border-2 border-indigo-400 rounded-lg p-4 text-center shadow-sm">
+                                        <div className="text-sm font-bold text-indigo-700">+45 kg</div>
+                                        <div className="text-2xl font-bold text-indigo-600 mt-1">{formatCurrency(rate.rate45Plus)}</div>
+                                      </div>
+                                    )}
+
+                                    {rate.rate100 && <div className="bg-slate-50 rounded-lg p-4 text-center"><div className="text-xs text-slate-600">+100 kg</div><div className="text-xl font-bold mt-1">{formatCurrency(rate.rate100)}</div></div>}
+                                    {rate.rate300 && <div className="bg-slate-50 rounded-lg p-4 text-center"><div className="text-xs text-slate-600">+300 kg</div><div className="text-xl font-bold mt-1">{formatCurrency(rate.rate300)}</div></div>}
+                                    {rate.rate500 && <div className="bg-slate-50 rounded-lg p-4 text-center"><div className="text-xs text-slate-600">+500 kg</div><div className="text-xl font-bold mt-1">{formatCurrency(rate.rate500)}</div></div>}
+                                    {rate.rate1000 && <div className="bg-slate-50 rounded-lg p-4 text-center"><div className="text-xs text-slate-600">+1000 kg</div><div className="text-xl font-bold mt-1">{formatCurrency(rate.rate1000)}</div></div>}
                                   </div>
                                 )}
-
-                                {/* -45 kg */}
-                                {rate.rate45Minus != null && rate.rate45Minus !== '' && (
-                                  <div className="bg-slate-50 rounded-lg p-4 text-center">
-                                    <div className="text-xs text-slate-600">-45 kg</div>
-                                    <div className="text-xl font-bold text-slate-900 mt-1">{formatCurrency(rate.rate45Minus)}</div>
-                                  </div>
-                                )}
-
-                                {/* +45 kg - Highlighted */}
-                                {rate.rate45Plus != null && rate.rate45Plus !== '' && (
-                                  <div className="bg-indigo-50 border-2 border-indigo-400 rounded-lg p-4 text-center shadow-sm">
-                                    <div className="text-sm font-bold text-indigo-700">+45 kg</div>
-                                    <div className="text-2xl font-bold text-indigo-600 mt-1">{formatCurrency(rate.rate45Plus)}</div>
-                                  </div>
-                                )}
-
-                                {rate.rate100 && <div className="bg-slate-50 rounded-lg p-4 text-center"><div className="text-xs text-slate-600">+100 kg</div><div className="text-xl font-bold mt-1">{formatCurrency(rate.rate100)}</div></div>}
-                                {rate.rate300 && <div className="bg-slate-50 rounded-lg p-4 text-center"><div className="text-xs text-slate-600">+300 kg</div><div className="text-xl font-bold mt-1">{formatCurrency(rate.rate300)}</div></div>}
-                                {rate.rate500 && <div className="bg-slate-50 rounded-lg p-4 text-center"><div className="text-xs text-slate-600">+500 kg</div><div className="text-xl font-bold mt-1">{formatCurrency(rate.rate500)}</div></div>}
-                                {rate.rate1000 && <div className="bg-slate-50 rounded-lg p-4 text-center"><div className="text-xs text-slate-600">+1000 kg</div><div className="text-xl font-bold mt-1">{formatCurrency(rate.rate1000)}</div></div>}
                               </div>
                             )}
 
@@ -2670,6 +3422,36 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
                                       <div className="text-lg font-bold">{formatCurrency(rate.rate1000)}</div>
                                     </div>
                                   )}
+                                  {rate.rate1_167 && (
+                                    <div className="bg-purple-50 rounded p-3">
+                                      <div className="text-xs text-purple-600">1:167</div>
+                                      <div className="text-lg font-bold text-purple-800">{formatCurrency(rate.rate1_167)}</div>
+                                    </div>
+                                  )}
+                                  {rate.rate1_200 && (
+                                    <div className="bg-purple-50 rounded p-3">
+                                      <div className="text-xs text-purple-600">1:200</div>
+                                      <div className="text-lg font-bold text-purple-800">{formatCurrency(rate.rate1_200)}</div>
+                                    </div>
+                                  )}
+                                  {rate.rate1_300 && (
+                                    <div className="bg-purple-50 rounded p-3">
+                                      <div className="text-xs text-purple-600">1:300</div>
+                                      <div className="text-lg font-bold text-purple-800">{formatCurrency(rate.rate1_300)}</div>
+                                    </div>
+                                  )}
+                                  {rate.rate1_400 && (
+                                    <div className="bg-purple-50 rounded p-3">
+                                      <div className="text-xs text-purple-600">1:400</div>
+                                      <div className="text-lg font-bold text-purple-800">{formatCurrency(rate.rate1_400)}</div>
+                                    </div>
+                                  )}
+                                  {rate.rate1_500 && (
+                                    <div className="bg-purple-50 rounded p-3">
+                                      <div className="text-xs text-purple-600">1:500</div>
+                                      <div className="text-lg font-bold text-purple-800">{formatCurrency(rate.rate1_500)}</div>
+                                    </div>
+                                  )}
                                   {rate.rate20GP && (
                                     <div className="bg-slate-50 rounded p-3">
                                       <div className="text-xs text-slate-500">20' GP</div>
@@ -2732,18 +3514,54 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
               );
             })}
           </div>
+
+          {/* Main Card Pagination */}
+          {totalDisplayPages > 1 && (
+            <div className="flex items-center justify-between mt-4 px-2">
+              <span className="text-sm text-slate-500">
+                Showing {((currentPage - 1) * ITEMS_PER_PAGE) + 1}–{Math.min(currentPage * ITEMS_PER_PAGE, allDisplayData.length)} of {allDisplayData.length}
+              </span>
+              <div className="flex items-center gap-2">
+                <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="px-3 py-1.5 text-sm rounded-lg border border-slate-300 hover:bg-slate-100 disabled:opacity-40 flex items-center gap-1">
+                  <ChevronLeft className="w-4 h-4" /> Prev
+                </button>
+                <span className="text-sm text-slate-600 px-2">Page {currentPage} of {totalDisplayPages}</span>
+                <button onClick={() => setCurrentPage(p => Math.min(totalDisplayPages, p + 1))} disabled={currentPage >= totalDisplayPages} className="px-3 py-1.5 text-sm rounded-lg border border-slate-300 hover:bg-slate-100 disabled:opacity-40 flex items-center gap-1">
+                  Next <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          )}
+          </>
+        )}
+
+        {/* Prompt to select a sub-category when header is open */}
+        {activeTab === null && !activeLiner && (showLinearHeaders || showDestinationHeaders) && (
+          <div className="bg-white rounded-xl shadow-sm border p-12 text-center">
+            {showLinearHeaders ? (
+              <Ship className="w-16 h-16 text-emerald-300 mx-auto mb-4" />
+            ) : (
+              <MapPin className="w-16 h-16 text-red-300 mx-auto mb-4" />
+            )}
+            <h3 className="text-lg font-medium text-slate-700 mb-2">
+              Select a {showLinearHeaders ? 'Liner' : 'Destination'} category
+            </h3>
+            <p className="text-slate-500">
+              Choose a sub-category above to view or upload rates.
+            </p>
+          </div>
         )}
 
         {/* Empty & Refresh */}
-        {!isLoadingData && !error && displayData.length === 0 && activeTab !== 'seaspot' && activeTab !== 'airexport' && (
+        {!isLoadingData && !error && displayData.length === 0 && activeTab !== 'seaspot' && activeTab !== 'seabond' && activeTab !== 'airexport' && activeTab !== null && (
           <div className="bg-white rounded-xl shadow-sm border p-12 text-center">
             <DollarSign className="w-16 h-16 text-slate-300 mx-auto mb-4" />
             <h3 className="text-lg font-medium mb-2">No rates found</h3>
             <p className="text-slate-500 mb-6">
-              {activeLiner 
-                ? `No rates available for ${activeLiner}. Upload an Excel file to get started.` 
-                : searchQuery 
-                  ? 'Try adjusting your search' 
+              {activeLiner
+                ? `No rates available for ${activeLiner}. Upload an Excel file to get started.`
+                : searchQuery
+                  ? 'Try adjusting your search'
                   : 'Create your first rate'
               }
             </p>
@@ -2834,7 +3652,7 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
                   <li>Ensure your Excel file has a header row with column names</li>
                   <li>Include columns like: Origin, Destination, Rate fields, Currency, etc.</li>
                   <li>All rows will be automatically tagged with category: {activeLiner}</li>
-                  <li>Rate fields (rate45Plus, rate20GP, etc.) will be stored in rateDataJson</li>
+                  <li>Rate fields (rate45Plus, rate1_167, rate20GP, etc.) will be stored in rateDataJson</li>
                 </ul>
               </div>
 
@@ -2864,6 +3682,66 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
                       <Upload className="w-5 h-5" />
                       Upload & Save
                     </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Sub-Category Modal */}
+      {showAddSubCategoryModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setShowAddSubCategoryModal(false)}>
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md mx-4" onClick={(e) => e.stopPropagation()}>
+            <div className={`p-4 rounded-t-xl ${addSubCategoryType === 'linear' ? 'bg-emerald-600' : 'bg-red-700'} text-white`}>
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-bold flex items-center gap-2">
+                  {addSubCategoryType === 'linear' ? <Ship className="w-5 h-5" /> : <MapPin className="w-5 h-5" />}
+                  Add {addSubCategoryType === 'linear' ? 'Liner' : 'Destination'} Sub-Category
+                </h3>
+                <button onClick={() => setShowAddSubCategoryModal(false)} className="p-1 hover:bg-white/20 rounded-lg transition-colors">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  {addSubCategoryType === 'linear' ? 'Liner Name' : 'Destination Header Name'}
+                </label>
+                <input
+                  type="text"
+                  value={newSubCategoryName}
+                  onChange={(e) => setNewSubCategoryName(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' && newSubCategoryName.trim()) handleAddSubCategory(); }}
+                  placeholder={addSubCategoryType === 'linear' ? 'e.g., MSC, MAERSK, CMA CGM' : 'e.g., AFRICA HEADERS, ASIA HEADERS'}
+                  className="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent"
+                  autoFocus
+                />
+              </div>
+              <p className="text-xs text-slate-500">
+                This will create a new tab under {addSubCategoryType === 'linear' ? "Liner Header's" : "Destination Header's"}.
+                You can then upload Excel data for this category using the same format.
+              </p>
+              <div className="flex justify-end gap-3 pt-2">
+                <button
+                  onClick={() => setShowAddSubCategoryModal(false)}
+                  className="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 text-sm font-medium"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleAddSubCategory}
+                  disabled={!newSubCategoryName.trim() || addingSubCategory}
+                  className={`px-4 py-2 text-white rounded-lg text-sm font-medium disabled:opacity-50 flex items-center gap-2 ${
+                    addSubCategoryType === 'linear' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-red-700 hover:bg-red-800'
+                  }`}
+                >
+                  {addingSubCategory ? (
+                    <><RefreshCw className="w-4 h-4 animate-spin" /> Creating...</>
+                  ) : (
+                    <><Plus className="w-4 h-4" /> Create</>
                   )}
                 </button>
               </div>

@@ -63,7 +63,18 @@ function addAirFreightChargesTableTransit(doc, chargesData, yPos, segmentNum, ta
   if (unitTypeColumns.length === 0) {
     unitTypeColumns.push('-45', '45', '100', '300', '500', '1000');
   }
-  
+
+  // Filter out unit types where no carrier has a non-zero amount
+  const filledUnitTypes = unitTypeColumns.filter(ut => {
+    return validCharges.some(c => {
+      if (c.unitType !== ut) return false;
+      const amt = parseFloat(c.amount);
+      return amt && amt > 0;
+    });
+  });
+  // Use filtered list if there are filled ones, otherwise keep all (fallback)
+  const displayUnitTypes = filledUnitTypes.length > 0 ? filledUnitTypes : unitTypeColumns;
+
   // Group charges by carrier
   const carrierGroups = {};
   validCharges.forEach(charge => {
@@ -88,57 +99,87 @@ function addAirFreightChargesTableTransit(doc, chargesData, yPos, segmentNum, ta
       carrierGroups[carrier].unitTypes[unitType] = charge.amount || '';
     }
   });
-  
-  // Build table data
+
+  // Extract common info across all carriers to show once above the table
+  const groupValues = Object.values(carrierGroups);
+  const commonInfo = [];
+  // Check if transit time is common
+  const transitTimes = [...new Set(groupValues.map(g => g.transitTime).filter(Boolean))];
+  if (transitTimes.length > 0) commonInfo.push({ label: 'Transit Time', value: transitTimes.join(', ') });
+  // Check if frequency is common
+  const frequencies = [...new Set(groupValues.map(g => g.frequency).filter(Boolean))];
+  if (frequencies.length > 0) commonInfo.push({ label: 'Frequency', value: frequencies.join(', ') });
+  // Check if routing is common
+  const routings = [...new Set(groupValues.map(g => g.routing).filter(Boolean))];
+  if (routings.length > 0) commonInfo.push({ label: 'Routing', value: routings.join(', ') });
+  // Check if remarks are common
+  const remarksList = [...new Set(groupValues.map(g => g.remarks).filter(Boolean))];
+  if (remarksList.length > 0) commonInfo.push({ label: 'Remarks', value: remarksList.join(', ') });
+
+  // Show common info as text above the table
+  if (commonInfo.length > 0) {
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7);
+    commonInfo.forEach(info => {
+      if (yPos > 270) { doc.addPage(); yPos = 20; }
+      doc.setFont('helvetica', 'bold');
+      doc.text(`${info.label}: `, 15, yPos);
+      const labelWidth = doc.getTextWidth(`${info.label}: `);
+      doc.setFont('helvetica', 'normal');
+      // Wrap long text
+      const maxWidth = 165;
+      const lines = doc.splitTextToSize(info.value, maxWidth);
+      lines.forEach((line, i) => {
+        doc.text(line, 15 + (i === 0 ? labelWidth : 0), yPos);
+        if (i < lines.length - 1) yPos += 3.5;
+      });
+      yPos += 4;
+    });
+    yPos += 1;
+  }
+
+  // Build table data - clean table without transit/frequency/routing/remarks columns
   const tableData = Object.values(carrierGroups).map(group => {
     const row = [
       group.carrier,
       group.currency,
       group.minimum
     ];
-    
-    // Add unit type values
-    unitTypeColumns.forEach(unitType => {
+
+    // Add only filled unit type values
+    displayUnitTypes.forEach(unitType => {
       row.push(group.unitTypes[unitType] || '');
     });
-    
-    // Add remaining columns
+
+    // Add surcharges only
     row.push(group.surcharge);
-    row.push(group.transitTime);
-    row.push(group.frequency);
-    row.push(group.routing);
-    row.push(group.remarks);
-    
+
     return row;
   });
-  
-  // Build headers
+
+  // Build headers - without T/T, FREQUENCY, ROUTING, REMARKS
   const headers = ['AIRLINE', 'CCY', 'M'];
-  headers.push(...unitTypeColumns);
-  headers.push('SURCHARGES', 'T/T', 'FREQUENCY', 'ROUTING', 'REMARKS');
-  
+  headers.push(...displayUnitTypes);
+  headers.push('SURCHARGES');
+
   // Calculate column widths dynamically based on number of unit types
-  const numUnitTypes = unitTypeColumns.length;
-  const unitTypeWidth = numUnitTypes > 6 ? 10 : 12;
-  
+  const numUnitTypes = displayUnitTypes.length;
+  const unitTypeWidth = numUnitTypes > 6 ? 12 : 15;
+
   const columnStyles = {
-    0: { cellWidth: 15 },  // AIRLINE
-    1: { cellWidth: 10 },  // CCY
-    2: { cellWidth: 10 }   // M
+    0: { cellWidth: 20 },  // AIRLINE
+    1: { cellWidth: 12 },  // CCY
+    2: { cellWidth: 12 }   // M
   };
-  
+
   // Unit type columns
   for (let i = 0; i < numUnitTypes; i++) {
     columnStyles[3 + i] = { cellWidth: unitTypeWidth };
   }
-  
-  // Remaining columns
-  columnStyles[3 + numUnitTypes] = { cellWidth: 16 };  // SURCHARGES
-  columnStyles[4 + numUnitTypes] = { cellWidth: 10 };  // T/T
-  columnStyles[5 + numUnitTypes] = { cellWidth: 13 };  // FREQUENCY
-  columnStyles[6 + numUnitTypes] = { cellWidth: 15 };  // ROUTING
-  columnStyles[7 + numUnitTypes] = { cellWidth: 28, overflow: 'linebreak' };  // REMARKS - much wider
-  
+
+  // Surcharges column
+  columnStyles[3 + numUnitTypes] = { cellWidth: 20 };  // SURCHARGES
+
   autoTable(doc, {
     startY: yPos,
     head: [headers],
@@ -149,7 +190,7 @@ function addAirFreightChargesTableTransit(doc, chargesData, yPos, segmentNum, ta
     columnStyles: columnStyles,
     margin: { left: 15, right: 15 }
   });
-  
+
   return doc.lastAutoTable.finalY + 8;
 }
 
@@ -174,11 +215,11 @@ function addFreightChargesTableTransit(doc, charges, yPos, isAir, segmentNum, ta
   // Handle carrier/unitType format (like Direct quotes)
   if (hasCarrierFormat) {
     const validCharges = charges.filter(c => c.carrier || c.unitType || c.amount);
-    
+
     if (validCharges.length === 0) {
       return yPos;
     }
-    
+
     if (yPos > 230) {
       doc.addPage();
       yPos = 20;
@@ -190,14 +231,94 @@ function addFreightChargesTableTransit(doc, charges, yPos, isAir, segmentNum, ta
     doc.text(title, 15, yPos);
     yPos += 3;
 
-    const tableData = validCharges.map(charge => {
+    // For air mode: show common info (carrier, transit, routing, remarks) as text above a simplified table
+    if (isAir) {
+      // Extract common info
+      const commonInfoAir = [];
+      const carriers = [...new Set(validCharges.map(c => c.carrier).filter(Boolean))];
+      if (carriers.length > 0) commonInfoAir.push({ label: 'Carrier', value: carriers.join(', ') });
+      const transits = [...new Set(validCharges.map(c => c.transitTime).filter(Boolean))];
+      if (transits.length > 0) commonInfoAir.push({ label: 'Transit Time', value: transits.join(', ') });
+      const routingsAir = [...new Set(validCharges.map(c => c.numberOfRouting).filter(Boolean))];
+      if (routingsAir.length > 0) commonInfoAir.push({ label: 'Routing', value: routingsAir.join(', ') });
+      const remarksAir = [...new Set(validCharges.map(c => c.remarks).filter(Boolean))];
+      if (remarksAir.length > 0) commonInfoAir.push({ label: 'Remarks', value: remarksAir.join(', ') });
+
+      // Show common info as text
+      if (commonInfoAir.length > 0) {
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(7);
+        commonInfoAir.forEach(info => {
+          if (yPos > 270) { doc.addPage(); yPos = 20; }
+          doc.setFont('helvetica', 'bold');
+          doc.text(`${info.label}: `, 15, yPos);
+          const labelW = doc.getTextWidth(`${info.label}: `);
+          doc.setFont('helvetica', 'normal');
+          const maxW = 165;
+          const lns = doc.splitTextToSize(info.value, maxW);
+          lns.forEach((ln, i) => {
+            doc.text(ln, 15 + (i === 0 ? labelW : 0), yPos);
+            if (i < lns.length - 1) yPos += 3.5;
+          });
+          yPos += 4;
+        });
+        yPos += 1;
+      }
+
+      // Filter out rows with zero or empty amounts - only show unit types with actual data
+      const filledCharges = validCharges.filter(charge => {
+        const amt = parseFloat(charge.amount);
+        return amt && amt > 0;
+      });
+      // Use filtered if any have data, otherwise fallback to all
+      const displayCharges = filledCharges.length > 0 ? filledCharges : validCharges;
+
+      // Simplified table: Unit Type, Amount only
+      const airTableData = displayCharges.map(charge => {
+        const currency = charge.currency || '';
+        const amount = charge.amount || '';
+        const formattedAmount = currency && amount ? `${currency} ${amount}` : amount;
+        return [
+          charge.unitType || '',
+          formattedAmount
+        ];
+      });
+
+      const airHeaders = ['Unit Type', 'Amount'];
+
+      autoTable(doc, {
+        startY: yPos,
+        head: [airHeaders],
+        body: airTableData,
+        theme: 'grid',
+        headStyles: { fillColor: [200, 200, 200], textColor: 0, fontSize: 7, fontStyle: 'bold' },
+        bodyStyles: { fontSize: 6.5, overflow: 'linebreak', cellPadding: 1.5 },
+        columnStyles: {
+          0: { cellWidth: 40 },  // Unit Type
+          1: { cellWidth: 40 }   // Amount (with currency)
+        },
+        margin: { left: 15, right: 15 }
+      });
+
+      return doc.lastAutoTable.finalY + 8;
+    }
+
+    // Filter out rows with zero or empty amounts - only show unit types with actual data
+    const filledChargesGeneral = validCharges.filter(charge => {
+      const amt = parseFloat(charge.amount);
+      return amt && amt > 0;
+    });
+    // Use filtered if any have data, otherwise fallback to all
+    const displayChargesGeneral = filledChargesGeneral.length > 0 ? filledChargesGeneral : validCharges;
+
+    const tableData = displayChargesGeneral.map(charge => {
       const units = charge.numberOfUnits || '';
       const total = calculateChargeTotal(charge);
       const currency = charge.currency || '';
       const amount = charge.amount || '';
       const formattedAmount = currency && amount ? `${currency} ${amount}` : amount;
       const formattedTotal = currency ? `${currency} ${Math.round(total)}` : Math.round(total).toString();
-      
+
       const row = [
         charge.carrier || '',
         charge.unitType || '',
@@ -206,14 +327,14 @@ function addFreightChargesTableTransit(doc, charges, yPos, isAir, segmentNum, ta
         charge.transitTime || '',
         charge.numberOfRouting || ''
       ];
-      
+
       row.push(formattedTotal);
       row.push(formatRemarksWithBreaks(charge.remarks || ''));
       return row;
     });
-    
+
     const headers = ['Carrier', 'Unit Type', 'Units', 'Amount', 'Transit', 'Routing', 'Total', 'Remarks'];
-    
+
     autoTable(doc, {
       startY: yPos,
       head: [headers],
@@ -233,7 +354,7 @@ function addFreightChargesTableTransit(doc, charges, yPos, isAir, segmentNum, ta
       },
       margin: { left: 15, right: 15 }
     });
-    
+
     return doc.lastAutoTable.finalY + 8;
   }
   

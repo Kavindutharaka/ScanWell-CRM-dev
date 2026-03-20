@@ -135,27 +135,29 @@ namespace back_end.Controllers
 
         // ====================================================================
         // 2. SALES ACTIVITY REPORT
-        // Filters: dateFrom, dateTo, salesPerson
+        // Filters: dateFrom, dateTo, salesPerson, activityType, status
         // ====================================================================
         [HttpGet, Route("sales-activity")]
         public ActionResult GetSalesActivityReport(
             [FromQuery] string? dateFrom,
             [FromQuery] string? dateTo,
-            [FromQuery] string? salesPerson)
+            [FromQuery] string? salesPerson,
+            [FromQuery] string? activityType,
+            [FromQuery] string? status)
         {
             var conditions = new List<string>();
             var parameters = new List<SqlParameter>();
 
             if (!string.IsNullOrEmpty(dateFrom))
             {
-                conditions.Add("CAST(a.start_time AS DATE) >= @DateFrom");
+                conditions.Add("CAST(a.end_time AS DATE) >= @DateFrom");
                 var pFrom = new SqlParameter("@DateFrom", System.Data.SqlDbType.Date);
                 pFrom.Value = DateTime.Parse(dateFrom);
                 parameters.Add(pFrom);
             }
             if (!string.IsNullOrEmpty(dateTo))
             {
-                conditions.Add("CAST(a.start_time AS DATE) <= @DateTo");
+                conditions.Add("CAST(a.end_time AS DATE) <= @DateTo");
                 var pTo = new SqlParameter("@DateTo", System.Data.SqlDbType.Date);
                 pTo.Value = DateTime.Parse(dateTo);
                 parameters.Add(pTo);
@@ -164,6 +166,44 @@ namespace back_end.Controllers
             {
                 conditions.Add("(ISNULL(e.fname, '') + ' ' + ISNULL(e.lname, '')) = @SalesPerson");
                 parameters.Add(new SqlParameter("@SalesPerson", salesPerson));
+            }
+            if (!string.IsNullOrEmpty(activityType) && activityType != "all")
+            {
+                var types = activityType.Split(',').Select(t => t.Trim()).Where(t => !string.IsNullOrEmpty(t)).ToList();
+                if (types.Count == 1)
+                {
+                    conditions.Add("a.activity_type = @ActivityType");
+                    parameters.Add(new SqlParameter("@ActivityType", types[0]));
+                }
+                else if (types.Count > 1)
+                {
+                    var typeParams = new List<string>();
+                    for (int i = 0; i < types.Count; i++)
+                    {
+                        typeParams.Add($"@ActivityType{i}");
+                        parameters.Add(new SqlParameter($"@ActivityType{i}", types[i]));
+                    }
+                    conditions.Add($"a.activity_type IN ({string.Join(",", typeParams)})");
+                }
+            }
+            if (!string.IsNullOrEmpty(status) && status != "all")
+            {
+                var statuses = status.Split(',').Select(s => s.Trim()).Where(s => !string.IsNullOrEmpty(s)).ToList();
+                if (statuses.Count == 1)
+                {
+                    conditions.Add("a.status = @Status");
+                    parameters.Add(new SqlParameter("@Status", statuses[0]));
+                }
+                else if (statuses.Count > 1)
+                {
+                    var statusParams = new List<string>();
+                    for (int i = 0; i < statuses.Count; i++)
+                    {
+                        statusParams.Add($"@Status{i}");
+                        parameters.Add(new SqlParameter($"@Status{i}", statuses[i]));
+                    }
+                    conditions.Add($"a.status IN ({string.Join(",", statusParams)})");
+                }
             }
 
             string whereClause = conditions.Count > 0 ? "WHERE " + string.Join(" AND ", conditions) : "";
@@ -178,13 +218,14 @@ namespace back_end.Controllers
                     a.end_time AS EndTime,
                     a.status AS Status,
                     a.related_account AS RelatedAccount,
+                    a.reschedule_date AS RescheduleDate,
                     (SELECT TOP 1 sl.note FROM [dbo].[status_logs] sl
                      WHERE sl.activity_id = a.id
                      ORDER BY sl.created_at DESC) AS LatestComment
                 FROM [dbo].[activity] a
                 LEFT JOIN [dbo].[emp_reg] e ON a.owner = e.SysID
                 {whereClause}
-                ORDER BY a.start_time DESC, a.id DESC;";
+                ORDER BY a.end_time DESC, a.id DESC;";
 
             DataTable tb = new DataTable();
             using (SqlConnection con = new SqlConnection(_dbConnectionString))
@@ -409,6 +450,159 @@ namespace back_end.Controllers
             }
             return Ok(tb);
         }
+
+        // ====================================================================
+        // 5. INVOICE LIST / PROFIT MARGIN REPORT (Sales Person Wise)
+        // Filters: dateFrom, dateTo, salesPerson
+        // ====================================================================
+        [HttpGet, Route("invoice-profit")]
+        public ActionResult GetInvoiceProfitReport(
+            [FromQuery] string? dateFrom,
+            [FromQuery] string? dateTo,
+            [FromQuery] string? salesPerson)
+        {
+            var conditions = new List<string>();
+            var parameters = new List<SqlParameter>();
+
+            // Always filter to won quotes only
+            conditions.Add("qo.outcome_status = 'won'");
+
+            if (!string.IsNullOrEmpty(dateFrom))
+            {
+                conditions.Add("CAST(ie.entry_date AS DATE) >= @DateFrom");
+                var pFrom = new SqlParameter("@DateFrom", System.Data.SqlDbType.Date);
+                pFrom.Value = DateTime.Parse(dateFrom);
+                parameters.Add(pFrom);
+            }
+            if (!string.IsNullOrEmpty(dateTo))
+            {
+                conditions.Add("CAST(ie.entry_date AS DATE) <= @DateTo");
+                var pTo = new SqlParameter("@DateTo", System.Data.SqlDbType.Date);
+                pTo.Value = DateTime.Parse(dateTo);
+                parameters.Add(pTo);
+            }
+            if (!string.IsNullOrEmpty(salesPerson) && salesPerson != "all")
+            {
+                conditions.Add("(ISNULL(e.fname, '') + ' ' + ISNULL(e.lname, '')) = @SalesPerson");
+                parameters.Add(new SqlParameter("@SalesPerson", salesPerson));
+            }
+
+            string whereClause = conditions.Count > 0 ? "WHERE " + string.Join(" AND ", conditions) : "";
+
+            string query = $@"
+                SELECT
+                    ie.id AS EntryId,
+                    ie.quote_id AS QuoteId,
+                    q.QuoteNumber,
+                    q.Customer,
+                    q.FreightCategory,
+                    q.FreightType,
+                    ISNULL(e.fname, '') + ' ' + ISNULL(e.lname, '') AS SalesPerson,
+                    e.department AS Department,
+                    ie.entry_date AS EntryDate,
+                    ie.invoice_number AS InvoiceNumber,
+                    ie.amount AS Amount,
+                    ie.cost_invoice AS CostInvoice,
+                    ie.invoice_margin AS InvoiceMargin,
+                    ISNULL(qo.invoice_completed, 0) AS InvoiceCompleted
+                FROM invoice_entries ie
+                INNER JOIN [dbo].[Quotes] q ON ie.quote_id = q.QuoteId
+                INNER JOIN quote_outcomes qo ON q.QuoteId = qo.quote_id
+                LEFT JOIN [dbo].[emp_reg] e ON q.CreatedBy = e.SysID
+                {whereClause}
+                ORDER BY ie.entry_date DESC, ie.id DESC;";
+
+            DataTable tb = new DataTable();
+            using (SqlConnection con = new SqlConnection(_dbConnectionString))
+            {
+                con.Open();
+                using (SqlCommand cmd = new SqlCommand(query, con))
+                {
+                    foreach (var p in parameters)
+                        cmd.Parameters.Add(p);
+                    using (SqlDataReader reader = cmd.ExecuteReader())
+                    {
+                        tb.Load(reader);
+                    }
+                }
+            }
+
+            return Ok(tb);
+        }
+
+        // ====================================================================
+        // 6. SALES TARGET LIST REPORT (Employee Wise)
+        // Filters: year, salesPerson, period (monthly/quarterly/annually)
+        // ====================================================================
+        [HttpGet, Route("sales-target")]
+        public ActionResult GetSalesTargetReport(
+            [FromQuery] int? year,
+            [FromQuery] string? salesPerson)
+        {
+            int targetYear = year ?? DateTime.Now.Year;
+
+            var conditions = new List<string>();
+            var parameters = new List<SqlParameter>();
+
+            conditions.Add("t.year = @Year");
+            parameters.Add(new SqlParameter("@Year", targetYear));
+
+            if (!string.IsNullOrEmpty(salesPerson) && salesPerson != "all")
+            {
+                conditions.Add("(ISNULL(e.fname, '') + ' ' + ISNULL(e.lname, '')) = @SalesPerson");
+                parameters.Add(new SqlParameter("@SalesPerson", salesPerson));
+            }
+
+            string whereClause = conditions.Count > 0 ? "WHERE " + string.Join(" AND ", conditions) : "";
+
+            string query = $@"
+                SELECT
+                    t.id,
+                    t.employee_id AS EmployeeId,
+                    ISNULL(e.fname, '') + ' ' + ISNULL(e.lname, '') AS EmployeeName,
+                    e.position AS Position,
+                    e.department AS Department,
+                    t.year AS Year,
+                    t.jan_target AS JanTarget,
+                    t.feb_target AS FebTarget,
+                    t.mar_target AS MarTarget,
+                    t.apr_target AS AprTarget,
+                    t.may_target AS MayTarget,
+                    t.jun_target AS JunTarget,
+                    t.jul_target AS JulTarget,
+                    t.aug_target AS AugTarget,
+                    t.sep_target AS SepTarget,
+                    t.oct_target AS OctTarget,
+                    t.nov_target AS NovTarget,
+                    t.dec_target AS DecTarget,
+                    t.annual_target AS AnnualTarget,
+                    t.updated_at AS UpdatedAt
+                FROM [dbo].[employee_sales_targets] t
+                LEFT JOIN [dbo].[emp_reg] e ON t.employee_id = CAST(e.SysID AS NVARCHAR(50))
+                {whereClause}
+                ORDER BY e.fname, e.lname;";
+
+            DataTable tb = new DataTable();
+            using (SqlConnection con = new SqlConnection(_dbConnectionString))
+            {
+                con.Open();
+                using (SqlCommand cmd = new SqlCommand(query, con))
+                {
+                    foreach (var p in parameters)
+                        cmd.Parameters.Add(p);
+                    using (SqlDataReader reader = cmd.ExecuteReader())
+                    {
+                        tb.Load(reader);
+                    }
+                }
+            }
+
+            return Ok(tb);
+        }
+
+        // ====================================================================
+        // HELPER: Get distinct values for filter dropdowns
+        // ====================================================================
 
         // Get distinct countries from quotes
         [HttpGet, Route("filter/countries")]

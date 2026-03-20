@@ -20,7 +20,6 @@ import {
   Phone,
   Handshake,
   Mail,
-  RotateCcw,
   Presentation
 } from "lucide-react";
 import ActivitiesDetails from "./ActivitiesDetails";
@@ -187,7 +186,7 @@ export default function ActivitiesSec({ modalOpen, onEdit, activities, setActivi
 
         {/* Stats Cards */}
         {typeCounts && (
-          <div className={`grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-4 mb-6 ${!loading ? 'animate-fadeInUp' : 'opacity-0'}`} style={{ animationDelay: '250ms', animationFillMode: 'both' }}>
+          <div className={`grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mb-6 ${!loading ? 'animate-fadeInUp' : 'opacity-0'}`} style={{ animationDelay: '250ms', animationFillMode: 'both' }}>
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
               <div className="flex items-center justify-between">
                 <div>
@@ -240,17 +239,6 @@ export default function ActivitiesSec({ modalOpen, onEdit, activities, setActivi
                 </div>
                 <div className="w-12 h-12 bg-purple-50 rounded-lg flex items-center justify-center">
                   <Mail className="text-purple-600" size={24} />
-                </div>
-              </div>
-            </div>
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600">Follow-up</p>
-                  <p className="text-2xl font-bold text-gray-800">{typeCounts.followUp || 0}</p>
-                </div>
-                <div className="w-12 h-12 bg-amber-50 rounded-lg flex items-center justify-center">
-                  <RotateCcw className="text-amber-600" size={24} />
                 </div>
               </div>
             </div>

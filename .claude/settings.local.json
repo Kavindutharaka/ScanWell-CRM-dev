@@ -25,7 +25,32 @@
       "Bash(Select-String -Pattern \"Compiled|Error|Failed|ready to be deployed\")",
       "Bash(tee:*)",
       "Bash(node -e:*)",
-      "Bash(Select-String \"error CS\")"
+      "Bash(Select-String \"error CS\")",
+      "Bash(npx vite build)",
+      "Bash(xargs grep -l \"salesplan\\\\|sales.plan\\\\|sales plan\" -i)",
+      "Bash(xargs grep -l \"invoice\" -i)",
+      "Bash(xargs grep -l \"invoice\")",
+      "Bash(npx --no vite build)",
+      "Bash(python -c \":*)",
+      "Bash(where python3:*)",
+      "Bash(where py:*)",
+      "Bash(ls /c/Python*/python.exe)",
+      "Read(//c/Users/Admin/AppData/Local/Programs/**)",
+      "Bash(npm install:*)",
+      "Bash(mkdir -p /tmp/pdf_images)",
+      "Bash(npm list:*)",
+      "Bash(where qpdf:*)",
+      "Bash(where pdfimages:*)",
+      "Bash(where pdftoppm:*)",
+      "Bash(where magick:*)",
+      "Bash(rm -f /tmp/pdf_img_*.jpg)",
+      "Bash(npm uninstall:*)",
+      "Read(//c/Users/Admin/AppData/Roaming/Claude/local-agent-mode-sessions/skills-plugin/62ea37ec-a3fd-435c-a07c-c9320d2706cc/91541bbc-cea2-4a47-a6bb-54bb44853153/skills/xlsx/**)",
+      "Bash(where python:*)",
+      "Bash(ls \"C:/Python\"*)",
+      "Bash(ls \"C:/Users/Admin/AppData/Local/Programs/Python\"*)",
+      "Bash(pip install:*)",
+      "Bash(py -c \":*)"
     ]
   }
 }

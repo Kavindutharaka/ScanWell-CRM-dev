@@ -6,7 +6,8 @@ import autoTable from 'jspdf-autotable';
 import {
   FileText, Download, Printer, Filter, Calendar, ChevronDown,
   Users, Building2, Plane, Ship, BarChart3, RefreshCw, X,
-  CheckCircle2, XCircle, Clock, TrendingUp, Briefcase, FileSpreadsheet
+  CheckCircle2, XCircle, Clock, TrendingUp, Briefcase, FileSpreadsheet,
+  DollarSign, Target
 } from "lucide-react";
 
 export default function ReportsSec() {
@@ -36,11 +37,23 @@ export default function ReportsSec() {
   const [saDateFrom, setSaDateFrom] = useState("");
   const [saDateTo, setSaDateTo] = useState("");
   const [saSalesPerson, setSaSalesPerson] = useState("all");
+  const [saActivityTypes, setSaActivityTypes] = useState([]);
+  const [saStatuses, setSaStatuses] = useState([]);
 
   // Customer List filters
   const [clSalesPerson, setClSalesPerson] = useState("all");
   const [clCountry, setClCountry] = useState("all");
   const [clAccountType, setClAccountType] = useState("all");
+
+  // Invoice Profit filters
+  const [ipDateFrom, setIpDateFrom] = useState("");
+  const [ipDateTo, setIpDateTo] = useState("");
+  const [ipSalesPerson, setIpSalesPerson] = useState("all");
+
+  // Sales Target filters
+  const [stYear, setStYear] = useState(new Date().getFullYear());
+  const [stSalesPerson, setStSalesPerson] = useState("all");
+  const [stPeriod, setStPeriod] = useState("monthly"); // monthly, quarterly, annually
 
   // Freight mode options
   const freightModeOptions = [
@@ -51,6 +64,25 @@ export default function ReportsSec() {
     { value: "sea-fcl", label: "Sea FCL" },
     { value: "sea-lcl", label: "Sea LCL" },
     { value: "multimodal-mixed", label: "Multimodal" },
+  ];
+
+  // Activity type options
+  const activityTypeOptions = [
+    { value: "site_visit", label: "Site Visit" },
+    { value: "call", label: "Phone Call" },
+    { value: "meeting", label: "Meeting" },
+    { value: "email", label: "Email" },
+    { value: "presentation", label: "Presentation" },
+  ];
+
+  // Activity status options
+  const activityStatusOptions = [
+    { value: "planned", label: "Planned" },
+    { value: "scheduled", label: "Scheduled" },
+    { value: "in_progress", label: "In Progress" },
+    { value: "completed", label: "Completed" },
+    { value: "cancelled", label: "Cancelled" },
+    { value: "reschedule", label: "Reschedule" },
   ];
 
   // Load filter data on mount
@@ -93,6 +125,18 @@ export default function ReportsSec() {
     );
   };
 
+  const toggleActivityType = (type) => {
+    setSaActivityTypes(prev =>
+      prev.includes(type) ? prev.filter(t => t !== type) : [...prev, type]
+    );
+  };
+
+  const toggleActivityStatus = (status) => {
+    setSaStatuses(prev =>
+      prev.includes(status) ? prev.filter(s => s !== status) : [...prev, status]
+    );
+  };
+
   // ====== GENERATE REPORT ======
   const generateReport = async () => {
     setLoading(true);
@@ -117,6 +161,8 @@ export default function ReportsSec() {
           if (saDateFrom) params.append("dateFrom", saDateFrom);
           if (saDateTo) params.append("dateTo", saDateTo);
           if (saSalesPerson !== "all") params.append("salesPerson", saSalesPerson);
+          if (saActivityTypes.length > 0) params.append("activityType", saActivityTypes.join(","));
+          if (saStatuses.length > 0) params.append("status", saStatuses.join(","));
           break;
         case "user-list":
           url = `${BASE_URL}/report/user-list`;
@@ -126,6 +172,17 @@ export default function ReportsSec() {
           if (clSalesPerson !== "all") params.append("salesPerson", clSalesPerson);
           if (clCountry !== "all") params.append("country", clCountry);
           if (clAccountType !== "all") params.append("accountType", clAccountType);
+          break;
+        case "invoice-profit":
+          url = `${BASE_URL}/report/invoice-profit`;
+          if (ipDateFrom) params.append("dateFrom", ipDateFrom);
+          if (ipDateTo) params.append("dateTo", ipDateTo);
+          if (ipSalesPerson !== "all") params.append("salesPerson", ipSalesPerson);
+          break;
+        case "sales-target":
+          url = `${BASE_URL}/report/sales-target`;
+          params.append("year", stYear);
+          if (stSalesPerson !== "all") params.append("salesPerson", stSalesPerson);
           break;
       }
 
@@ -228,6 +285,7 @@ export default function ReportsSec() {
             'Sales Person': row.SalesPerson || row.salesPerson || row.owner_name || '—',
             'Start': formatDateTimeForExport(row.StartTime || row.startTime || row.start_time),
             'End': formatDateTimeForExport(row.EndTime || row.endTime || row.end_time),
+            'Reschedule Date': formatDateTimeForExport(row.RescheduleDate || row.rescheduleDate || row.reschedule_date),
             'Status': (row.Status || row.status || '—').toUpperCase(),
             'Account': row.RelatedAccount || row.relatedAccount || row.related_account || '—',
             'Comment': row.LatestComment || row.latestComment || '—'
@@ -254,6 +312,75 @@ export default function ReportsSec() {
             'Email': row.PrimaryEmail || row.primaryEmail || '—',
             'Phone': row.Phone || row.phone || row.tp || '—'
           };
+        case "invoice-profit":
+          return {
+            '#': i + 1,
+            'Invoice No': row.InvoiceNumber || row.invoiceNumber || '—',
+            'Date': formatDateForExport(row.EntryDate || row.entryDate),
+            'Quote No': row.QuoteNumber || row.quoteNumber || '—',
+            'Customer': row.Customer || row.customer || '—',
+            'Sales Person': row.SalesPerson || row.salesPerson || '—',
+            'Department': row.Department || row.department || '—',
+            'Amount': row.Amount != null ? Number(row.Amount || row.amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2 }) : '—',
+            'Cost Invoice': row.CostInvoice != null ? Number(row.CostInvoice || row.costInvoice || 0).toLocaleString('en-US', { minimumFractionDigits: 2 }) : '—',
+            'Margin': row.InvoiceMargin != null ? Number(row.InvoiceMargin || row.invoiceMargin || 0).toLocaleString('en-US', { minimumFractionDigits: 2 }) : '—',
+            'Margin %': row.Amount && row.InvoiceMargin != null ? ((Number(row.InvoiceMargin) / Number(row.Amount)) * 100).toFixed(1) + '%' : '—'
+          };
+        case "sales-target": {
+          if (stPeriod === "annually") {
+            return {
+              '#': i + 1,
+              'Employee': row.EmployeeName || row.employeeName || '—',
+              'Position': row.Position || row.position || '—',
+              'Department': row.Department || row.department || '—',
+              'Annual Target': Number(row.AnnualTarget || row.annualTarget || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })
+            };
+          } else if (stPeriod === "quarterly") {
+            const jan = Number(row.JanTarget || row.janTarget || 0);
+            const feb = Number(row.FebTarget || row.febTarget || 0);
+            const mar = Number(row.MarTarget || row.marTarget || 0);
+            const apr = Number(row.AprTarget || row.aprTarget || 0);
+            const may = Number(row.MayTarget || row.mayTarget || 0);
+            const jun = Number(row.JunTarget || row.junTarget || 0);
+            const jul = Number(row.JulTarget || row.julTarget || 0);
+            const aug = Number(row.AugTarget || row.augTarget || 0);
+            const sep = Number(row.SepTarget || row.sepTarget || 0);
+            const oct = Number(row.OctTarget || row.octTarget || 0);
+            const nov = Number(row.NovTarget || row.novTarget || 0);
+            const dec = Number(row.DecTarget || row.decTarget || 0);
+            return {
+              '#': i + 1,
+              'Employee': row.EmployeeName || row.employeeName || '—',
+              'Position': row.Position || row.position || '—',
+              'Department': row.Department || row.department || '—',
+              'Q1 (Jan-Mar)': (jan + feb + mar).toLocaleString('en-US', { minimumFractionDigits: 2 }),
+              'Q2 (Apr-Jun)': (apr + may + jun).toLocaleString('en-US', { minimumFractionDigits: 2 }),
+              'Q3 (Jul-Sep)': (jul + aug + sep).toLocaleString('en-US', { minimumFractionDigits: 2 }),
+              'Q4 (Oct-Dec)': (oct + nov + dec).toLocaleString('en-US', { minimumFractionDigits: 2 }),
+              'Annual Target': Number(row.AnnualTarget || row.annualTarget || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })
+            };
+          } else {
+            return {
+              '#': i + 1,
+              'Employee': row.EmployeeName || row.employeeName || '—',
+              'Position': row.Position || row.position || '—',
+              'Department': row.Department || row.department || '—',
+              'Jan': Number(row.JanTarget || row.janTarget || 0).toLocaleString('en-US', { minimumFractionDigits: 2 }),
+              'Feb': Number(row.FebTarget || row.febTarget || 0).toLocaleString('en-US', { minimumFractionDigits: 2 }),
+              'Mar': Number(row.MarTarget || row.marTarget || 0).toLocaleString('en-US', { minimumFractionDigits: 2 }),
+              'Apr': Number(row.AprTarget || row.aprTarget || 0).toLocaleString('en-US', { minimumFractionDigits: 2 }),
+              'May': Number(row.MayTarget || row.mayTarget || 0).toLocaleString('en-US', { minimumFractionDigits: 2 }),
+              'Jun': Number(row.JunTarget || row.junTarget || 0).toLocaleString('en-US', { minimumFractionDigits: 2 }),
+              'Jul': Number(row.JulTarget || row.julTarget || 0).toLocaleString('en-US', { minimumFractionDigits: 2 }),
+              'Aug': Number(row.AugTarget || row.augTarget || 0).toLocaleString('en-US', { minimumFractionDigits: 2 }),
+              'Sep': Number(row.SepTarget || row.sepTarget || 0).toLocaleString('en-US', { minimumFractionDigits: 2 }),
+              'Oct': Number(row.OctTarget || row.octTarget || 0).toLocaleString('en-US', { minimumFractionDigits: 2 }),
+              'Nov': Number(row.NovTarget || row.novTarget || 0).toLocaleString('en-US', { minimumFractionDigits: 2 }),
+              'Dec': Number(row.DecTarget || row.decTarget || 0).toLocaleString('en-US', { minimumFractionDigits: 2 }),
+              'Annual': Number(row.AnnualTarget || row.annualTarget || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })
+            };
+          }
+        }
         default:
           return row;
       }
@@ -314,6 +441,8 @@ export default function ReportsSec() {
     "sales-activity": "Sales Activity Report",
     "user-list": "User List Report",
     "customer-list": "Customer List Report",
+    "invoice-profit": "Invoice List / Profit Margin Report",
+    "sales-target": "Sales Target Report",
   };
 
   const formatDate = (d) => {
@@ -361,13 +490,24 @@ export default function ReportsSec() {
       }
       case "sales-activity": {
         const total = reportData.length;
-        const scheduled = reportData.filter(r => (r.Status || r.status || "").toLowerCase() === "scheduled").length;
-        const completed = reportData.filter(r => (r.Status || r.status || "").toLowerCase() === "completed").length;
+        const statusCounts = {};
+        reportData.forEach(r => {
+          const s = (r.Status || r.status || "unknown").toLowerCase();
+          statusCounts[s] = (statusCounts[s] || 0) + 1;
+        });
+        const statusColors = {
+          planned: "#64748b", scheduled: "#2563eb", in_progress: "#3b82f6",
+          completed: "#16a34a", cancelled: "#dc2626", reschedule: "#d97706"
+        };
         return (
           <div className="summary">
             <div className="summary-item"><strong>{total}</strong>Total Activities</div>
-            <div className="summary-item"><strong style={{ color: "#2563eb" }}>{scheduled}</strong>Scheduled</div>
-            <div className="summary-item"><strong style={{ color: "#16a34a" }}>{completed}</strong>Completed</div>
+            {Object.entries(statusCounts).map(([s, count]) => (
+              <div key={s} className="summary-item">
+                <strong style={{ color: statusColors[s] || "#64748b" }}>{count}</strong>
+                {s === "in_progress" ? "In Progress" : s.charAt(0).toUpperCase() + s.slice(1)}
+              </div>
+            ))}
           </div>
         );
       }
@@ -383,6 +523,30 @@ export default function ReportsSec() {
             <div className="summary-item"><strong>{reportData.length}</strong>Total Customers</div>
           </div>
         );
+      case "invoice-profit": {
+        const totalAmt = reportData.reduce((sum, r) => sum + Number(r.Amount || r.amount || 0), 0);
+        const totalCost = reportData.reduce((sum, r) => sum + Number(r.CostInvoice || r.costInvoice || 0), 0);
+        const totalMargin = reportData.reduce((sum, r) => sum + Number(r.InvoiceMargin || r.invoiceMargin || 0), 0);
+        const marginPct = totalAmt > 0 ? ((totalMargin / totalAmt) * 100).toFixed(1) : "0.0";
+        return (
+          <div className="summary">
+            <div className="summary-item"><strong>{reportData.length}</strong>Total Invoices</div>
+            <div className="summary-item"><strong style={{ color: "#2563eb" }}>{totalAmt.toLocaleString('en-US', { minimumFractionDigits: 2 })}</strong>Total Amount</div>
+            <div className="summary-item"><strong style={{ color: "#dc2626" }}>{totalCost.toLocaleString('en-US', { minimumFractionDigits: 2 })}</strong>Total Cost</div>
+            <div className="summary-item"><strong style={{ color: "#16a34a" }}>{totalMargin.toLocaleString('en-US', { minimumFractionDigits: 2 })}</strong>Total Margin</div>
+            <div className="summary-item"><strong style={{ color: "#7c3aed" }}>{marginPct}%</strong>Margin %</div>
+          </div>
+        );
+      }
+      case "sales-target": {
+        const totalAnnual = reportData.reduce((sum, r) => sum + Number(r.AnnualTarget || r.annualTarget || 0), 0);
+        return (
+          <div className="summary">
+            <div className="summary-item"><strong>{reportData.length}</strong>Employees</div>
+            <div className="summary-item"><strong style={{ color: "#059669" }}>{totalAnnual.toLocaleString('en-US', { minimumFractionDigits: 2 })}</strong>Total Annual Target</div>
+          </div>
+        );
+      }
       default:
         return null;
     }
@@ -401,13 +565,24 @@ export default function ReportsSec() {
         if (qDepartment !== "all") parts.push(`Department: ${qDepartment}`);
         break;
       case "sales-activity":
-        if (saDateFrom || saDateTo) parts.push(`Date: ${saDateFrom || "start"} to ${saDateTo || "now"}`);
+        if (saDateFrom || saDateTo) parts.push(`End Date: ${saDateFrom || "start"} to ${saDateTo || "now"}`);
         if (saSalesPerson !== "all") parts.push(`Sales Person: ${saSalesPerson}`);
+        if (saActivityTypes.length > 0) parts.push(`Type: ${saActivityTypes.map(t => activityTypeOptions.find(o => o.value === t)?.label || t).join(", ")}`);
+        if (saStatuses.length > 0) parts.push(`Status: ${saStatuses.map(s => activityStatusOptions.find(o => o.value === s)?.label || s).join(", ")}`);
         break;
       case "customer-list":
         if (clSalesPerson !== "all") parts.push(`Sales Person: ${clSalesPerson}`);
         if (clCountry !== "all") parts.push(`Country: ${clCountry}`);
         if (clAccountType !== "all") parts.push(`Type: ${clAccountType.charAt(0).toUpperCase() + clAccountType.slice(1)}`);
+        break;
+      case "invoice-profit":
+        if (ipDateFrom || ipDateTo) parts.push(`Date: ${ipDateFrom || "start"} to ${ipDateTo || "now"}`);
+        if (ipSalesPerson !== "all") parts.push(`Sales Person: ${ipSalesPerson}`);
+        break;
+      case "sales-target":
+        parts.push(`Year: ${stYear}`);
+        if (stSalesPerson !== "all") parts.push(`Sales Person: ${stSalesPerson}`);
+        parts.push(`View: ${stPeriod.charAt(0).toUpperCase() + stPeriod.slice(1)}`);
         break;
     }
     return parts.length > 0 ? parts.join(" | ") : "All records (no filters applied)";
@@ -431,6 +606,8 @@ export default function ReportsSec() {
           {[
             { key: "quotation", label: "Quotation Report", icon: FileText, color: "violet" },
             { key: "sales-activity", label: "Sales Activity", icon: TrendingUp, color: "blue" },
+            { key: "invoice-profit", label: "Invoice / Profit", icon: DollarSign, color: "green" },
+            { key: "sales-target", label: "Sales Target", icon: Target, color: "rose" },
             { key: "user-list", label: "User List", icon: Users, color: "emerald" },
             { key: "customer-list", label: "Customer List", icon: Building2, color: "amber" },
           ].map(({ key, label, icon: Icon, color }) => (
@@ -443,7 +620,7 @@ export default function ReportsSec() {
                   : "bg-white text-slate-600 hover:bg-slate-50 border border-slate-200"
               }`}
               style={activeReport === key ? {
-                backgroundColor: color === "violet" ? "#7c3aed" : color === "blue" ? "#2563eb" : color === "emerald" ? "#059669" : "#d97706"
+                backgroundColor: color === "violet" ? "#7c3aed" : color === "blue" ? "#2563eb" : color === "emerald" ? "#059669" : color === "amber" ? "#d97706" : color === "green" ? "#16a34a" : color === "rose" ? "#e11d48" : "#7c3aed"
               } : {}}
             >
               <Icon className="w-4 h-4" /> {label}
@@ -542,27 +719,71 @@ export default function ReportsSec() {
 
           {/* Sales Activity Filters */}
           {activeReport === "sales-activity" && (
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div>
-                <label className="block text-xs font-medium text-slate-600 mb-1">Date From</label>
-                <div className="relative">
-                  <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                  <input type="date" value={saDateFrom} onChange={e => setSaDateFrom(e.target.value)} className="w-full pl-10 pr-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 mb-1">End Date From</label>
+                  <div className="relative">
+                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <input type="date" value={saDateFrom} onChange={e => setSaDateFrom(e.target.value)} className="w-full pl-10 pr-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 mb-1">End Date To</label>
+                  <div className="relative">
+                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <input type="date" value={saDateTo} onChange={e => setSaDateTo(e.target.value)} className="w-full pl-10 pr-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 mb-1">Sales Person</label>
+                  <select value={saSalesPerson} onChange={e => setSaSalesPerson(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+                    <option value="all">All</option>
+                    {salespersons.map(sp => <option key={sp} value={sp}>{sp}</option>)}
+                  </select>
                 </div>
               </div>
+
+              {/* Activity Type - Multi-select */}
               <div>
-                <label className="block text-xs font-medium text-slate-600 mb-1">Date To</label>
-                <div className="relative">
-                  <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                  <input type="date" value={saDateTo} onChange={e => setSaDateTo(e.target.value)} className="w-full pl-10 pr-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                <label className="block text-xs font-medium text-slate-600 mb-2">Activity Type (multiple selection)</label>
+                <div className="flex flex-wrap gap-2">
+                  {activityTypeOptions.map(opt => (
+                    <button
+                      key={opt.value}
+                      onClick={() => toggleActivityType(opt.value)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${
+                        saActivityTypes.includes(opt.value)
+                          ? "bg-blue-100 text-blue-700 border-blue-300"
+                          : "bg-white text-slate-500 border-slate-200 hover:bg-slate-50"
+                      }`}
+                    >
+                      {saActivityTypes.includes(opt.value) && <CheckCircle2 className="w-3 h-3 inline mr-1" />}
+                      {opt.label}
+                    </button>
+                  ))}
                 </div>
               </div>
+
+              {/* Activity Status - Multi-select */}
               <div>
-                <label className="block text-xs font-medium text-slate-600 mb-1">Sales Person</label>
-                <select value={saSalesPerson} onChange={e => setSaSalesPerson(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
-                  <option value="all">All</option>
-                  {salespersons.map(sp => <option key={sp} value={sp}>{sp}</option>)}
-                </select>
+                <label className="block text-xs font-medium text-slate-600 mb-2">Status (multiple selection)</label>
+                <div className="flex flex-wrap gap-2">
+                  {activityStatusOptions.map(opt => (
+                    <button
+                      key={opt.value}
+                      onClick={() => toggleActivityStatus(opt.value)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${
+                        saStatuses.includes(opt.value)
+                          ? "bg-blue-100 text-blue-700 border-blue-300"
+                          : "bg-white text-slate-500 border-slate-200 hover:bg-slate-50"
+                      }`}
+                    >
+                      {saStatuses.includes(opt.value) && <CheckCircle2 className="w-3 h-3 inline mr-1" />}
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
           )}
@@ -595,6 +816,79 @@ export default function ReportsSec() {
                   <option value="all">All</option>
                   {accountTypes.map(t => <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>)}
                 </select>
+              </div>
+            </div>
+          )}
+
+          {/* Invoice Profit Filters */}
+          {activeReport === "invoice-profit" && (
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1">Date From</label>
+                <div className="relative">
+                  <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <input type="date" value={ipDateFrom} onChange={e => setIpDateFrom(e.target.value)} className="w-full pl-10 pr-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500" />
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1">Date To</label>
+                <div className="relative">
+                  <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <input type="date" value={ipDateTo} onChange={e => setIpDateTo(e.target.value)} className="w-full pl-10 pr-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500" />
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1">Sales Person</label>
+                <select value={ipSalesPerson} onChange={e => setIpSalesPerson(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 bg-white">
+                  <option value="all">All</option>
+                  {salespersons.map(sp => <option key={sp} value={sp}>{sp}</option>)}
+                </select>
+              </div>
+            </div>
+          )}
+
+          {/* Sales Target Filters */}
+          {activeReport === "sales-target" && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 mb-1">Year</label>
+                  <select value={stYear} onChange={e => setStYear(Number(e.target.value))} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-rose-500 bg-white">
+                    {Array.from({ length: 10 }, (_, i) => new Date().getFullYear() - 3 + i).map(y => (
+                      <option key={y} value={y}>{y}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 mb-1">Employee</label>
+                  <select value={stSalesPerson} onChange={e => setStSalesPerson(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-rose-500 bg-white">
+                    <option value="all">All Employees</option>
+                    {salespersons.map(sp => <option key={sp} value={sp}>{sp}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 mb-1">View Period</label>
+                  <div className="flex gap-2">
+                    {[
+                      { value: "monthly", label: "Monthly" },
+                      { value: "quarterly", label: "Quarterly" },
+                      { value: "annually", label: "Annually" },
+                    ].map(opt => (
+                      <button
+                        key={opt.value}
+                        onClick={() => setStPeriod(opt.value)}
+                        className={`flex-1 px-3 py-2 rounded-lg text-xs font-medium transition-all border ${
+                          stPeriod === opt.value
+                            ? "bg-rose-100 text-rose-700 border-rose-300"
+                            : "bg-white text-slate-500 border-slate-200 hover:bg-slate-50"
+                        }`}
+                      >
+                        {stPeriod === opt.value && <CheckCircle2 className="w-3 h-3 inline mr-1" />}
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
             </div>
           )}
@@ -713,6 +1007,7 @@ export default function ReportsSec() {
                           <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-600">Sales Person</th>
                           <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-600">Start</th>
                           <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-600">End</th>
+                          <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-600">Reschedule Date</th>
                           <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-600">Status</th>
                           <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-600">Account</th>
                           <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-600">Comment</th>
@@ -721,6 +1016,7 @@ export default function ReportsSec() {
                       <tbody className="divide-y divide-slate-100">
                         {reportData.map((row, i) => {
                           const status = (row.Status || row.status || "").toLowerCase();
+                          const rescheduleDate = row.RescheduleDate || row.rescheduleDate || row.reschedule_date;
                           return (
                             <tr key={i} className="hover:bg-slate-50">
                               <td className="px-3 py-2 text-slate-400 text-xs">{i + 1}</td>
@@ -729,8 +1025,22 @@ export default function ReportsSec() {
                               <td className="px-3 py-2 text-slate-700">{row.SalesPerson || row.salesPerson || row.owner_name || "—"}</td>
                               <td className="px-3 py-2 text-slate-600 whitespace-nowrap text-xs">{formatDateTime(row.StartTime || row.startTime || row.start_time)}</td>
                               <td className="px-3 py-2 text-slate-600 whitespace-nowrap text-xs">{formatDateTime(row.EndTime || row.endTime || row.end_time)}</td>
+                              <td className="px-3 py-2 whitespace-nowrap text-xs">
+                                {rescheduleDate ? (
+                                  <span className="text-amber-600 font-medium">{formatDateTime(rescheduleDate)}</span>
+                                ) : (
+                                  <span className="text-slate-400">—</span>
+                                )}
+                              </td>
                               <td className="px-3 py-2">
-                                <span className={`badge ${status === "completed" ? "badge-completed" : status === "scheduled" ? "badge-scheduled" : "bg-slate-100 text-slate-600"}`}>
+                                <span className={`badge ${
+                                  status === "completed" ? "badge-completed" :
+                                  status === "scheduled" || status === "planned" ? "badge-scheduled" :
+                                  status === "cancelled" ? "badge-lost" :
+                                  status === "reschedule" ? "bg-amber-100 text-amber-700" :
+                                  status === "in_progress" ? "bg-blue-100 text-blue-700" :
+                                  "bg-slate-100 text-slate-600"
+                                }`}>
                                   {(row.Status || row.status || "—").toUpperCase()}
                                 </span>
                               </td>
@@ -804,6 +1114,227 @@ export default function ReportsSec() {
                           </tr>
                         ))}
                       </tbody>
+                    </table>
+                  )}
+
+                  {/* INVOICE PROFIT REPORT TABLE */}
+                  {activeReport === "invoice-profit" && (
+                    <table className="w-full text-sm">
+                      <thead className="bg-slate-50 border-b border-slate-200">
+                        <tr>
+                          <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-600">#</th>
+                          <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-600">Invoice No</th>
+                          <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-600">Date</th>
+                          <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-600">Quote No</th>
+                          <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-600">Customer</th>
+                          <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-600">Sales Person</th>
+                          <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-600">Department</th>
+                          <th className="px-3 py-2.5 text-right text-xs font-semibold text-slate-600">Amount</th>
+                          <th className="px-3 py-2.5 text-right text-xs font-semibold text-slate-600">Cost Invoice</th>
+                          <th className="px-3 py-2.5 text-right text-xs font-semibold text-slate-600">Margin</th>
+                          <th className="px-3 py-2.5 text-right text-xs font-semibold text-slate-600">Margin %</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {reportData.map((row, i) => {
+                          const amount = Number(row.Amount || row.amount || 0);
+                          const cost = Number(row.CostInvoice || row.costInvoice || 0);
+                          const margin = Number(row.InvoiceMargin || row.invoiceMargin || 0);
+                          const marginPct = amount > 0 ? ((margin / amount) * 100).toFixed(1) : "0.0";
+                          return (
+                            <tr key={i} className="hover:bg-slate-50">
+                              <td className="px-3 py-2 text-slate-400 text-xs">{i + 1}</td>
+                              <td className="px-3 py-2 font-medium text-slate-800">{row.InvoiceNumber || row.invoiceNumber || "—"}</td>
+                              <td className="px-3 py-2 text-slate-600 whitespace-nowrap text-xs">{formatDate(row.EntryDate || row.entryDate)}</td>
+                              <td className="px-3 py-2 text-slate-700">{row.QuoteNumber || row.quoteNumber || "—"}</td>
+                              <td className="px-3 py-2 text-slate-700">{row.Customer || row.customer || "—"}</td>
+                              <td className="px-3 py-2 text-slate-700">{row.SalesPerson || row.salesPerson || "—"}</td>
+                              <td className="px-3 py-2 text-slate-600 text-xs">{row.Department || row.department || "—"}</td>
+                              <td className="px-3 py-2 text-right font-medium text-blue-700">{amount.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+                              <td className="px-3 py-2 text-right text-red-600">{row.CostInvoice != null ? cost.toLocaleString('en-US', { minimumFractionDigits: 2 }) : "—"}</td>
+                              <td className={`px-3 py-2 text-right font-medium ${margin >= 0 ? "text-green-600" : "text-red-600"}`}>{row.InvoiceMargin != null ? margin.toLocaleString('en-US', { minimumFractionDigits: 2 }) : "—"}</td>
+                              <td className={`px-3 py-2 text-right text-xs font-medium ${Number(marginPct) >= 0 ? "text-green-600" : "text-red-600"}`}>
+                                {row.InvoiceMargin != null ? `${marginPct}%` : "—"}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                      {/* Totals Footer */}
+                      <tfoot className="bg-slate-100 border-t-2 border-slate-300">
+                        <tr>
+                          <td colSpan={7} className="px-3 py-2.5 text-right text-xs font-bold text-slate-700 uppercase">Totals</td>
+                          <td className="px-3 py-2.5 text-right font-bold text-blue-700">
+                            {reportData.reduce((sum, r) => sum + Number(r.Amount || r.amount || 0), 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                          </td>
+                          <td className="px-3 py-2.5 text-right font-bold text-red-600">
+                            {reportData.reduce((sum, r) => sum + Number(r.CostInvoice || r.costInvoice || 0), 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                          </td>
+                          <td className="px-3 py-2.5 text-right font-bold text-green-600">
+                            {reportData.reduce((sum, r) => sum + Number(r.InvoiceMargin || r.invoiceMargin || 0), 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                          </td>
+                          <td className="px-3 py-2.5 text-right text-xs font-bold text-violet-600">
+                            {(() => {
+                              const tAmt = reportData.reduce((sum, r) => sum + Number(r.Amount || r.amount || 0), 0);
+                              const tMar = reportData.reduce((sum, r) => sum + Number(r.InvoiceMargin || r.invoiceMargin || 0), 0);
+                              return tAmt > 0 ? `${((tMar / tAmt) * 100).toFixed(1)}%` : "0.0%";
+                            })()}
+                          </td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  )}
+
+                  {/* SALES TARGET REPORT TABLE */}
+                  {activeReport === "sales-target" && stPeriod === "monthly" && (
+                    <table className="w-full text-sm">
+                      <thead className="bg-slate-50 border-b border-slate-200">
+                        <tr>
+                          <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-600">#</th>
+                          <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-600">Employee</th>
+                          <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-600">Position</th>
+                          <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-600">Department</th>
+                          {["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"].map(m => (
+                            <th key={m} className="px-2 py-2.5 text-right text-xs font-semibold text-slate-600">{m}</th>
+                          ))}
+                          <th className="px-3 py-2.5 text-right text-xs font-semibold text-rose-700 bg-rose-50">Annual</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {reportData.map((row, i) => {
+                          const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+                          const keys = ["JanTarget","FebTarget","MarTarget","AprTarget","MayTarget","JunTarget","JulTarget","AugTarget","SepTarget","OctTarget","NovTarget","DecTarget"];
+                          return (
+                            <tr key={i} className="hover:bg-slate-50">
+                              <td className="px-3 py-2 text-slate-400 text-xs">{i + 1}</td>
+                              <td className="px-3 py-2 font-medium text-slate-800 whitespace-nowrap">{row.EmployeeName || row.employeeName || "—"}</td>
+                              <td className="px-3 py-2 text-slate-600 text-xs">{row.Position || row.position || "—"}</td>
+                              <td className="px-3 py-2 text-slate-600 text-xs">{row.Department || row.department || "—"}</td>
+                              {keys.map((k, idx) => {
+                                const val = Number(row[k] || row[k.charAt(0).toLowerCase() + k.slice(1)] || 0);
+                                return (
+                                  <td key={months[idx]} className={`px-2 py-2 text-right text-xs ${val > 0 ? "text-slate-700" : "text-slate-300"}`}>
+                                    {val > 0 ? val.toLocaleString('en-US', { minimumFractionDigits: 2 }) : "—"}
+                                  </td>
+                                );
+                              })}
+                              <td className="px-3 py-2 text-right font-bold text-rose-700 bg-rose-50 text-xs">
+                                {Number(row.AnnualTarget || row.annualTarget || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                      <tfoot className="bg-slate-100 border-t-2 border-slate-300">
+                        <tr>
+                          <td colSpan={4} className="px-3 py-2.5 text-right text-xs font-bold text-slate-700 uppercase">Totals</td>
+                          {["JanTarget","FebTarget","MarTarget","AprTarget","MayTarget","JunTarget","JulTarget","AugTarget","SepTarget","OctTarget","NovTarget","DecTarget"].map(k => (
+                            <td key={k} className="px-2 py-2.5 text-right text-xs font-bold text-slate-700">
+                              {reportData.reduce((sum, r) => sum + Number(r[k] || r[k.charAt(0).toLowerCase() + k.slice(1)] || 0), 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                            </td>
+                          ))}
+                          <td className="px-3 py-2.5 text-right font-bold text-rose-700 bg-rose-50 text-xs">
+                            {reportData.reduce((sum, r) => sum + Number(r.AnnualTarget || r.annualTarget || 0), 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                          </td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  )}
+
+                  {/* SALES TARGET - QUARTERLY VIEW */}
+                  {activeReport === "sales-target" && stPeriod === "quarterly" && (
+                    <table className="w-full text-sm">
+                      <thead className="bg-slate-50 border-b border-slate-200">
+                        <tr>
+                          <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-600">#</th>
+                          <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-600">Employee</th>
+                          <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-600">Position</th>
+                          <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-600">Department</th>
+                          <th className="px-3 py-2.5 text-right text-xs font-semibold text-blue-600 bg-blue-50">Q1 (Jan-Mar)</th>
+                          <th className="px-3 py-2.5 text-right text-xs font-semibold text-emerald-600 bg-emerald-50">Q2 (Apr-Jun)</th>
+                          <th className="px-3 py-2.5 text-right text-xs font-semibold text-amber-600 bg-amber-50">Q3 (Jul-Sep)</th>
+                          <th className="px-3 py-2.5 text-right text-xs font-semibold text-violet-600 bg-violet-50">Q4 (Oct-Dec)</th>
+                          <th className="px-3 py-2.5 text-right text-xs font-semibold text-rose-700 bg-rose-50">Annual</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {reportData.map((row, i) => {
+                          const g = (k) => Number(row[k] || row[k.charAt(0).toLowerCase() + k.slice(1)] || 0);
+                          const q1 = g("JanTarget") + g("FebTarget") + g("MarTarget");
+                          const q2 = g("AprTarget") + g("MayTarget") + g("JunTarget");
+                          const q3 = g("JulTarget") + g("AugTarget") + g("SepTarget");
+                          const q4 = g("OctTarget") + g("NovTarget") + g("DecTarget");
+                          return (
+                            <tr key={i} className="hover:bg-slate-50">
+                              <td className="px-3 py-2 text-slate-400 text-xs">{i + 1}</td>
+                              <td className="px-3 py-2 font-medium text-slate-800 whitespace-nowrap">{row.EmployeeName || row.employeeName || "—"}</td>
+                              <td className="px-3 py-2 text-slate-600 text-xs">{row.Position || row.position || "—"}</td>
+                              <td className="px-3 py-2 text-slate-600 text-xs">{row.Department || row.department || "—"}</td>
+                              <td className="px-3 py-2 text-right font-medium text-blue-700 bg-blue-50">{q1.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+                              <td className="px-3 py-2 text-right font-medium text-emerald-700 bg-emerald-50">{q2.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+                              <td className="px-3 py-2 text-right font-medium text-amber-700 bg-amber-50">{q3.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+                              <td className="px-3 py-2 text-right font-medium text-violet-700 bg-violet-50">{q4.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+                              <td className="px-3 py-2 text-right font-bold text-rose-700 bg-rose-50">
+                                {Number(row.AnnualTarget || row.annualTarget || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                      <tfoot className="bg-slate-100 border-t-2 border-slate-300">
+                        <tr>
+                          <td colSpan={4} className="px-3 py-2.5 text-right text-xs font-bold text-slate-700 uppercase">Totals</td>
+                          {[
+                            { keys: ["JanTarget","FebTarget","MarTarget"], cls: "text-blue-700 bg-blue-50" },
+                            { keys: ["AprTarget","MayTarget","JunTarget"], cls: "text-emerald-700 bg-emerald-50" },
+                            { keys: ["JulTarget","AugTarget","SepTarget"], cls: "text-amber-700 bg-amber-50" },
+                            { keys: ["OctTarget","NovTarget","DecTarget"], cls: "text-violet-700 bg-violet-50" }
+                          ].map((q, qi) => (
+                            <td key={qi} className={`px-3 py-2.5 text-right font-bold ${q.cls}`}>
+                              {reportData.reduce((sum, r) => sum + q.keys.reduce((s, k) => s + Number(r[k] || r[k.charAt(0).toLowerCase() + k.slice(1)] || 0), 0), 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                            </td>
+                          ))}
+                          <td className="px-3 py-2.5 text-right font-bold text-rose-700 bg-rose-50">
+                            {reportData.reduce((sum, r) => sum + Number(r.AnnualTarget || r.annualTarget || 0), 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                          </td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  )}
+
+                  {/* SALES TARGET - ANNUALLY VIEW */}
+                  {activeReport === "sales-target" && stPeriod === "annually" && (
+                    <table className="w-full text-sm">
+                      <thead className="bg-slate-50 border-b border-slate-200">
+                        <tr>
+                          <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-600">#</th>
+                          <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-600">Employee</th>
+                          <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-600">Position</th>
+                          <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-600">Department</th>
+                          <th className="px-3 py-2.5 text-right text-xs font-semibold text-rose-700">Annual Target</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {reportData.map((row, i) => (
+                          <tr key={i} className="hover:bg-slate-50">
+                            <td className="px-3 py-2 text-slate-400 text-xs">{i + 1}</td>
+                            <td className="px-3 py-2 font-medium text-slate-800 whitespace-nowrap">{row.EmployeeName || row.employeeName || "—"}</td>
+                            <td className="px-3 py-2 text-slate-600 text-xs">{row.Position || row.position || "—"}</td>
+                            <td className="px-3 py-2 text-slate-600 text-xs">{row.Department || row.department || "—"}</td>
+                            <td className="px-3 py-2 text-right font-bold text-rose-700 text-base">
+                              {Number(row.AnnualTarget || row.annualTarget || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                      <tfoot className="bg-slate-100 border-t-2 border-slate-300">
+                        <tr>
+                          <td colSpan={4} className="px-3 py-2.5 text-right text-xs font-bold text-slate-700 uppercase">Total</td>
+                          <td className="px-3 py-2.5 text-right font-bold text-rose-700 text-base">
+                            {reportData.reduce((sum, r) => sum + Number(r.AnnualTarget || r.annualTarget || 0), 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                          </td>
+                        </tr>
+                      </tfoot>
                     </table>
                   )}
                 </div>

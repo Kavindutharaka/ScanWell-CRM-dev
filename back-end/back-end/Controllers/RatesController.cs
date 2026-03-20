@@ -710,6 +710,158 @@ namespace back_end.Controllers
         }
 
         // ============================================================================
+        // RATE SUB-CATEGORIES ENDPOINTS (Dynamic Liner/Destination Headers)
+        // ============================================================================
+
+        // GET: api/rates/sub-categories?type=linear|destination
+        [HttpGet, Route("sub-categories")]
+        public ActionResult GetSubCategories([FromQuery] string type)
+        {
+            string query = @"SELECT id, name, code, type, color, sort_order, created_at
+                             FROM [dbo].[rate_sub_categories]
+                             WHERE is_active = 1
+                             AND (@type IS NULL OR type = @type)
+                             ORDER BY sort_order ASC, name ASC;";
+
+            DataTable catTb = new DataTable();
+            using (SqlConnection con = new SqlConnection(_dbConnectionString))
+            {
+                con.Open();
+                using (SqlCommand cmd = new SqlCommand(query, con))
+                {
+                    cmd.Parameters.AddWithValue("@type", string.IsNullOrEmpty(type) ? (object)DBNull.Value : type);
+                    using (SqlDataReader reader = cmd.ExecuteReader())
+                    {
+                        catTb.Load(reader);
+                    }
+                }
+                con.Close();
+            }
+            return new OkObjectResult(catTb);
+        }
+
+        // POST: api/rates/sub-categories
+        [HttpPost, Route("sub-categories")]
+        public IActionResult CreateSubCategory([FromBody] dynamic body)
+        {
+            try
+            {
+                string name = body.name?.ToString();
+                string type = body.type?.ToString();
+                string color = body.color?.ToString();
+
+                if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(type))
+                    return BadRequest("Name and type are required.");
+
+                if (type != "linear" && type != "destination")
+                    return BadRequest("Type must be 'linear' or 'destination'.");
+
+                string code = name.ToUpper().Trim();
+
+                string query = @"
+                    INSERT INTO [dbo].[rate_sub_categories]
+                    (name, code, type, color, sort_order, created_at, is_active)
+                    VALUES
+                    (@name, @code, @type, @color,
+                     (SELECT ISNULL(MAX(sort_order), 0) + 1 FROM [dbo].[rate_sub_categories] WHERE type = @type),
+                     GETDATE(), 1);
+                    SELECT SCOPE_IDENTITY();";
+
+                using (SqlConnection con = new SqlConnection(_dbConnectionString))
+                {
+                    con.Open();
+                    using (SqlCommand cmd = new SqlCommand(query, con))
+                    {
+                        cmd.Parameters.AddWithValue("@name", name.Trim());
+                        cmd.Parameters.AddWithValue("@code", code);
+                        cmd.Parameters.AddWithValue("@type", type);
+                        cmd.Parameters.AddWithValue("@color", string.IsNullOrEmpty(color) ? (object)DBNull.Value : color);
+
+                        var newId = cmd.ExecuteScalar();
+                        con.Close();
+
+                        return Ok(new { id = newId, name = name.Trim(), code, type, color });
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Error creating sub-category: {ex.Message}");
+            }
+        }
+
+        // PUT: api/rates/sub-categories/{id}
+        [HttpPut, Route("sub-categories/{id}")]
+        public IActionResult UpdateSubCategory(int id, [FromBody] dynamic body)
+        {
+            try
+            {
+                string name = body.name?.ToString();
+                string color = body.color?.ToString();
+
+                if (string.IsNullOrWhiteSpace(name))
+                    return BadRequest("Name is required.");
+
+                string code = name.ToUpper().Trim();
+
+                string query = @"UPDATE [dbo].[rate_sub_categories]
+                                 SET name = @name, code = @code, color = @color
+                                 WHERE id = @id;";
+
+                using (SqlConnection con = new SqlConnection(_dbConnectionString))
+                {
+                    con.Open();
+                    using (SqlCommand cmd = new SqlCommand(query, con))
+                    {
+                        cmd.Parameters.AddWithValue("@id", id);
+                        cmd.Parameters.AddWithValue("@name", name.Trim());
+                        cmd.Parameters.AddWithValue("@code", code);
+                        cmd.Parameters.AddWithValue("@color", string.IsNullOrEmpty(color) ? (object)DBNull.Value : color);
+
+                        int rows = cmd.ExecuteNonQuery();
+                        con.Close();
+
+                        if (rows == 0) return NotFound("Sub-category not found.");
+                        return Ok(new { message = "Updated successfully." });
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Error updating sub-category: {ex.Message}");
+            }
+        }
+
+        // DELETE: api/rates/sub-categories/{id}
+        [HttpDelete, Route("sub-categories/{id}")]
+        public IActionResult DeleteSubCategory(int id)
+        {
+            try
+            {
+                // Soft delete
+                string query = @"UPDATE [dbo].[rate_sub_categories] SET is_active = 0 WHERE id = @id;";
+
+                using (SqlConnection con = new SqlConnection(_dbConnectionString))
+                {
+                    con.Open();
+                    using (SqlCommand cmd = new SqlCommand(query, con))
+                    {
+                        cmd.Parameters.AddWithValue("@id", id);
+                        int rows = cmd.ExecuteNonQuery();
+                        con.Close();
+
+                        if (rows == 0) return NotFound("Sub-category not found.");
+                        return Ok(new { message = "Sub-category deleted successfully." });
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Error deleting sub-category: {ex.Message}");
+            }
+        }
+
+        // ============================================================================
         // AIR EXPORT RATES ENDPOINTS
         // ============================================================================
 
@@ -887,6 +1039,119 @@ namespace back_end.Controllers
                 {
                     int rowsAffected = cmd.ExecuteNonQuery();
                     return Ok(new { message = $"Deleted {rowsAffected} air export rates.", count = rowsAffected });
+                }
+            }
+        }
+
+        // ============================================================================
+        // SEA BOND RATES ENDPOINTS
+        // ============================================================================
+
+        // GET: api/rates/sea-bond - Get all sea bond rates
+        [HttpGet, Route("sea-bond")]
+        public ActionResult GetSeaBondRates()
+        {
+            string query = @"SELECT * FROM [dbo].[sea_bond_rates] ORDER BY id DESC;";
+            DataTable bondTb = new DataTable();
+
+            using (SqlConnection con = new SqlConnection(_dbConnectionString))
+            {
+                con.Open();
+                using (SqlCommand cmd = new SqlCommand(query, con))
+                {
+                    using (SqlDataReader reader = cmd.ExecuteReader())
+                    {
+                        bondTb.Load(reader);
+                    }
+                }
+                con.Close();
+            }
+
+            return new OkObjectResult(bondTb);
+        }
+
+        // POST: api/rates/sea-bond/bulk - Bulk upload sea bond rates
+        [HttpPost, Route("sea-bond/bulk")]
+        public IActionResult BulkInsertSeaBondRates([FromBody] SeaBondRateBulkRequest request)
+        {
+            if (request?.Rates == null || request.Rates.Count == 0)
+                return BadRequest(new { message = "No rates provided." });
+
+            int successCount = 0;
+            int failCount = 0;
+
+            using (SqlConnection con = new SqlConnection(_dbConnectionString))
+            {
+                con.Open();
+
+                foreach (var rate in request.Rates)
+                {
+                    try
+                    {
+                        string query = @"INSERT INTO [dbo].[sea_bond_rates]
+                            (origin, rate, vessel, etd, cutoff, transit, validity, created_at)
+                            VALUES
+                            (@origin, @rate, @vessel, @etd, @cutoff, @transit, @validity, GETDATE());";
+
+                        using (SqlCommand cmd = new SqlCommand(query, con))
+                        {
+                            cmd.Parameters.AddWithValue("@origin", rate.Origin ?? (object)DBNull.Value);
+                            cmd.Parameters.AddWithValue("@rate", rate.Rate ?? (object)DBNull.Value);
+                            cmd.Parameters.AddWithValue("@vessel", rate.Vessel ?? (object)DBNull.Value);
+                            cmd.Parameters.AddWithValue("@etd", rate.Etd ?? (object)DBNull.Value);
+                            cmd.Parameters.AddWithValue("@cutoff", rate.Cutoff ?? (object)DBNull.Value);
+                            cmd.Parameters.AddWithValue("@transit", rate.Transit ?? (object)DBNull.Value);
+                            cmd.Parameters.AddWithValue("@validity", rate.Validity ?? (object)DBNull.Value);
+
+                            cmd.ExecuteNonQuery();
+                            successCount++;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        failCount++;
+                        Console.WriteLine($"Failed to insert sea bond rate: {ex.Message}");
+                    }
+                }
+                con.Close();
+            }
+
+            return Ok(new { successCount, failCount, message = $"Inserted {successCount} sea bond rates." });
+        }
+
+        // DELETE: api/rates/sea-bond/{id} - Delete single sea bond rate
+        [HttpDelete, Route("sea-bond/{id:int}")]
+        public IActionResult DeleteSeaBondRate(int id)
+        {
+            using (SqlConnection con = new SqlConnection(_dbConnectionString))
+            {
+                con.Open();
+                using (SqlCommand cmd = new SqlCommand("DELETE FROM [dbo].[sea_bond_rates] WHERE id = @id;", con))
+                {
+                    cmd.Parameters.AddWithValue("@id", id);
+                    int rowsAffected = cmd.ExecuteNonQuery();
+
+                    if (rowsAffected == 0)
+                        return NotFound(new { message = $"Sea bond rate with id {id} not found." });
+
+                    return Ok(new { message = "Deleted successfully." });
+                }
+            }
+        }
+
+        // DELETE: api/rates/sea-bond/all - Delete all sea bond rates
+        [HttpDelete, Route("sea-bond/all")]
+        public IActionResult DeleteAllSeaBondRates()
+        {
+            string query = @"DELETE FROM [dbo].[sea_bond_rates];";
+
+            using (SqlConnection con = new SqlConnection(_dbConnectionString))
+            {
+                con.Open();
+                using (SqlCommand cmd = new SqlCommand(query, con))
+                {
+                    int rowsAffected = cmd.ExecuteNonQuery();
+                    return Ok(new { message = $"Deleted {rowsAffected} sea bond rates.", count = rowsAffected });
                 }
             }
         }

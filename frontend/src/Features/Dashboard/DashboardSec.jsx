@@ -26,8 +26,11 @@ import {
   Trash2,
   X,
   Upload,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Target,
+  TrendingUp,
 } from "lucide-react";
+import { fetchTargetConfig, fetchAllTargets } from "../../api/SalesTargetApi";
 
 // ===== COLORS =====
 const COLORS = {
@@ -85,6 +88,10 @@ export default function DashboardSec() {
   const [editingTarget, setEditingTarget] = useState(false);
   const [targetForm, setTargetForm] = useState({ monthlyTarget: "", yearlyTarget: "" });
 
+  // ===== SALES TARGET (NEW - per employee, quarterly) =====
+  const [fyConfig, setFyConfig] = useState({ financialYearStart: 1 });
+  const [employeeTargets, setEmployeeTargets] = useState([]);
+
   // ===== NEWS FEED STATE =====
   const [newsFeedImages, setNewsFeedImages] = useState([]);
   const [newsFeedLoading, setNewsFeedLoading] = useState(false);
@@ -132,6 +139,24 @@ export default function DashboardSec() {
   useEffect(() => {
     fetchSalesTarget();
   }, [fetchSalesTarget]);
+
+  // ===== LOAD FY CONFIG + EMPLOYEE TARGETS =====
+  const loadTargetData = useCallback(async () => {
+    try {
+      const [config, targets] = await Promise.all([
+        fetchTargetConfig(),
+        fetchAllTargets(now.getFullYear()),
+      ]);
+      setFyConfig(config || { financialYearStart: 1 });
+      setEmployeeTargets(Array.isArray(targets) ? targets : []);
+    } catch (err) {
+      console.error("Target data load error:", err);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadTargetData();
+  }, [loadTargetData]);
 
   const handleSaveTarget = async () => {
     try {
@@ -226,7 +251,18 @@ export default function DashboardSec() {
     switch (preset) {
       case "thisMonth": from = new Date(today.getFullYear(), today.getMonth(), 1); to = today; break;
       case "lastMonth": from = new Date(today.getFullYear(), today.getMonth() - 1, 1); to = new Date(today.getFullYear(), today.getMonth(), 0); break;
-      case "thisQuarter": { const q = Math.floor(today.getMonth() / 3); from = new Date(today.getFullYear(), q * 3, 1); to = today; break; }
+      case "thisQuarter": {
+        // Use financial year start for quarter calculation
+        const fys = (fyConfig?.financialYearStart || 1) - 1; // 0-indexed (0=Jan, 3=Apr)
+        const adjustedMonth = (today.getMonth() - fys + 12) % 12;
+        const q = Math.floor(adjustedMonth / 3);
+        const qStartMonth = (fys + q * 3) % 12;
+        from = new Date(today.getFullYear(), qStartMonth, 1);
+        // If the quarter start month is after current month (crossed year boundary), adjust year
+        if (qStartMonth > today.getMonth()) from = new Date(today.getFullYear() - 1, qStartMonth, 1);
+        to = today;
+        break;
+      }
       case "thisYear": from = new Date(today.getFullYear(), 0, 1); to = today; break;
       default: break;
     }
@@ -252,57 +288,78 @@ export default function DashboardSec() {
     </div>
   );
 
-  // ===== GAUGE METER (large, colorful) =====
-  const GaugeMeter = ({ value, label, maxLabel }) => {
-    // Gauge shows from 0 to a calculated max
-    const maxVal = value > 0 ? value * 1.3 : 100000;
-    const pct = Math.min((value / maxVal) * 100, 100);
-    const angle = (pct / 100) * 180; // 0-180 degrees
-
-    // Color gradient based on amount
-    const gaugeColor = value > 0 ? "url(#gaugeGrad)" : COLORS.lightGray;
+  // ===== GAUGE METER (Gemini - Monday.com style) =====
+  const GaugeMeter = ({ value = 0, label, target = 0 }) => {
+    const max = Math.max(target * 1.2, value * 1.1, 100000);
+    const ticks = Array.from({ length: 6 }, (_, i) => Math.round((max / 5) * i));
+    const formatCompactNumber = (num) => {
+      if (num >= 1000000) return (num / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
+      if (num >= 1000) return (num / 1000).toFixed(1).replace(/\.0$/, '') + 'K';
+      return num.toString();
+    };
+    const valuePercent = value / max;
+    const targetPercent = target / max;
+    const cx = 160, cy = 150, r = 100, labelRadius = 135;
+    const valueRotation = valuePercent * 180 - 180;
+    const targetRotation = targetPercent * 180 - 180;
 
     return (
-      <div className="flex flex-col items-center">
-        <div className="relative w-72 h-44 overflow-hidden">
-          <svg viewBox="0 0 200 120" className="w-full h-full">
+      <div className="flex flex-col items-center w-full">
+        <div className="w-full relative">
+          <svg viewBox="0 0 320 180" className="w-full h-auto overflow-visible">
             <defs>
-              <linearGradient id="gaugeGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-                <stop offset="0%" stopColor="#E44258" />
-                <stop offset="35%" stopColor="#FDAB3D" />
-                <stop offset="70%" stopColor="#7BC67E" />
-                <stop offset="100%" stopColor="#00C875" />
+              <linearGradient id="gauge-gradient" x1="60" y1="0" x2="260" y2="0" gradientUnits="userSpaceOnUse">
+                <stop offset="0%" stopColor="#00C875" />
+                <stop offset="50%" stopColor="#00B4D8" />
+                <stop offset="100%" stopColor="#0077B6" />
               </linearGradient>
             </defs>
-            {/* Background arc */}
-            <path d="M 20 105 A 80 80 0 0 1 180 105" fill="none" stroke="#E6E9EF" strokeWidth="30" strokeLinecap="round" />
-            {/* Value arc */}
-            {value > 0 && (
-              <path
-                d="M 20 105 A 80 80 0 0 1 180 105"
-                fill="none"
-                stroke={gaugeColor}
-                strokeWidth="30"
-                strokeLinecap="round"
-                strokeDasharray={`${(pct / 100) * 251.2} 251.2`}
-                className="transition-all duration-1000"
-              />
+            {/* Background Gray Arc */}
+            <path d={`M ${cx - r} ${cy} A ${r} ${r} 0 0 1 ${cx + r} ${cy}`}
+              fill="none" stroke="#E6E9EF" strokeWidth="30" strokeLinecap="butt" />
+            {/* Colored Gradient Arc */}
+            <path d={`M ${cx - r} ${cy} A ${r} ${r} 0 0 1 ${cx + r} ${cy}`}
+              fill="none" stroke="url(#gauge-gradient)" strokeWidth="30" strokeLinecap="butt"
+              pathLength="100" strokeDasharray={`${valuePercent * 100} 100`} />
+            {/* Scale Labels */}
+            {ticks.map((tick, index) => {
+              const p = index / 5;
+              const angle = p * Math.PI;
+              const x = cx - labelRadius * Math.cos(angle);
+              const y = cy - labelRadius * Math.sin(angle);
+              return (
+                <text key={index} x={x} y={y} textAnchor="middle" dominantBaseline="central"
+                  className="fill-gray-600 text-[10px] font-semibold tracking-wide">
+                  {tick}
+                </text>
+              );
+            })}
+            {/* Target Marker Triangle */}
+            {target > 0 && (
+              <polygon points={`${cx + 115},${cy} ${cx + 125},${cy - 5} ${cx + 125},${cy + 5}`}
+                fill="#0F172A" transform={`rotate(${targetRotation}, ${cx}, ${cy})`} />
             )}
             {/* Needle */}
-            <g transform={`rotate(${angle - 90}, 100, 105)`}>
-              <line x1="100" y1="105" x2="100" y2="40" stroke="#323338" strokeWidth="3" strokeLinecap="round" />
-              <circle cx="100" cy="105" r="6" fill="#323338" />
-              <circle cx="100" cy="105" r="3" fill="white" />
+            <g transform={`rotate(${valueRotation}, ${cx}, ${cy})`}>
+              <polygon points={`${cx},${cy - 3} ${cx + 80},${cy} ${cx},${cy + 3}`} fill="#0F172A" />
             </g>
-            {/* Min/Max labels */}
-            <text x="20" y="118" textAnchor="middle" className="text-[8px]" fill="#676879">0</text>
-            <text x="180" y="118" textAnchor="middle" className="text-[8px]" fill="#676879">{maxLabel || fmtLKR(maxVal)}</text>
+            <circle cx={cx} cy={cy} r="6" fill="#0F172A" />
           </svg>
         </div>
-        <div className="text-center -mt-2">
-          <p className="text-3xl font-bold text-slate-800">{fmtLKR(value)}</p>
-          <p className="text-xs text-slate-400 mt-1">{label}</p>
+        {/* ACTUAL / TARGET */}
+        <div className="w-full flex justify-between mt-2 px-4">
+          <div className="flex flex-col">
+            <span className="text-xs font-bold text-gray-400 tracking-wider">ACTUAL</span>
+            <span className="text-2xl font-extrabold text-gray-800">{formatCompactNumber(value)}</span>
+          </div>
+          {target > 0 && (
+            <div className="flex flex-col items-end">
+              <span className="text-xs font-bold text-gray-400 tracking-wider">TARGET</span>
+              <span className="text-2xl font-extrabold text-gray-800">{formatCompactNumber(target)}</span>
+            </div>
+          )}
         </div>
+        {label && <p className="text-xs text-slate-400 mt-2">{label}</p>}
       </div>
     );
   };
@@ -467,6 +524,77 @@ export default function DashboardSec() {
         { label: "Cancelled", value: activity.cancelledActivities || 0, color: COLORS.lightGray },
       ].filter(s => s.value > 0);
 
+  // ===== QUARTERLY TARGET CALCULATIONS =====
+  const MONTH_KEYS = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
+  const fyStart = fyConfig?.financialYearStart || 1;
+
+  // Build quarters based on FY start
+  const dashQuarters = [];
+  for (let q = 0; q < 4; q++) {
+    const m1 = ((fyStart - 1 + q * 3) % 12); // 0-indexed
+    const m2 = (m1 + 1) % 12;
+    const m3 = (m1 + 2) % 12;
+    dashQuarters.push({ label: `Q${q + 1}`, months: [m1, m2, m3] }); // 0-indexed
+  }
+
+  // Filter targets: admin sees all, user sees own
+  const userFilteredTargets = isAdmin
+    ? employeeTargets
+    : employeeTargets.filter(t => {
+        const empId = t.employee_id || t.employeeId;
+        return String(empId) === String(user?.employeeId || user?.id);
+      });
+
+  // Helper: get monthly target value for a given 0-indexed month from a target row
+  const getMonthVal = (t, mIdx) => {
+    const key = MONTH_KEYS[mIdx] + "_target";
+    const camelKey = MONTH_KEYS[mIdx] + "Target";
+    return parseFloat(t[key] || t[camelKey] || 0);
+  };
+
+  // Calculate total target per quarter (sum across filtered employees)
+  const getQuarterTarget = (quarterMonths) => {
+    return userFilteredTargets.reduce((sum, t) => {
+      return sum + quarterMonths.reduce((ms, mIdx) => ms + getMonthVal(t, mIdx), 0);
+    }, 0);
+  };
+
+  // Annual target total
+  const totalAnnualTarget = userFilteredTargets.reduce(
+    (sum, t) => sum + parseFloat(t.annual_target || t.annualTarget || 0), 0
+  );
+
+  // ===== DATE-RANGE AWARE TARGET for Gauge =====
+  // Calculate which months are covered by dateFrom-dateTo and sum those months' targets
+  const getTargetForDateRange = () => {
+    if (!dateFrom || !dateTo || userFilteredTargets.length === 0) return 0;
+    const from = new Date(dateFrom);
+    const to = new Date(dateTo);
+    // Collect all months (0-indexed) covered in the date range
+    const coveredMonths = new Set();
+    const d = new Date(from.getFullYear(), from.getMonth(), 1);
+    while (d <= to) {
+      coveredMonths.add(d.getMonth()); // 0-indexed
+      d.setMonth(d.getMonth() + 1);
+    }
+    // Sum targets for those months across filtered employees
+    return userFilteredTargets.reduce((sum, t) => {
+      let empSum = 0;
+      coveredMonths.forEach(mIdx => { empSum += getMonthVal(t, mIdx); });
+      return sum + empSum;
+    }, 0);
+  };
+
+  const periodTarget = getTargetForDateRange();
+
+  const QUARTER_COLORS = [
+    { bg: "bg-blue-50", border: "border-blue-200", text: "text-blue-700", bar: "bg-blue-500" },
+    { bg: "bg-emerald-50", border: "border-emerald-200", text: "text-emerald-700", bar: "bg-emerald-500" },
+    { bg: "bg-amber-50", border: "border-amber-200", text: "text-amber-700", bar: "bg-amber-500" },
+    { bg: "bg-purple-50", border: "border-purple-200", text: "text-purple-700", bar: "bg-purple-500" },
+  ];
+  const MONTH_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
   const tabs = [
     { id: "dashboard", label: "Dashboard", icon: LayoutGrid },
     { id: "newsfeed", label: "Market Place", icon: Newspaper },
@@ -517,17 +645,31 @@ export default function DashboardSec() {
           </div>
         </div>
 
-        {/* TABS */}
+        {/* TABS - Monday.com arrow/ribbon style */}
         <div className="mb-6">
-          <div className="flex gap-1 border-b border-slate-200">
-            {tabs.map(tab => {
+          <div className="flex items-center">
+            {tabs.map((tab, idx) => {
               const Icon = tab.icon;
+              const isActive = activeTab === tab.id;
               return (
                 <button key={tab.id} onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center gap-2 px-5 py-3 font-medium text-sm transition-all relative ${
-                    activeTab === tab.id ? "text-blue-600 border-b-2 border-blue-600" : "text-slate-400 hover:text-slate-600"
-                  }`}>
-                  <Icon className="w-4 h-4" />{tab.label}
+                  className="relative flex items-center gap-2 transition-all outline-none group"
+                  style={{ zIndex: isActive ? 10 : tabs.length - idx }}>
+                  <svg viewBox="0 0 160 48" className="absolute inset-0 w-full h-full" preserveAspectRatio="none">
+                    <path
+                      d={idx === 0
+                        ? "M8,2 L140,2 L158,24 L140,46 L8,46 Q2,46 2,40 L2,8 Q2,2 8,2 Z"
+                        : "M2,2 L140,2 L158,24 L140,46 L2,46 L20,24 Z"}
+                      fill={isActive ? "#0073EA" : "#F1F5F9"}
+                      stroke={isActive ? "#0073EA" : "#E2E8F0"}
+                      strokeWidth="1.5"
+                    />
+                  </svg>
+                  <span className={`relative flex items-center gap-2 px-7 py-3 text-sm font-semibold ${
+                    isActive ? "text-white" : "text-slate-500 group-hover:text-slate-700"
+                  }`} style={{ paddingLeft: idx === 0 ? "1.25rem" : "2rem" }}>
+                    <Icon className="w-4 h-4" />{tab.label}
+                  </span>
                 </button>
               );
             })}
@@ -553,7 +695,7 @@ export default function DashboardSec() {
                   <Award className="w-5 h-5 text-emerald-500" />
                   <h3 className="text-sm font-semibold text-slate-700">Total Sales Won</h3>
                 </div>
-                <GaugeMeter value={totalDealsWon} label="RFQ Revenue + Won Sales" />
+                <GaugeMeter value={totalDealsWon} label="RFQ Revenue + Won Sales" target={periodTarget} />
                 <div className="flex justify-around mt-4 pt-4 border-t border-slate-100">
                   <div className="text-center">
                     <p className="text-lg font-bold text-emerald-600">{fmtLKR(rfq.totalRevenue || 0)}</p>
@@ -564,6 +706,15 @@ export default function DashboardSec() {
                     <p className="text-lg font-bold text-blue-600">{fmtLKR((quoteOutcomes.totalWonAmount || 0) + (deals.wonDealValue || 0))}</p>
                     <p className="text-[10px] text-slate-400 uppercase tracking-wider">Won Sales</p>
                   </div>
+                  {periodTarget > 0 && (
+                    <>
+                      <div className="w-px bg-slate-100" />
+                      <div className="text-center">
+                        <p className="text-lg font-bold text-orange-600">{fmtLKR(periodTarget)}</p>
+                        <p className="text-[10px] text-slate-400 uppercase tracking-wider">Sales Target</p>
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
 
@@ -602,37 +753,200 @@ export default function DashboardSec() {
               </div>
             </div>
 
-            {/* --- CHARTS ROW --- */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
-              {/* Pipeline Conversion */}
-              <Widget title="Pipeline Conversion" icon={PieChart} className="fade-in fade-in-1">
-                <div className="flex flex-col items-center">
-                  <div className="relative my-2">
-                    <MiniPieChart segments={pipelinePieSegments} size={140} />
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <div className="text-center">
-                        <span className="text-2xl font-bold text-slate-800">{pipeTotal}</span>
-                        <p className="text-[10px] text-slate-400">Total</p>
-                      </div>
+            {/* --- SALES TARGET vs ACTUAL --- */}
+            {totalAnnualTarget > 0 && (
+              <div className="mb-6 fade-in fade-in-2">
+                {/* Annual Progress Bar */}
+                <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-5 mb-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <Target className="w-5 h-5 text-orange-600" />
+                      <h3 className="text-sm font-semibold text-slate-700">
+                        Annual Target {isAdmin ? "(All Employees)" : ""}
+                      </h3>
+                      <span className="text-xs text-slate-400">
+                        FY {fyStart === 1 ? `Jan-Dec ${now.getFullYear()}` : `Apr ${now.getFullYear()}-Mar ${now.getFullYear() + 1}`}
+                      </span>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-lg font-bold text-orange-700">{fmtLKR(totalDealsWon)}</span>
+                      <span className="text-sm text-slate-400"> / {fmtLKR(totalAnnualTarget)}</span>
                     </div>
                   </div>
-                  <div className="w-full space-y-1 mt-2">
-                    {pipeline.map((p, i) => {
-                      const color = statusColors[p.status?.toLowerCase()] || PIE_COLORS[i];
-                      const pct = pipeTotal > 0 ? ((p.count / pipeTotal) * 100).toFixed(0) : 0;
-                      return (
-                        <div key={i} className="flex items-center gap-2">
-                          <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
-                          <span className="text-xs text-slate-600 flex-1 capitalize">{p.status || "Other"}</span>
-                          <span className="text-xs font-semibold text-slate-700">{p.count}</span>
-                          <span className="text-[10px] text-slate-400 w-8 text-right">{pct}%</span>
-                        </div>
-                      );
-                    })}
+                  <div className="w-full bg-slate-100 rounded-full h-3 overflow-hidden">
+                    <div
+                      className="h-full rounded-full transition-all duration-700"
+                      style={{
+                        width: `${Math.min((totalDealsWon / totalAnnualTarget) * 100, 100)}%`,
+                        background: totalDealsWon >= totalAnnualTarget
+                          ? `linear-gradient(90deg, ${COLORS.success}, #4ADE80)`
+                          : `linear-gradient(90deg, ${COLORS.warning}, #FDBA74)`,
+                      }}
+                    />
                   </div>
+                  <p className="text-xs text-slate-400 mt-1.5 text-right">
+                    {totalAnnualTarget > 0
+                      ? `${Math.min(((totalDealsWon / totalAnnualTarget) * 100), 999).toFixed(1)}% achieved`
+                      : "No target set"}
+                  </p>
                 </div>
-              </Widget>
 
+                {/* Quarterly Cards */}
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                  {dashQuarters.map((q, qi) => {
+                    const qTarget = getQuarterTarget(q.months);
+                    const qMonthLabels = q.months.map(m => MONTH_LABELS[m]).join("-");
+                    const progressPct = qTarget > 0 ? Math.min((totalDealsWon / 4 / qTarget) * 100, 100) : 0;
+
+                    return (
+                      <div
+                        key={qi}
+                        className={`rounded-xl border p-4 ${QUARTER_COLORS[qi].bg} ${QUARTER_COLORS[qi].border}`}
+                      >
+                        <div className="flex items-center justify-between mb-2">
+                          <span className={`text-sm font-bold ${QUARTER_COLORS[qi].text}`}>{q.label}</span>
+                          <span className="text-[10px] text-slate-400">{qMonthLabels}</span>
+                        </div>
+                        <p className={`text-xl font-bold ${QUARTER_COLORS[qi].text} mb-1`}>
+                          {qTarget > 0 ? fmtLKR(qTarget) : "—"}
+                        </p>
+                        <p className="text-[10px] text-slate-500 mb-2">Target</p>
+                        {qTarget > 0 && (
+                          <div className="w-full bg-white/60 rounded-full h-1.5 overflow-hidden">
+                            <div
+                              className={`h-full rounded-full ${QUARTER_COLORS[qi].bar}`}
+                              style={{ width: `${progressPct}%` }}
+                            />
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* --- PIPELINE CONVERSION ROW --- */}
+            <div className="flex justify-center mb-6">
+              <div className="w-full lg:w-[60%]">
+              {/* Pipeline Conversion - Monday.com funnel style (Gemini v2) */}
+              <Widget title="Pipeline Conversion" icon={BarChart3} className="fade-in fade-in-1">
+                {(() => {
+                  const data = pipeline.length > 0 ? pipeline : [];
+                  if (data.length === 0) return <div className="text-sm text-slate-400 text-center py-8">No pipeline data</div>;
+
+                  const rawMax = Math.max(...data.map(d => d.count || 0), 1);
+                  const totalStages = data.length;
+
+                  // Dynamic Y-Axis scale (~4-5 ticks)
+                  let tickStep = Math.ceil(rawMax / 4);
+                  if (tickStep === 0) tickStep = 1;
+                  const yTicks = [];
+                  for (let i = 0; i <= Math.ceil(rawMax / tickStep) * tickStep; i += tickStep) {
+                    yTicks.push(i);
+                  }
+                  const maxScale = yTicks[yTicks.length - 1] || 1;
+
+                  const svgWidth = 600;
+                  const svgHeight = 250;
+                  const margin = { top: 30, right: 0, bottom: 40, left: 40 };
+                  const chartWidth = svgWidth - margin.left - margin.right;
+                  const chartHeight = svgHeight - margin.top - margin.bottom;
+                  const barWidth = 44;
+
+                  const getCenter = (index) => margin.left + (index + 0.5) * (chartWidth / totalStages);
+                  const getX = (index) => getCenter(index) - barWidth / 2;
+                  const getY = (count) => margin.top + chartHeight - ((count || 0) / maxScale) * chartHeight;
+
+                  // Funnel shading path
+                  let funnelPath = `M ${getX(0)} ${getY(0)} `;
+                  data.forEach((stage, i) => {
+                    funnelPath += `L ${getX(i)} ${getY(stage.count)} `;
+                    funnelPath += `L ${getX(i) + barWidth} ${getY(stage.count)} `;
+                    if (i < totalStages - 1) {
+                      funnelPath += `L ${getX(i + 1)} ${getY(data[i + 1].count)} `;
+                    }
+                  });
+                  funnelPath += `L ${getX(totalStages - 1) + barWidth} ${getY(0)} Z`;
+
+                  const firstCount = data[0].count || 0;
+                  const lastCount = data[data.length - 1].count || 0;
+                  const overallConversion = firstCount === 0 ? 0 : Math.round((lastCount / firstCount) * 100);
+
+                  return (
+                    <div className="flex items-stretch">
+                      <div className="flex-grow overflow-x-auto overflow-y-hidden">
+                        <svg width="100%" height={svgHeight} viewBox={`0 0 ${svgWidth} ${svgHeight}`} className="block">
+                          <defs>
+                            <filter id="tag-shadow" x="-20%" y="-20%" width="140%" height="140%">
+                              <feDropShadow dx="0" dy="1" stdDeviation="2" floodOpacity="0.1" />
+                            </filter>
+                          </defs>
+                          {/* Y-Axis grid lines */}
+                          {yTicks.map((tick) => (
+                            <g key={`y-${tick}`}>
+                              <line x1={margin.left} x2={svgWidth - 10} y1={getY(tick)} y2={getY(tick)} stroke="#F3F4F6" strokeWidth="1.5" />
+                              <text x={margin.left - 10} y={getY(tick)} dy="0.3em" fontSize="11" fill="#9CA3AF" textAnchor="end">{tick}</text>
+                            </g>
+                          ))}
+                          {/* Waterfall shading */}
+                          <path d={funnelPath} fill="#D6EFFF" opacity="0.6" />
+                          {/* Bars */}
+                          {data.map((stage, i) => {
+                            const x = getX(i);
+                            const y = getY(stage.count);
+                            const barH = ((stage.count || 0) / maxScale) * chartHeight;
+                            const isWon = stage.status?.toLowerCase() === 'won';
+                            return (
+                              <g key={`bar-${i}`}>
+                                <rect x={x} y={y} width={barWidth} height={Math.max(barH, 0)} fill={isWon ? '#00C875' : '#0073EA'} rx="3" ry="3" />
+                                <text x={getCenter(i)} y={y - 10} fontSize="13" fontWeight="bold" fill="#374151" textAnchor="middle">{stage.count}</text>
+                                <text x={getCenter(i)} y={margin.top + chartHeight + 20} fontSize="12" fill="#6B7280" textAnchor="middle" className="capitalize">{stage.status || 'Other'}</text>
+                              </g>
+                            );
+                          })}
+                          {/* Flow percentage tags */}
+                          {data.map((stage, i) => {
+                            if (i >= totalStages - 1) return null;
+                            const nextStage = data[i + 1];
+                            const rawPct = (stage.count || 0) === 0 ? 0 : ((nextStage.count || 0) / stage.count) * 100;
+                            const pct = Number.isInteger(rawPct) ? rawPct : rawPct.toFixed(1);
+                            const tagCx = (getX(i) + barWidth + getX(i + 1)) / 2;
+                            const tagCy = (getY(stage.count) + getY(nextStage.count)) / 2;
+                            const tagW = 46, tagH = 22, pointW = 6;
+                            const left = tagCx - tagW / 2;
+                            const top = tagCy - tagH / 2;
+                            const tagPath = `M ${left} ${top} H ${left + tagW - pointW} L ${left + tagW} ${tagCy} L ${left + tagW - pointW} ${top + tagH} H ${left} Z`;
+                            return (
+                              <g key={`pct-${i}`}>
+                                <path d={tagPath} fill="white" stroke="#E5E7EB" strokeWidth="1" filter="url(#tag-shadow)" />
+                                <text x={tagCx - 2} y={tagCy} dy="0.35em" fontSize="11" fontWeight="600" fill="#6B7280" textAnchor="middle">{pct}%</text>
+                              </g>
+                            );
+                          })}
+                        </svg>
+                      </div>
+                      {/* Conversion sidebar */}
+                      <div className="w-[120px] flex-shrink-0 flex items-center relative pl-6 border-l border-gray-100 ml-2">
+                        <svg className="absolute left-[-5px] top-1/2 transform -translate-y-1/2" width="10" height="140" viewBox="0 0 10 140">
+                          <line x1="5" y1="5" x2="5" y2="135" stroke="#CBD5E1" strokeWidth="1" />
+                          <polygon points="1,6 5,0 9,6" fill="#CBD5E1" />
+                          <polygon points="1,134 5,140 9,134" fill="#CBD5E1" />
+                        </svg>
+                        <div className="flex flex-col items-center justify-center text-center w-full">
+                          <div className="text-3xl font-extrabold text-[#00C875] mb-1">{overallConversion}%</div>
+                          <div className="text-[12px] text-gray-500 font-medium leading-tight">Conversion to<br/>Won</div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
+              </Widget>
+              </div>
+            </div>
+
+            {/* --- CHARTS ROW 2 --- */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
               {/* Deal Status (Deals + Quote Outcomes combined) */}
               <Widget title="Sales Status Distribution" icon={PieChart} className="fade-in fade-in-2">
                 <div className="flex flex-col items-center">
