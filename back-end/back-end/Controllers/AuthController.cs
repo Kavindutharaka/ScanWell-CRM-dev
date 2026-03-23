@@ -7,6 +7,7 @@ using System.Security.Claims;
 using System.Text;
 using System.Threading.Tasks;
 using back_end.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
 using Microsoft.IdentityModel.Tokens;
@@ -221,6 +222,7 @@ public IActionResult GetUserById(int id)
         }
 
 
+        [AllowAnonymous]
         [HttpPost("login")]
         public IActionResult Login([FromBody] LoginModel login)
         {
@@ -294,6 +296,7 @@ public IActionResult GetUserById(int id)
             return Ok(new { success = true, id = userRoleId, username });
         }
 
+        [AllowAnonymous]
         [HttpGet("me")]
         public IActionResult Me()
         {
@@ -335,6 +338,7 @@ public IActionResult GetUserById(int id)
             }
         }
 
+        [AllowAnonymous]
         [HttpPost("logout")]
         public IActionResult Logout()
         {

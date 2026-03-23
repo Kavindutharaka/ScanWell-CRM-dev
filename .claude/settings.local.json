@@ -50,7 +50,20 @@
       "Bash(ls \"C:/Python\"*)",
       "Bash(ls \"C:/Users/Admin/AppData/Local/Programs/Python\"*)",
       "Bash(pip install:*)",
-      "Bash(py -c \":*)"
+      "Bash(py -c \":*)",
+      "Bash(pandoc \"C:\\\\Users\\\\prasa\\\\Documents\\\\CRM Changes.docx\" -o /tmp/crm_changes.md)",
+      "Read(//tmp/**)",
+      "Bash(python scripts/office/unpack.py \"C:/Users/prasa/Documents/CRM Changes.docx\" /tmp/crm_changes_unpacked/)",
+      "Bash(xargs grep:*)",
+      "Bash(grep -r \"lead-groups\\\\|LeadGroup\\\\|groupAssign\" D:KavinduScanWell-CRM-dev-2back-endback-endControllers --include=*.cs)",
+      "Bash(grep -r \"WebLead\\\\|web-lead\\\\|WebLeadApi\" D:KavinduScanWell-CRM-dev-2frontendsrc --include=*.jsx --include=*.js)",
+      "Bash(find D:KavinduScanWell-CRM-dev-2 -type f \\\\\\(-name *.sql -o -name *migration* -o -name *schema* \\\\\\))",
+      "Bash(find D:KavinduScanWell-CRM-dev-2 \\\\\\(-name *.sql -o -name *.db -o -name appsettings* \\\\\\))",
+      "Bash(grep -r \"CreateWebLead\\\\|web-lead\" D:KavinduScanWell-CRM-dev-2backendback-end --include=*.cs)",
+      "Bash(grep -r \"POST.*web.lead\\\\|webhook\\\\|embed\\\\|public.*form\" D:KavinduScanWell-CRM-dev-2back-endback-endControllers --include=*.cs)",
+      "Bash(grep -r \"RequireAny\\\\|public.*endpoint\\\\|\\\\[AllowAnonymous\\\\]\" D:KavinduScanWell-CRM-dev-2back-endback-end --include=*.cs)",
+      "Bash(node generate-guide.js)",
+      "Bash(node node_modules/.bin/react-scripts build)"
     ]
   }
 }

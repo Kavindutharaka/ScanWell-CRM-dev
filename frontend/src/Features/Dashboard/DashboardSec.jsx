@@ -79,6 +79,7 @@ export default function DashboardSec() {
   const [dateTo, setDateTo] = useState(toLocalDateStr(now));
 
   const [activeTab, setActiveTab] = useState("dashboard");
+  const [activePreset, setActivePreset] = useState("thisMonth");
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
@@ -268,6 +269,7 @@ export default function DashboardSec() {
     }
     setDateFrom(toLocalDateStr(from));
     setDateTo(toLocalDateStr(to));
+    setActivePreset(preset);
   };
 
   // ===== STAT CARD =====
@@ -625,17 +627,21 @@ export default function DashboardSec() {
             <div className="flex gap-1 bg-white rounded-lg border border-slate-200 p-0.5">
               {[{ label: "Month", key: "thisMonth" }, { label: "Quarter", key: "thisQuarter" }, { label: "Year", key: "thisYear" }].map(p => (
                 <button key={p.key} onClick={() => setPreset(p.key)}
-                  className="px-3 py-1.5 text-xs font-medium rounded-md transition-colors hover:bg-slate-50 text-slate-500 hover:text-slate-700">
+                  className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                    activePreset === p.key
+                      ? 'bg-blue-600 text-white shadow-sm'
+                      : 'hover:bg-slate-50 text-slate-500 hover:text-slate-700'
+                  }`}>
                   {p.label}
                 </button>
               ))}
             </div>
             <div className="flex items-center gap-2 bg-white rounded-lg border border-slate-200 px-3 py-1.5">
               <Calendar className="w-4 h-4 text-slate-400" />
-              <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)}
+              <input type="date" value={dateFrom} onChange={e => { setDateFrom(e.target.value); setActivePreset(null); }}
                 className="text-xs border-none outline-none bg-transparent text-slate-600 w-28" />
               <span className="text-slate-300">—</span>
-              <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)}
+              <input type="date" value={dateTo} onChange={e => { setDateTo(e.target.value); setActivePreset(null); }}
                 className="text-xs border-none outline-none bg-transparent text-slate-600 w-28" />
             </div>
             <button onClick={fetchDashboard}
@@ -950,14 +956,67 @@ export default function DashboardSec() {
               {/* Deal Status (Deals + Quote Outcomes combined) */}
               <Widget title="Sales Status Distribution" icon={PieChart} className="fade-in fade-in-2">
                 <div className="flex flex-col items-center">
+                  {/* 3D Pie Chart */}
                   <div className="relative my-2">
-                    <MiniPieChart segments={dealPieSegments} size={140} />
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <div className="text-center">
-                        <span className="text-2xl font-bold text-slate-800">{totalDealsPieCount}</span>
-                        <p className="text-[10px] text-slate-400">Total</p>
-                      </div>
-                    </div>
+                    {(() => {
+                      const total = dealPieSegments.reduce((s, seg) => s + seg.value, 0);
+                      if (total === 0) return <div className="flex items-center justify-center text-slate-300 text-sm h-[160px]">No data</div>;
+                      const size = 160;
+                      const cx = size / 2, cy = size / 2 - 8;
+                      const rx = 65, ry = 50; // ellipse radii for 3D
+                      const depth = 14; // 3D depth height
+                      let startAngle = -Math.PI / 2;
+
+                      const getEllipsePoint = (angle, cxp, cyp, rxp, ryp) => ({
+                        x: cxp + rxp * Math.cos(angle),
+                        y: cyp + ryp * Math.sin(angle),
+                      });
+
+                      const slices = dealPieSegments.map((seg) => {
+                        const sliceAngle = (seg.value / total) * 2 * Math.PI;
+                        const endAngle = startAngle + sliceAngle;
+                        const largeArc = sliceAngle > Math.PI ? 1 : 0;
+                        const s1 = getEllipsePoint(startAngle, cx, cy, rx, ry);
+                        const e1 = getEllipsePoint(endAngle, cx, cy, rx, ry);
+                        // Top face path
+                        const topPath = `M ${cx} ${cy} L ${s1.x} ${s1.y} A ${rx} ${ry} 0 ${largeArc} 1 ${e1.x} ${e1.y} Z`;
+                        // Side (3D depth) path - only for visible bottom half
+                        const s2 = getEllipsePoint(startAngle, cx, cy + depth, rx, ry);
+                        const e2 = getEllipsePoint(endAngle, cx, cy + depth, rx, ry);
+                        const sidePath = `M ${s1.x} ${s1.y} L ${s2.x} ${s2.y} A ${rx} ${ry} 0 ${largeArc} 1 ${e2.x} ${e2.y} L ${e1.x} ${e1.y} A ${rx} ${ry} 0 ${largeArc} 0 ${s1.x} ${s1.y} Z`;
+                        // Label position (midpoint of arc)
+                        const midAngle = startAngle + sliceAngle / 2;
+                        const labelPos = getEllipsePoint(midAngle, cx, cy, rx * 0.6, ry * 0.6);
+                        const pct = ((seg.value / total) * 100).toFixed(0);
+                        const result = { topPath, sidePath, color: seg.color, label: seg.label, value: seg.value, pct, midAngle, labelPos, startAngle, endAngle, showSide: true };
+                        startAngle = endAngle;
+                        return result;
+                      });
+
+                      return (
+                        <svg width={size} height={size + depth + 10} viewBox={`0 0 ${size} ${size + depth + 10}`}>
+                          <defs>
+                            {slices.map((slice, i) => (
+                              <linearGradient key={`side-g-${i}`} id={`side-grad-${i}`} x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="0%" stopColor={slice.color} stopOpacity="0.7" />
+                                <stop offset="100%" stopColor={slice.color} stopOpacity="0.3" />
+                              </linearGradient>
+                            ))}
+                          </defs>
+                          {/* 3D sides (render first, behind top) */}
+                          {slices.map((slice, i) => (
+                            <path key={`side-${i}`} d={slice.sidePath} fill={`url(#side-grad-${i})`} />
+                          ))}
+                          {/* Top faces */}
+                          {slices.map((slice, i) => (
+                            <path key={`top-${i}`} d={slice.topPath} fill={slice.color} stroke="white" strokeWidth="1.5" />
+                          ))}
+                          {/* Center total */}
+                          <text x={cx} y={cy - 4} textAnchor="middle" dominantBaseline="central" className="text-lg font-bold fill-slate-800">{total}</text>
+                          <text x={cx} y={cy + 12} textAnchor="middle" className="text-[9px] fill-slate-400">Total</text>
+                        </svg>
+                      );
+                    })()}
                   </div>
                   <div className="w-full space-y-1 mt-2">
                     {dealPieSegments.map((seg, i) => {
@@ -999,6 +1058,7 @@ export default function DashboardSec() {
                         <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: seg.color }} />
                         <span className="text-xs text-slate-600 flex-1">{seg.label}</span>
                         <span className="text-xs font-semibold text-slate-700">{seg.value}</span>
+                        <span className="text-[10px] text-slate-400 w-8 text-right">{(activity.totalActivities || 0) > 0 ? ((seg.value / (activity.totalActivities || 1)) * 100).toFixed(0) : 0}%</span>
                       </div>
                     ))}
                   </div>

@@ -89,12 +89,13 @@ export default function ReportsSec() {
   useEffect(() => {
     const loadFilters = async () => {
       try {
+        const opts = { credentials: 'include' };
         const [spRes, deptRes, countryRes, custLocRes, accTypeRes] = await Promise.all([
-          fetch(`${BASE_URL}/report/filter/salespersons`),
-          fetch(`${BASE_URL}/report/filter/departments`),
-          fetch(`${BASE_URL}/report/filter/countries`),
-          fetch(`${BASE_URL}/report/filter/customer-locations`),
-          fetch(`${BASE_URL}/report/filter/account-types`),
+          fetch(`${BASE_URL}/report/filter/salespersons`, opts),
+          fetch(`${BASE_URL}/report/filter/departments`, opts),
+          fetch(`${BASE_URL}/report/filter/countries`, opts),
+          fetch(`${BASE_URL}/report/filter/customer-locations`, opts),
+          fetch(`${BASE_URL}/report/filter/account-types`, opts),
         ]);
         const spData = await spRes.json();
         const deptData = await deptRes.json();
@@ -188,7 +189,7 @@ export default function ReportsSec() {
 
       const queryString = params.toString();
       const fullUrl = queryString ? `${url}?${queryString}` : url;
-      const response = await fetch(fullUrl);
+      const response = await fetch(fullUrl, { credentials: 'include' });
       const data = await response.json();
       setReportData(data);
       setGenerated(true);

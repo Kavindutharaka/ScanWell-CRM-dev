@@ -124,7 +124,7 @@ export default function WarehouseQuoteForm({ disabled = false }) {
 
   const fetchCustomers = async () => {
     try {
-      const response = await fetch('/api/customers');
+      const response = await fetch('/api/customers', { credentials: 'include' });
       const data = await response.json();
       setCustomers(data);
     } catch (error) {

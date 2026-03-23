@@ -1,8 +1,10 @@
 using System.Text.Json.Serialization;
-using Microsoft.AspNetCore.Authentication.JwtBearer;  // Add this
-using Microsoft.IdentityModel.Tokens;  // Add this
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc.Authorization;
+using Microsoft.IdentityModel.Tokens;
 using Newtonsoft.Json;
-using System.Text;  // For Encoding.UTF8
+using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -31,13 +33,30 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidIssuer = builder.Configuration["Jwt:Issuer"],
             ValidateAudience = true,
             ValidAudience = builder.Configuration["Jwt:Audience"],
-            ValidateLifetime = true,  // Ensures token expiration is checked
-            ClockSkew = TimeSpan.Zero  // Optional: No grace period for expiration
+            ValidateLifetime = true,
+            ClockSkew = TimeSpan.Zero
+        };
+        options.Events = new JwtBearerEvents
+        {
+            OnMessageReceived = context =>
+            {
+                if (context.Request.Cookies.ContainsKey("authToken"))
+                {
+                    context.Token = context.Request.Cookies["authToken"];
+                }
+                return Task.CompletedTask;
+            }
         };
     });
 
 // Add services to the container.
-builder.Services.AddControllersWithViews().AddNewtonsoftJson();
+builder.Services.AddControllersWithViews(options =>
+{
+    var policy = new AuthorizationPolicyBuilder()
+        .RequireAuthenticatedUser()
+        .Build();
+    options.Filters.Add(new AuthorizeFilter(policy));
+}).AddNewtonsoftJson();
 
 var app = builder.Build();
 

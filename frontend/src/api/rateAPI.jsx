@@ -1,9 +1,8 @@
-import axios from 'axios';
-import { BASE_URL } from '../config/apiConfig';
+import api from '../config/axios';
 
 export const fetchRates = async () => {
   try {
-    const response = await axios.get(`${BASE_URL}/rates/rates`);
+    const response = await api.get(`/rates/rates`);
     return response.data;
   } catch (error) {
     throw new Error('Failed to fetch rates');
@@ -12,7 +11,7 @@ export const fetchRates = async () => {
 
 export const createRate = async (rateData) => {
   try {
-    const response = await axios.post(`${BASE_URL}/rates/rates`, rateData);
+    const response = await api.post(`/rates/rates`, rateData);
     return response.data;
   } catch (error) {
     throw new Error('Failed to create rate');
@@ -21,7 +20,7 @@ export const createRate = async (rateData) => {
 
 export const updateRate = async (id, rateData) => {
   try {
-    const response = await axios.put(`${BASE_URL}/rates/rates/${id}`, rateData);
+    const response = await api.put(`/rates/rates/${id}`, rateData);
     return response.data;
   } catch (error) {
     throw new Error('Failed to update rate');
@@ -30,7 +29,7 @@ export const updateRate = async (id, rateData) => {
 
 export const deleteRate = async (id) => {
   try {
-    const response = await axios.delete(`${BASE_URL}/rates/rates/${id}`);
+    const response = await api.delete(`/rates/rates/${id}`);
     return response.data;
   } catch (error) {
     throw new Error('Failed to delete rate');
@@ -44,7 +43,7 @@ export const deleteRate = async (id) => {
 export const fetchSubCategories = async (type) => {
   try {
     const params = type ? `?type=${type}` : '';
-    const response = await axios.get(`${BASE_URL}/rates/sub-categories${params}`);
+    const response = await api.get(`/rates/sub-categories${params}`);
     return response.data;
   } catch (error) {
     throw new Error('Failed to fetch sub-categories');
@@ -53,7 +52,7 @@ export const fetchSubCategories = async (type) => {
 
 export const createSubCategory = async (data) => {
   try {
-    const response = await axios.post(`${BASE_URL}/rates/sub-categories`, data);
+    const response = await api.post(`/rates/sub-categories`, data);
     return response.data;
   } catch (error) {
     throw new Error('Failed to create sub-category');
@@ -62,7 +61,7 @@ export const createSubCategory = async (data) => {
 
 export const updateSubCategory = async (id, data) => {
   try {
-    const response = await axios.put(`${BASE_URL}/rates/sub-categories/${id}`, data);
+    const response = await api.put(`/rates/sub-categories/${id}`, data);
     return response.data;
   } catch (error) {
     throw new Error('Failed to update sub-category');
@@ -71,7 +70,7 @@ export const updateSubCategory = async (id, data) => {
 
 export const deleteSubCategory = async (id) => {
   try {
-    const response = await axios.delete(`${BASE_URL}/rates/sub-categories/${id}`);
+    const response = await api.delete(`/rates/sub-categories/${id}`);
     return response.data;
   } catch (error) {
     throw new Error('Failed to delete sub-category');
@@ -84,7 +83,7 @@ export const deleteSubCategory = async (id) => {
 
 export const fetchSeaBondRates = async () => {
   try {
-    const response = await axios.get(`${BASE_URL}/rates/sea-bond`);
+    const response = await api.get(`/rates/sea-bond`);
     return response.data;
   } catch (error) {
     throw new Error('Failed to fetch sea bond rates');
@@ -93,7 +92,7 @@ export const fetchSeaBondRates = async () => {
 
 export const bulkUploadSeaBondRates = async (data) => {
   try {
-    const response = await axios.post(`${BASE_URL}/rates/sea-bond/bulk`, data);
+    const response = await api.post(`/rates/sea-bond/bulk`, data);
     return response.data;
   } catch (error) {
     throw new Error('Failed to upload sea bond rates');
@@ -102,7 +101,7 @@ export const bulkUploadSeaBondRates = async (data) => {
 
 export const deleteSeaBondRate = async (id) => {
   try {
-    const response = await axios.delete(`${BASE_URL}/rates/sea-bond/${id}`);
+    const response = await api.delete(`/rates/sea-bond/${id}`);
     return response.data;
   } catch (error) {
     throw new Error('Failed to delete sea bond rate');
@@ -111,7 +110,7 @@ export const deleteSeaBondRate = async (id) => {
 
 export const deleteAllSeaBondRates = async () => {
   try {
-    const response = await axios.delete(`${BASE_URL}/rates/sea-bond/all`);
+    const response = await api.delete(`/rates/sea-bond/all`);
     return response.data;
   } catch (error) {
     throw new Error('Failed to delete all sea bond rates');

@@ -1,9 +1,8 @@
-import axios from 'axios';
-import { BASE_URL } from '../config/apiConfig';
+import api from '../config/axios';
 
 export const fetchOutComeById = async (quoteId) => {
   try {
-    const response = await axios.get(`${BASE_URL}/QuoteOutcome/${quoteId}`);
+    const response = await api.get(`/QuoteOutcome/${quoteId}`);
     return response.data;
   } catch (error) {
     if (error.response?.status === 404) {
@@ -15,7 +14,7 @@ export const fetchOutComeById = async (quoteId) => {
 
 export const saveQuoteOutCome = async (payload) => {
   try {
-    const response = await axios.post(`${BASE_URL}/QuoteOutcome`, payload);
+    const response = await api.post(`/QuoteOutcome`, payload);
     return response.data;
   } catch (error) {
     throw new Error('Failed to save quote outcome');
@@ -24,7 +23,7 @@ export const saveQuoteOutCome = async (payload) => {
 
 export const updateWonDetails = async (payload) => {
   try {
-    const response = await axios.put(`${BASE_URL}/QuoteOutcome/won-details`, payload);
+    const response = await api.put(`/QuoteOutcome/won-details`, payload);
     return response.data;
   } catch (error) {
     throw new Error('Failed to update won details');

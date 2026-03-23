@@ -1,21 +1,20 @@
-import axios from 'axios';
-import { BASE_URL } from '../config/apiConfig';
+import api from '../config/axios';
 
 
 export const fetchDepartment= async () => {
-  const response = await axios.get(`${BASE_URL}/Department`);
+  const response = await api.get(`/Department`);
   return response.data;
 };
 export const createNewDepartment = async (dp) => {
     
-  const response = await axios.post(`${BASE_URL}/Department`,dp);
+  const response = await api.post(`/Department`,dp);
   return response.data;
 };
 export const updateDepartmentName = async (dp) => {
-  const response = await axios.put(`${BASE_URL}/Department`,dp);
+  const response = await api.put(`/Department`,dp);
   return response.data;
 };
 export const deleteDepartment = async (id) => {
-  const response = await axios.delete(`${BASE_URL}/Department/${id}`);
+  const response = await api.delete(`/Department/${id}`);
   return response.data;
 };

@@ -7,7 +7,7 @@ import {
 import { fetchWonQuotes, fetchInvoiceEntries, createInvoiceEntries, deleteInvoiceEntry, completeInvoice } from '../../api/InvoiceApi';
 import { AuthContext } from '../../context/AuthContext';
 
-const EMPTY_ROW = { entryDate: '', invoiceNumber: '', amount: '', costInvoice: '' };
+const EMPTY_ROW = { entryDate: '', invoiceNumber: '', amount: '', costInvoice: '', currency: 'LKR', dollarAmount: '', dollarRate: '' };
 
 export default function InvoicesSec() {
   const { permission } = useContext(AuthContext);
@@ -106,7 +106,7 @@ export default function InvoicesSec() {
 
   const handleSave = async (quoteId) => {
     const rows = newRows[quoteId] || [];
-    const validRows = rows.filter(r => r.invoiceNumber.trim() || r.amount || r.entryDate);
+    const validRows = rows.filter(r => r.invoiceNumber.trim() || r.amount || r.entryDate || (r.currency === 'USD' && r.dollarAmount));
 
     if (validRows.length === 0) {
       setError('Please fill in at least one entry.');
@@ -114,22 +114,40 @@ export default function InvoicesSec() {
     }
 
     for (let i = 0; i < validRows.length; i++) {
-      const amt = parseFloat(validRows[i].amount);
-      if (isNaN(amt) || amt <= 0) {
-        setError(`Row ${i + 1}: Amount must be a valid positive number.`);
-        return;
+      const row = validRows[i];
+      if (row.currency === 'USD') {
+        const dollarAmt = parseFloat(row.dollarAmount);
+        const rate = parseFloat(row.dollarRate);
+        if (isNaN(dollarAmt) || dollarAmt <= 0 || isNaN(rate) || rate <= 0) {
+          setError(`Row ${i + 1}: Please enter valid Dollar Amount and Exchange Rate.`);
+          return;
+        }
+      } else {
+        const amt = parseFloat(row.amount);
+        if (isNaN(amt) || amt <= 0) {
+          setError(`Row ${i + 1}: Amount must be a valid positive number.`);
+          return;
+        }
       }
     }
 
     setSaving(true);
     setError(null);
     try {
-      const entries = validRows.map(row => ({
-        entryDate: row.entryDate || null,
-        invoiceNumber: row.invoiceNumber || null,
-        amount: parseFloat(row.amount),
-        costInvoice: row.costInvoice ? parseFloat(row.costInvoice) : null
-      }));
+      const entries = validRows.map(row => {
+        let finalAmount;
+        if (row.currency === 'USD') {
+          finalAmount = (parseFloat(row.dollarAmount) || 0) * (parseFloat(row.dollarRate) || 0);
+        } else {
+          finalAmount = parseFloat(row.amount);
+        }
+        return {
+          entryDate: row.entryDate || null,
+          invoiceNumber: row.invoiceNumber || null,
+          amount: finalAmount,
+          costInvoice: row.costInvoice ? parseFloat(row.costInvoice) : null
+        };
+      });
 
       await createInvoiceEntries(quoteId, entries);
       setSuccess('Entries saved successfully.');
@@ -488,19 +506,59 @@ export default function InvoicesSec() {
                                 />
                               </div>
 
-                              {/* Invoice Amount */}
+                              {/* Currency Toggle + Invoice Amount */}
                               <div className="col-span-5 sm:col-span-3">
                                 {index === 0 && (
                                   <label className="block text-xs font-medium text-slate-500 mb-1">Invoice Amount</label>
                                 )}
-                                <input
-                                  type="number"
-                                  step="0.01"
-                                  value={row.amount}
-                                  onChange={(e) => updateNewRow(quote.quoteId, index, 'amount', e.target.value)}
-                                  placeholder="0.00"
-                                  className="w-full px-2 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                                />
+                                <div className="flex gap-1">
+                                  <button
+                                    type="button"
+                                    onClick={() => updateNewRow(quote.quoteId, index, 'currency', row.currency === 'USD' ? 'LKR' : 'USD')}
+                                    className={`px-2 py-2 text-[10px] font-bold rounded-l-lg border shrink-0 ${
+                                      row.currency === 'USD'
+                                        ? 'bg-blue-600 text-white border-blue-600'
+                                        : 'bg-slate-100 text-slate-600 border-slate-300'
+                                    }`}
+                                    title={row.currency === 'USD' ? 'Switch to LKR' : 'Switch to USD'}
+                                  >
+                                    {row.currency === 'USD' ? '$' : 'LKR'}
+                                  </button>
+                                  {row.currency === 'USD' ? (
+                                    <div className="flex gap-1 flex-1">
+                                      <input
+                                        type="number"
+                                        step="0.01"
+                                        value={row.dollarAmount}
+                                        onChange={(e) => updateNewRow(quote.quoteId, index, 'dollarAmount', e.target.value)}
+                                        placeholder="$ Amt"
+                                        className="w-1/2 px-1.5 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                                      />
+                                      <input
+                                        type="number"
+                                        step="0.01"
+                                        value={row.dollarRate}
+                                        onChange={(e) => updateNewRow(quote.quoteId, index, 'dollarRate', e.target.value)}
+                                        placeholder="Rate"
+                                        className="w-1/2 px-1.5 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                                      />
+                                    </div>
+                                  ) : (
+                                    <input
+                                      type="number"
+                                      step="0.01"
+                                      value={row.amount}
+                                      onChange={(e) => updateNewRow(quote.quoteId, index, 'amount', e.target.value)}
+                                      placeholder="0.00"
+                                      className="flex-1 px-2 py-2 text-sm border border-slate-300 rounded-r-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                                    />
+                                  )}
+                                </div>
+                                {row.currency === 'USD' && row.dollarAmount && row.dollarRate && (
+                                  <p className="text-[10px] text-blue-600 mt-0.5">
+                                    = LKR {((parseFloat(row.dollarAmount) || 0) * (parseFloat(row.dollarRate) || 0)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                  </p>
+                                )}
                               </div>
 
                               {/* Cost Invoice */}

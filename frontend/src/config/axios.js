@@ -1,6 +1,10 @@
 import axios from "axios";
 import { BASE_URL } from "./apiConfig";
 
+// Set withCredentials globally so ALL axios calls (including raw axios usage
+// in API files) send the authToken cookie to the backend
+axios.defaults.withCredentials = true;
+
 const axiosInstance = axios.create({
   baseURL: BASE_URL,
   withCredentials: true,
@@ -17,6 +21,12 @@ axiosInstance.interceptors.response.use(
 
     if (error.response) {
       const { status, data } = error.response;
+
+      // Auto-redirect to login on 401 (token expired or missing)
+      if (status === 401 && !window.location.pathname.includes('/login')) {
+        window.location.href = "/login";
+        return Promise.reject(error);
+      }
 
       // Detect HTML error pages (IIS, .NET stack traces, etc.)
       const isHtml = typeof data === 'string' && (

@@ -2,12 +2,11 @@
 import { useState, useEffect, useCallback, useRef, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Search, Eye, Edit2, Trash2, Plane, Ship, Package, Container, Truck, Route as RouteIcon, Layers, MapPin, Calendar, User, DollarSign, ArrowRight, Award, CheckCircle, XCircle, AlertCircle, Warehouse, Send, ChevronLeft, ChevronRight, FileText } from 'lucide-react';
-import { fetchQuotesPaged, fetchQuoteCounts, deleteQuote, fetchWareQuote, getSp, updateQuoteStatus } from '../../api/QuoteApi';
+import { fetchQuotesPaged, fetchQuoteCounts, deleteQuote, fetchWareQuote, getSp, updateQuoteStatus, deleteWareQuote } from '../../api/QuoteApi';
 import { fetchOutComeById, saveQuoteOutCome, updateWonDetails } from '../../api/QuotesOutComeApi';
 import { AuthContext } from '../../context/AuthContext';
 import FilterPanel from '../../components/filters/FilterPanel';
 import useFilters from '../../components/filters/useFilters';
-import axios from 'axios';
 
 export default function QuotesInvoiceSec({ modalOpen }) {
   const navigate = useNavigate();
@@ -43,7 +42,7 @@ export default function QuotesInvoiceSec({ modalOpen }) {
   // Won details modal state (Admin only)
   const [wonDetailsModalShow, setWonDetailsModalShow] = useState(false);
   const [wonDetailsQuote, setWonDetailsQuote] = useState(null);
-  const [wonDetailsForm, setWonDetailsForm] = useState({ invoiceNumber: '', cost: '', salesValue: '' });
+  const [wonDetailsForm, setWonDetailsForm] = useState({ invoiceNumber: '', cost: '', salesValue: '', currency: 'LKR', dollarAmount: '', dollarRate: '' });
 
   const lostReasons = [
     'High Prices',
@@ -95,13 +94,24 @@ function SalesPerson({ customerName }) {
   const getOutcomeBadge = (quoteId) => {
     const outcome = quoteOutcomes[quoteId];
 
-    // No outcome yet - show Win/Lost buttons (direct save, no modal)
+    // No outcome yet - show Win/Lost buttons only for submitted quotes
     if (!outcome) {
+      const quote = allQuotes.find(q => q.quoteId === quoteId);
+      const status = (quote?.status || '').toLowerCase();
+
+      // Only show Win/Lost for submitted quotes
+      if (status !== 'submitted') {
+        return (
+          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600 capitalize">
+            {status || 'draft'}
+          </span>
+        );
+      }
+
       return (
         <div className="flex items-center gap-2">
           <button
             onClick={async () => {
-              const quote = allQuotes.find(q => q.quoteId === quoteId);
               try {
                 await saveQuoteOutCome({
                   quoteId: quote.quoteId,
@@ -119,7 +129,6 @@ function SalesPerson({ customerName }) {
           </button>
           <button
             onClick={async () => {
-              const quote = allQuotes.find(q => q.quoteId === quoteId);
               try {
                 await saveQuoteOutCome({
                   quoteId: quote.quoteId,
@@ -222,11 +231,24 @@ function SalesPerson({ customerName }) {
   // Save won details handler (Admin only)
   const handleSaveWonDetails = async () => {
     try {
+      let computedSalesValue;
+      if (wonDetailsForm.currency === 'USD') {
+        const dollarAmt = parseFloat(wonDetailsForm.dollarAmount) || 0;
+        const rate = parseFloat(wonDetailsForm.dollarRate) || 0;
+        computedSalesValue = dollarAmt * rate;
+        if (computedSalesValue <= 0) {
+          alert('Please enter valid Dollar Amount and Exchange Rate');
+          return;
+        }
+      } else {
+        computedSalesValue = wonDetailsForm.salesValue ? parseFloat(wonDetailsForm.salesValue) : null;
+      }
+
       const payload = {
         quoteId: wonDetailsQuote.quoteId,
         invoiceNumber: wonDetailsForm.invoiceNumber || null,
         cost: wonDetailsForm.cost ? parseFloat(wonDetailsForm.cost) : null,
-        salesValue: wonDetailsForm.salesValue ? parseFloat(wonDetailsForm.salesValue) : null
+        salesValue: computedSalesValue
       };
 
       await updateWonDetails(payload);
@@ -290,10 +312,8 @@ function SalesPerson({ customerName }) {
     { key: 'status', label: 'Status', allLabel: 'All Statuses', minWidth: '150px', options: [
       { value: 'draft', label: 'Draft' },
       { value: 'submitted', label: 'Submitted' },
-      { value: 'pending', label: 'Pending' },
-      { value: 'approved', label: 'Approved' },
-      { value: 'rejected', label: 'Rejected' },
-      { value: 'active', label: 'Active' }
+      { value: 'won', label: 'Won' },
+      { value: 'lost', label: 'Lost' }
     ]}
   ];
 
@@ -437,7 +457,7 @@ function SalesPerson({ customerName }) {
       if (deleteModal.isWarehouse) {
         // Delete warehouse quote
         const warehouseId = deleteModal.quoteId.replace('WH-', '');
-        await axios.delete(`/api/WarehouseQuotes/${warehouseId}`);
+        await deleteWareQuote(warehouseId);
         loadWarehouseQuotes();
       } else {
         // Delete freight quote
@@ -1291,20 +1311,78 @@ function SalesPerson({ customerName }) {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Sales Value (LKR)
+                  Sales Value Currency
                 </label>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">LKR</span>
-                  <input
-                    type="number"
-                    value={wonDetailsForm.salesValue}
-                    onChange={(e) => setWonDetailsForm({ ...wonDetailsForm, salesValue: e.target.value })}
-                    placeholder="0.00"
-                    className="w-full pl-14 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    step="0.01"
-                    min="0"
-                  />
+                <div className="flex gap-2 mb-3">
+                  {['LKR', 'USD'].map(c => (
+                    <button key={c}
+                      type="button"
+                      onClick={() => setWonDetailsForm({ ...wonDetailsForm, currency: c })}
+                      className={`px-4 py-1.5 rounded-lg border text-sm font-medium transition-colors ${
+                        wonDetailsForm.currency === c
+                          ? 'bg-blue-600 text-white border-blue-600'
+                          : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                      }`}>
+                      {c}
+                    </button>
+                  ))}
                 </div>
+
+                {wonDetailsForm.currency === 'LKR' ? (
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">Sales Value (LKR)</label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">LKR</span>
+                      <input
+                        type="number"
+                        value={wonDetailsForm.salesValue}
+                        onChange={(e) => setWonDetailsForm({ ...wonDetailsForm, salesValue: e.target.value })}
+                        placeholder="0.00"
+                        className="w-full pl-14 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        step="0.01"
+                        min="0"
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 mb-1">Dollar Amount (USD)</label>
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">$</span>
+                        <input
+                          type="number"
+                          value={wonDetailsForm.dollarAmount}
+                          onChange={(e) => setWonDetailsForm({ ...wonDetailsForm, dollarAmount: e.target.value })}
+                          placeholder="0.00"
+                          className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          step="0.01"
+                          min="0"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 mb-1">Exchange Rate (1 USD = ? LKR)</label>
+                      <input
+                        type="number"
+                        value={wonDetailsForm.dollarRate}
+                        onChange={(e) => setWonDetailsForm({ ...wonDetailsForm, dollarRate: e.target.value })}
+                        placeholder="e.g. 320.50"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        step="0.01"
+                        min="0"
+                      />
+                    </div>
+                    {wonDetailsForm.dollarAmount && wonDetailsForm.dollarRate && (
+                      <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                        <span className="text-xs text-blue-600 font-medium">Converted Sales Value: </span>
+                        <span className="text-sm font-bold text-blue-800">
+                          LKR {((parseFloat(wonDetailsForm.dollarAmount) || 0) * (parseFloat(wonDetailsForm.dollarRate) || 0)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
 

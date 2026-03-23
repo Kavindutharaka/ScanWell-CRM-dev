@@ -215,7 +215,7 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
     setLinerLoading(true);
     try {
       // Call the new linear rates endpoint
-      const response = await fetch(`${BASE_URL}/rates/linear?category=${linerCode}`);
+      const response = await fetch(`${BASE_URL}/rates/linear?category=${linerCode}`, { credentials: 'include' });
       const data = await response.json();
       
       // Transform backend data (PascalCase) to frontend format (camelCase)
@@ -254,7 +254,7 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
   const loadSeaSpotRates = async () => {
     setSeaSpotLoading(true);
     try {
-      const response = await fetch(`${BASE_URL}/rates/linear/all-spot`);
+      const response = await fetch(`${BASE_URL}/rates/linear/all-spot`, { credentials: 'include' });
       const data = await response.json();
       const transformed = data.map(rate => ({
         id: rate.Id || rate.id,
@@ -373,6 +373,7 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ Rates: validRows }),
+        credentials: 'include',
       });
 
       const result = await response.json();
@@ -396,7 +397,7 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
   const handleDeleteAllSpotRates = async () => {
     if (!window.confirm('⚠️ Delete ALL sea spot rates? This cannot be undone.')) return;
     try {
-      const response = await fetch(`${BASE_URL}/rates/linear/all-spot`, { method: 'DELETE' });
+      const response = await fetch(`${BASE_URL}/rates/linear/all-spot`, { method: 'DELETE', credentials: 'include' });
       const result = await response.json();
       window.alert(`✅ ${result.message}`);
       loadSeaSpotRates();
@@ -556,7 +557,7 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
   const loadAirExportRates = async () => {
     setAirExportLoading(true);
     try {
-      const response = await fetch(`${BASE_URL}/rates/air-export`);
+      const response = await fetch(`${BASE_URL}/rates/air-export`, { credentials: 'include' });
       const data = await response.json();
       const transformed = data.map(rate => ({
         id: rate.Id || rate.id,
@@ -704,6 +705,7 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ CommodityType: commodityType, Rates: validRows }),
+        credentials: 'include',
       });
 
       const result = await response.json();
@@ -726,7 +728,7 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
   const handleDeleteAirExportRate = async (rateId) => {
     if (!window.confirm('Are you sure you want to delete this rate?')) return;
     try {
-      const response = await fetch(`${BASE_URL}/rates/air-export/${rateId}`, { method: 'DELETE' });
+      const response = await fetch(`${BASE_URL}/rates/air-export/${rateId}`, { method: 'DELETE', credentials: 'include' });
       if (response.ok) {
         setAirExportRates(prev => prev.filter(r => r.id !== rateId));
       }
@@ -738,7 +740,7 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
   const handleDeleteAllAirExportRates = async () => {
     if (!window.confirm('⚠️ Delete ALL air export rates? This cannot be undone.')) return;
     try {
-      const response = await fetch(`${BASE_URL}/rates/air-export/all`, { method: 'DELETE' });
+      const response = await fetch(`${BASE_URL}/rates/air-export/all`, { method: 'DELETE', credentials: 'include' });
       const result = await response.json();
       window.alert(`✅ ${result.message}`);
       loadAirExportRates();
@@ -772,6 +774,7 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
+        credentials: 'include',
       });
       if (response.ok) {
         setShowAirExportEditModal(false);
@@ -1000,7 +1003,7 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
   const loadDestinationRates = async (category) => {
     setDestinationLoading(true);
     try {
-      const response = await fetch(`${BASE_URL}/rates/destination?category=${category}`);
+      const response = await fetch(`${BASE_URL}/rates/destination?category=${category}`, { credentials: 'include' });
       const data = await response.json();
 
       // Transform backend data to frontend format
@@ -1245,7 +1248,8 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
         : `${BASE_URL}/rates/${rateId}`;
 
       const response = await fetch(endpoint, {
-        method: 'DELETE'
+        method: 'DELETE',
+        credentials: 'include',
       });
 
       if (response.ok) {
@@ -1267,7 +1271,8 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
     if (!window.confirm('Are you sure you want to delete this rate?')) return;
     try {
       const response = await fetch(`${BASE_URL}/rates/destination/${rateId}`, {
-        method: 'DELETE'
+        method: 'DELETE',
+        credentials: 'include',
       });
 
       if (response.ok) {
@@ -1615,6 +1620,7 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ Rates: validRows }),
+        credentials: 'include',
       });
 
       const responseData = await response.json();
@@ -2071,7 +2077,7 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
                                 onClick={async () => {
                                   if (!window.confirm('Delete this rate?')) return;
                                   try {
-                                    await fetch(`${BASE_URL}/rates/linear/${rate.id}`, { method: 'DELETE' });
+                                    await fetch(`${BASE_URL}/rates/linear/${rate.id}`, { method: 'DELETE', credentials: 'include' });
                                     setSeaSpotRates(prev => prev.filter(r => r.id !== rate.id));
                                   } catch (err) { console.error(err); }
                                 }}

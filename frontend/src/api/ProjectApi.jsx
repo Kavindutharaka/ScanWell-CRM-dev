@@ -1,22 +1,21 @@
-import axios from 'axios';
-import { BASE_URL } from '../config/apiConfig';
+import api from '../config/axios';
 
 export const fetchProjects = async () => {
-  const response = await axios.get(`${BASE_URL}/project`);
+  const response = await api.get(`/project`);
   return response.data;
 };
 
 export const createNewProject = async (project) => {
-  const response = await axios.post(`${BASE_URL}/project`, project);
+  const response = await api.post(`/project`, project);
   return response.data;
 };
 
 export const updateProject = async (project) => {
-  const response = await axios.put(`${BASE_URL}/project`, project);
+  const response = await api.put(`/project`, project);
   return response.data;
 };
 
 export const deleteProject = async (id) => {
-  const response = await axios.delete(`${BASE_URL}/project/${id}`);
+  const response = await api.delete(`/project/${id}`);
   return response.data;
 };

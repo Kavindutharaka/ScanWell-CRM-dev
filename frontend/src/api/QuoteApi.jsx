@@ -1,16 +1,15 @@
-import axios from 'axios';
-import { BASE_URL } from '../config/apiConfig';
+import api from '../config/axios';
 
 // API endpoints for Quotes
 // Matches your backend: api/quote/quote  →  /api/quote/quote
 
 export const fetchQuotes = async () => {
-  const response = await axios.get(`${BASE_URL}/quote/quote`);
+  const response = await api.get(`/quote/quote`);
   return response.data;
 };
 
 export const fetchQuoteCounts = async () => {
-  const response = await axios.get(`${BASE_URL}/quote/quote/counts`);
+  const response = await api.get(`/quote/quote/counts`);
   return response.data;
 };
 
@@ -22,25 +21,25 @@ export const fetchQuotesPaged = async (page = 1, pageSize = 10, search = '', cat
       params.append(key, value);
     }
   });
-  const response = await axios.get(`${BASE_URL}/quote/quote/paged?${params.toString()}`);
+  const response = await api.get(`/quote/quote/paged?${params.toString()}`);
   return response.data;
 };
 
 export const fetchQuoteById = async (id) => {
-  const response = await axios.get(`${BASE_URL}/quote/quote/${id}`);
+  const response = await api.get(`/quote/quote/${id}`);
   return response.data;
 };
 
 export const createNewQuote = async (quote) => {
-  const response = await axios.post(`${BASE_URL}/quote/quote`, quote);
+  const response = await api.post(`/quote/quote`, quote);
   return response.data;
 };
 
 export const updateQuote = async (quoteData) => {
   try {
     console.log('Payload being sent:', JSON.stringify(quoteData, null, 2));
-    
-    const response = await axios.put(`${BASE_URL}/quote/quote`, quoteData, {
+
+    const response = await api.put(`/quote/quote`, quoteData, {
       headers: {
         'Content-Type': 'application/json'
       }
@@ -54,48 +53,48 @@ export const updateQuote = async (quoteData) => {
 };
 
 export const deleteQuote = async (id) => {
-  const response = await axios.delete(`${BASE_URL}/quote/quote/${id}`);
+  const response = await api.delete(`/quote/quote/${id}`);
   return response.data;
 };
 
 export const updateQuoteStatus = async (id, status) => {
-  const response = await axios.put(`${BASE_URL}/quote/quote/${id}/status`, { status });
+  const response = await api.put(`/quote/quote/${id}/status`, { status });
   return response.data;
 };
 
 // Warehouse Quote API Functions
 export const fetchWareQuote = async () => {
-  const response = await axios.get(`${BASE_URL}/WarehouseQuotes`);
+  const response = await api.get(`/WarehouseQuotes`);
   return response.data;
 };
 
 export const fetchWareQuoteById = async (id) => {
-  const response = await axios.get(`${BASE_URL}/WarehouseQuotes/${id}`);
+  const response = await api.get(`/WarehouseQuotes/${id}`);
   return response.data;
 };
 
 export const createWareQuote = async (quote) => {
-  const response = await axios.post(`${BASE_URL}/WarehouseQuotes`, quote);
+  const response = await api.post(`/WarehouseQuotes`, quote);
   return response.data;
 };
 
 export const updateWareQuote = async (id, quote) => {
-  const response = await axios.put(`${BASE_URL}/WarehouseQuotes/${id}`, quote);
+  const response = await api.put(`/WarehouseQuotes/${id}`, quote);
   return response.data;
 };
 
 export const deleteWareQuote = async (id) => {
-  const response = await axios.delete(`${BASE_URL}/WarehouseQuotes/${id}`);
+  const response = await api.delete(`/WarehouseQuotes/${id}`);
   return response.data;
 };
 
 export const updateWareQuoteStatus = async (id, status) => {
-  const response = await axios.put(`${BASE_URL}/WarehouseQuotes/${id}/status`, { status });
+  const response = await api.put(`/WarehouseQuotes/${id}/status`, { status });
   return response.data;
 };
 
 export const getSp = async (name) => {
-  const response = await axios.get(`${BASE_URL}/quote/quote/sale-person?name=${name}`);
+  const response = await api.get(`/quote/quote/sale-person?name=${name}`);
   return response.data;
 };
 
