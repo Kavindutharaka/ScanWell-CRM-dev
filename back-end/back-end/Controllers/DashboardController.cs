@@ -95,6 +95,10 @@ namespace back_end.Controllers
                 try { result["quoteOutcomes"] = GetQuoteOutcomes(dtFrom, dtTo, employeeId, isAdmin); }
                 catch (Exception ex) { errors.Add("quoteOutcomes: " + ex.Message); result["quoteOutcomes"] = new { wonQuotes = 0, lostQuotes = 0, totalWonAmount = 0m }; }
 
+                // 11. MONTHLY INVOICE SALES & MARGIN
+                try { result["monthlyInvoice"] = GetMonthlyInvoiceData(dtFrom, dtTo, employeeId, isAdmin); }
+                catch (Exception ex) { errors.Add("monthlyInvoice: " + ex.Message); result["monthlyInvoice"] = new List<object>(); }
+
                 result["dateFrom"] = dtFrom.ToString("yyyy-MM-dd");
                 result["dateTo"] = dtTo.ToString("yyyy-MM-dd");
 
@@ -763,6 +767,70 @@ namespace back_end.Controllers
                 }
             }
             return new { wonQuotes = 0, lostQuotes = 0, totalWonAmount = 0m };
+        }
+
+        // ====================================================================
+        // 11. MONTHLY INVOICE SALES & MARGIN
+        //     Groups invoice_entries by month, returns sales (amount),
+        //     cost (cost_invoice), margin, and margin %
+        // ====================================================================
+        private List<object> GetMonthlyInvoiceData(DateTime dtFrom, DateTime dtTo, long? empId, bool isAdmin)
+        {
+            string ownerFilter = (!isAdmin && empId.HasValue) ? " AND q.CreatedBy = @EmpId" : "";
+
+            string query = $@"
+                SELECT
+                    YEAR(ie.entry_date) AS yr,
+                    MONTH(ie.entry_date) AS mn,
+                    FORMAT(ie.entry_date, 'MMM') AS monthName,
+                    ISNULL(SUM(ie.amount), 0) AS totalSales,
+                    ISNULL(SUM(ie.cost_invoice), 0) AS totalCost,
+                    ISNULL(SUM(ie.invoice_margin), 0) AS totalMargin
+                FROM invoice_entries ie
+                INNER JOIN quote_outcomes qo ON ie.quote_id = qo.quote_id
+                INNER JOIN [dbo].[Quotes] q ON qo.quote_id = q.QuoteId
+                WHERE qo.outcome_status = 'won'
+                  AND ie.entry_date >= @DateFrom
+                  AND ie.entry_date <= @DateTo
+                  {ownerFilter}
+                GROUP BY YEAR(ie.entry_date), MONTH(ie.entry_date), FORMAT(ie.entry_date, 'MMM')
+                ORDER BY YEAR(ie.entry_date), MONTH(ie.entry_date);";
+
+            var items = new List<object>();
+            using (var con = new SqlConnection(_dbConnectionString))
+            {
+                con.Open();
+                using (var cmd = new SqlCommand(query, con))
+                {
+                    cmd.Parameters.Add(new SqlParameter("@DateFrom", SqlDbType.Date) { Value = dtFrom });
+                    cmd.Parameters.Add(new SqlParameter("@DateTo", SqlDbType.Date) { Value = dtTo });
+                    if (!isAdmin && empId.HasValue)
+                        cmd.Parameters.AddWithValue("@EmpId", empId.Value);
+
+                    using (var reader = cmd.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            var sales = Convert.ToDecimal(reader["totalSales"]);
+                            var cost = Convert.ToDecimal(reader["totalCost"]);
+                            var margin = Convert.ToDecimal(reader["totalMargin"]);
+                            var marginPct = sales > 0 ? Math.Round((margin / sales) * 100, 1) : 0;
+
+                            items.Add(new
+                            {
+                                year = Convert.ToInt32(reader["yr"]),
+                                month = Convert.ToInt32(reader["mn"]),
+                                monthName = reader["monthName"]?.ToString(),
+                                totalSales = sales,
+                                totalCost = cost,
+                                totalMargin = margin,
+                                marginPercent = marginPct
+                            });
+                        }
+                    }
+                }
+            }
+            return items;
         }
 
         // ====================================================================

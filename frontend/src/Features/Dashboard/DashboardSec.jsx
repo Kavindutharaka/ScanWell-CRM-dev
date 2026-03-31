@@ -471,6 +471,7 @@ export default function DashboardSec() {
   const recentActs = data?.recentActivities || [];
   const topCusts = data?.topCustomers || [];
   const quoteOutcomes = data?.quoteOutcomes || {};
+  const monthlyInvoice = data?.monthlyInvoice || [];
 
   const pipeTotal = pipeline.reduce((s, p) => s + (p.count || 0), 0);
 
@@ -953,88 +954,98 @@ export default function DashboardSec() {
 
             {/* --- CHARTS ROW 2 --- */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
-              {/* Deal Status (Deals + Quote Outcomes combined) */}
-              <Widget title="Sales Status Distribution" icon={PieChart} className="fade-in fade-in-2">
-                <div className="flex flex-col items-center">
-                  {/* 3D Pie Chart */}
-                  <div className="relative my-2">
-                    {(() => {
-                      const total = dealPieSegments.reduce((s, seg) => s + seg.value, 0);
-                      if (total === 0) return <div className="flex items-center justify-center text-slate-300 text-sm h-[160px]">No data</div>;
-                      const size = 160;
-                      const cx = size / 2, cy = size / 2 - 8;
-                      const rx = 65, ry = 50; // ellipse radii for 3D
-                      const depth = 14; // 3D depth height
-                      let startAngle = -Math.PI / 2;
+              {/* Monthly Sales & Margin Bar Chart */}
+              <Widget title="Monthly Sales & Margin" icon={BarChart3} className="fade-in fade-in-2">
+                <div className="flex flex-col items-center w-full">
+                  {(() => {
+                    if (monthlyInvoice.length === 0) {
+                      return <div className="flex items-center justify-center text-slate-300 text-sm h-[320px]">No invoice data for selected period</div>;
+                    }
 
-                      const getEllipsePoint = (angle, cxp, cyp, rxp, ryp) => ({
-                        x: cxp + rxp * Math.cos(angle),
-                        y: cyp + ryp * Math.sin(angle),
-                      });
+                    const maxVal = Math.max(...monthlyInvoice.map(m => Math.max(m.totalSales || 0, m.totalMargin || 0)), 1);
+                    // Round up to nearest nice number for Y-axis
+                    const magnitude = Math.pow(10, Math.floor(Math.log10(maxVal)));
+                    const yMax = Math.ceil(maxVal / magnitude) * magnitude;
+                    const ySteps = 5;
+                    const yLabels = Array.from({ length: ySteps + 1 }, (_, i) => (yMax / ySteps) * (ySteps - i));
 
-                      const slices = dealPieSegments.map((seg) => {
-                        const sliceAngle = (seg.value / total) * 2 * Math.PI;
-                        const endAngle = startAngle + sliceAngle;
-                        const largeArc = sliceAngle > Math.PI ? 1 : 0;
-                        const s1 = getEllipsePoint(startAngle, cx, cy, rx, ry);
-                        const e1 = getEllipsePoint(endAngle, cx, cy, rx, ry);
-                        // Top face path
-                        const topPath = `M ${cx} ${cy} L ${s1.x} ${s1.y} A ${rx} ${ry} 0 ${largeArc} 1 ${e1.x} ${e1.y} Z`;
-                        // Side (3D depth) path - only for visible bottom half
-                        const s2 = getEllipsePoint(startAngle, cx, cy + depth, rx, ry);
-                        const e2 = getEllipsePoint(endAngle, cx, cy + depth, rx, ry);
-                        const sidePath = `M ${s1.x} ${s1.y} L ${s2.x} ${s2.y} A ${rx} ${ry} 0 ${largeArc} 1 ${e2.x} ${e2.y} L ${e1.x} ${e1.y} A ${rx} ${ry} 0 ${largeArc} 0 ${s1.x} ${s1.y} Z`;
-                        // Label position (midpoint of arc)
-                        const midAngle = startAngle + sliceAngle / 2;
-                        const labelPos = getEllipsePoint(midAngle, cx, cy, rx * 0.6, ry * 0.6);
-                        const pct = ((seg.value / total) * 100).toFixed(0);
-                        const result = { topPath, sidePath, color: seg.color, label: seg.label, value: seg.value, pct, midAngle, labelPos, startAngle, endAngle, showSide: true };
-                        startAngle = endAngle;
-                        return result;
-                      });
+                    const chartW = Math.max(monthlyInvoice.length * 120, 380);
+                    const chartH = 300;
+                    const padL = 70, padR = 20, padT = 15, padB = 45;
+                    const plotW = chartW - padL - padR;
+                    const plotH = chartH - padT - padB;
+                    const barGroupW = plotW / monthlyInvoice.length;
+                    const barW = Math.min(barGroupW * 0.3, 40);
+                    const gap = 6;
 
-                      return (
-                        <svg width={size} height={size + depth + 10} viewBox={`0 0 ${size} ${size + depth + 10}`}>
-                          <defs>
-                            {slices.map((slice, i) => (
-                              <linearGradient key={`side-g-${i}`} id={`side-grad-${i}`} x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="0%" stopColor={slice.color} stopOpacity="0.7" />
-                                <stop offset="100%" stopColor={slice.color} stopOpacity="0.3" />
-                              </linearGradient>
-                            ))}
-                          </defs>
-                          {/* 3D sides (render first, behind top) */}
-                          {slices.map((slice, i) => (
-                            <path key={`side-${i}`} d={slice.sidePath} fill={`url(#side-grad-${i})`} />
-                          ))}
-                          {/* Top faces */}
-                          {slices.map((slice, i) => (
-                            <path key={`top-${i}`} d={slice.topPath} fill={slice.color} stroke="white" strokeWidth="1.5" />
-                          ))}
-                          {/* Center total */}
-                          <text x={cx} y={cy - 4} textAnchor="middle" dominantBaseline="central" className="text-lg font-bold fill-slate-800">{total}</text>
-                          <text x={cx} y={cy + 12} textAnchor="middle" className="text-[9px] fill-slate-400">Total</text>
+                    const fmtAxis = (v) => {
+                      if (v >= 1000000) return `${(v / 1000000).toFixed(1)}M`;
+                      if (v >= 1000) return `${(v / 1000).toFixed(0)}K`;
+                      return v.toFixed(0);
+                    };
+
+                    return (
+                      <div className="w-full overflow-x-auto thin-scrollbar">
+                        <svg width={chartW} height={chartH} viewBox={`0 0 ${chartW} ${chartH}`} className="mx-auto">
+                          {/* Y-axis grid lines and labels */}
+                          {yLabels.map((val, i) => {
+                            const y = padT + (i / ySteps) * plotH;
+                            return (
+                              <g key={`y-${i}`}>
+                                <line x1={padL} y1={y} x2={chartW - padR} y2={y} stroke="#E2E8F0" strokeWidth="0.5" strokeDasharray="3,3" />
+                                <text x={padL - 8} y={y + 4} textAnchor="end" className="text-[11px] fill-slate-400">{fmtAxis(val)}</text>
+                              </g>
+                            );
+                          })}
+                          {/* X-axis line */}
+                          <line x1={padL} y1={padT + plotH} x2={chartW - padR} y2={padT + plotH} stroke="#CBD5E1" strokeWidth="1" />
+
+                          {/* Bars per month */}
+                          {monthlyInvoice.map((m, i) => {
+                            const groupX = padL + i * barGroupW + barGroupW / 2;
+                            const salesH = yMax > 0 ? ((m.totalSales || 0) / yMax) * plotH : 0;
+                            const marginH = yMax > 0 ? ((m.totalMargin || 0) / yMax) * plotH : 0;
+                            const salesY = padT + plotH - salesH;
+                            const marginY = padT + plotH - marginH;
+                            const marginPct = m.marginPercent || 0;
+
+                            return (
+                              <g key={`bar-${i}`}>
+                                {/* Sales bar (blue) */}
+                                <rect x={groupX - barW - gap / 2} y={salesY} width={barW} height={salesH} rx="2" fill="#3B82F6" />
+                                {/* Margin bar (orange) */}
+                                <rect x={groupX + gap / 2} y={marginY} width={barW} height={marginH} rx="2" fill="#F97316" />
+                                {/* Margin % label on top of orange bar */}
+                                {marginH > 0 && (
+                                  <text x={groupX + gap / 2 + barW / 2} y={marginY - 5} textAnchor="middle" className="text-[10px] font-semibold fill-orange-600">{marginPct}%</text>
+                                )}
+                                {/* Month label */}
+                                <text x={groupX} y={padT + plotH + 20} textAnchor="middle" className="text-[12px] fill-slate-500 font-medium">{m.monthName}</text>
+                              </g>
+                            );
+                          })}
                         </svg>
-                      );
-                    })()}
+                      </div>
+                    );
+                  })()}
+                  {/* Legend */}
+                  <div className="flex items-center justify-center gap-5 mt-3 pt-2 border-t border-slate-100 w-full">
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-3 h-3 rounded-sm bg-[#3B82F6]" />
+                      <span className="text-xs text-slate-600">Sales</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-3 h-3 rounded-sm bg-[#F97316]" />
+                      <span className="text-xs text-slate-600">Margin</span>
+                    </div>
                   </div>
-                  <div className="w-full space-y-1 mt-2">
-                    {dealPieSegments.map((seg, i) => {
-                      const pct = totalDealsPieCount > 0 ? ((seg.value / totalDealsPieCount) * 100).toFixed(0) : 0;
-                      return (
-                        <div key={i} className="flex items-center gap-2">
-                          <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: seg.color }} />
-                          <span className="text-xs text-slate-600 flex-1">{seg.label}</span>
-                          <span className="text-xs font-semibold text-slate-700">{seg.value}</span>
-                          <span className="text-[10px] text-slate-400 w-8 text-right">{pct}%</span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                  {(deals.totalDealValue > 0 || quoteOutcomes.totalWonAmount > 0) && (
-                    <div className="mt-3 pt-3 border-t border-slate-100 w-full text-center">
-                      <span className="text-xs text-slate-400">Total Won Sales: </span>
-                      <span className="text-sm font-bold text-slate-700">{fmtLKR((deals.wonDealValue || 0) + (quoteOutcomes.totalWonAmount || 0))}</span>
+                  {/* Total summary */}
+                  {monthlyInvoice.length > 0 && (
+                    <div className="mt-2 text-center">
+                      <span className="text-xs text-slate-400">Total Sales: </span>
+                      <span className="text-sm font-bold text-slate-700">{fmtLKR(monthlyInvoice.reduce((s, m) => s + (m.totalSales || 0), 0))}</span>
+                      <span className="text-xs text-slate-400 ml-3">Total Margin: </span>
+                      <span className="text-sm font-bold text-orange-600">{fmtLKR(monthlyInvoice.reduce((s, m) => s + (m.totalMargin || 0), 0))}</span>
                     </div>
                   )}
                 </div>

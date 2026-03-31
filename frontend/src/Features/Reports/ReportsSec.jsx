@@ -413,12 +413,56 @@ export default function ReportsSec() {
 
     // Title
     doc.setFontSize(16);
+    doc.setTextColor(30, 41, 59); // slate-800
     doc.text(reportTitles[activeReport], 14, 15);
 
     // Subtitle
     doc.setFontSize(9);
     doc.setTextColor(100);
     doc.text(`${getFilterDescription()} | Generated ${new Date().toLocaleString()}`, 14, 22);
+
+    let tableStartY = 28;
+
+    // Add summary boxes for sales-activity report
+    if (activeReport === "sales-activity" && reportData.length > 0) {
+      const statusCounts = {};
+      reportData.forEach(r => {
+        const s = (r.Status || r.status || "unknown").toLowerCase();
+        statusCounts[s] = (statusCounts[s] || 0) + 1;
+      });
+      const total = reportData.length;
+      const planned = statusCounts["planned"] || 0;
+      const completed = statusCounts["completed"] || 0;
+      const cancelled = statusCounts["cancelled"] || 0;
+
+      const summaryItems = [
+        { label: "Total Activities", count: total, color: [51, 65, 85] },      // slate-700
+        { label: "Planned", count: planned, color: [59, 130, 246] },            // blue-500
+        { label: "Completed", count: completed, color: [34, 197, 94] },         // green-500
+        { label: "Cancelled", count: cancelled, color: [239, 68, 68] },         // red-500
+      ];
+
+      const boxW = 45, boxH = 18, boxGap = 6, boxY = 26;
+      const boxStartX = 14;
+
+      summaryItems.forEach((item, i) => {
+        const x = boxStartX + i * (boxW + boxGap);
+        // Box background
+        doc.setFillColor(item.color[0], item.color[1], item.color[2]);
+        doc.roundedRect(x, boxY, boxW, boxH, 2, 2, 'F');
+        // Count (large white text)
+        doc.setFontSize(14);
+        doc.setTextColor(255, 255, 255);
+        doc.setFont(undefined, 'bold');
+        doc.text(String(item.count), x + boxW / 2, boxY + 8, { align: 'center' });
+        // Label (small white text)
+        doc.setFontSize(7);
+        doc.setFont(undefined, 'normal');
+        doc.text(item.label, x + boxW / 2, boxY + 14, { align: 'center' });
+      });
+
+      tableStartY = boxY + boxH + 6; // push table below summary boxes
+    }
 
     // Table
     const headers = Object.keys(exportData[0]);
@@ -427,7 +471,7 @@ export default function ReportsSec() {
     autoTable(doc, {
       head: [headers],
       body: rows,
-      startY: 28,
+      startY: tableStartY,
       styles: { fontSize: 7, cellPadding: 2 },
       headStyles: { fillColor: [100, 116, 139], textColor: 255, fontStyle: 'bold' },
       alternateRowStyles: { fillColor: [248, 250, 252] },

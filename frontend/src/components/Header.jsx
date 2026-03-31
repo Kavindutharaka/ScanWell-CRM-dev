@@ -157,13 +157,13 @@ function Header({ onMenuToggle, isMobileMenuOpen }) {
         </div>
       </div>
 
+      {/* Center - Slogan */}
+      <div className="hidden md:flex items-center justify-center flex-1">
+        <span className="text-sm font-medium text-slate-500 italic tracking-wide">Where Freight Meets Intelligence</span>
+      </div>
+
       {/* Right side - Actions and Profile */}
       <div className="flex items-center gap-2 md:gap-4">
-        {/* <img 
-          src={appLogo} 
-          alt="Sales Drive" 
-          className="h-7 w-auto" 
-        /> */}
         {/* Scanwell Logo */}
         <img
           src={scanwellLogo}
