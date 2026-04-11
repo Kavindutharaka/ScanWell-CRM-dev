@@ -1605,7 +1605,14 @@ export const generateTransitQuotePDF = (quoteData, userData = null, returnDoc = 
   
   doc.setFont('helvetica', 'normal');
   if (routesData.length > 0) {
-    const routeText = routesData.map(r => r.origin || 'N/A').concat([routesData[routesData.length - 1]?.destination || 'N/A']).join(' -> ');
+    // Build route including transit ports
+    const firstRoute = routesData[0];
+    let routeSegments = [firstRoute?.origin || 'N/A'];
+    if (firstRoute?.transits && firstRoute.transits.length > 0) {
+      routeSegments.push(...firstRoute.transits);
+    }
+    routeSegments.push(firstRoute?.destination || routesData[routesData.length - 1]?.destination || 'N/A');
+    const routeText = routeSegments.join(' -> ');
     const routeLines = doc.splitTextToSize(routeText, 170);
     routeLines.forEach(line => {
       doc.text(line, 15, yPos);
@@ -1646,10 +1653,34 @@ export const generateTransitQuotePDF = (quoteData, userData = null, returnDoc = 
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(10);
 
-    const segmentMode = segment.mode?.toUpperCase() || 'N/A';
-    const segmentRoute = `${segment.origin || 'N/A'} -> ${segment.destination || 'N/A'}`;
-    doc.text(`Segment ${index + 1}: ${segmentMode} (${segmentRoute})`, 18, yPos + 2);
-    yPos += 10;
+    const segmentMode = segment.mode?.toUpperCase() || quoteData.freightCategory?.toUpperCase() || 'N/A';
+    // Build segment route including transit ports
+    let segRouteArr = [segment.origin || 'N/A'];
+    if (segment.transits && segment.transits.length > 0) {
+      segRouteArr.push(...segment.transits);
+    }
+    segRouteArr.push(segment.destination || 'N/A');
+    const segmentRoute = segRouteArr.join(' -> ');
+    const segHeaderText = `Segment ${index + 1}: ${segmentMode} (${segmentRoute})`;
+    const segHeaderLines = doc.splitTextToSize(segHeaderText, 174);
+    segHeaderLines.forEach((line, li) => {
+      if (li > 0) {
+        doc.rect(15, yPos - 3, 180, 5, 'F');
+      }
+      doc.text(line, 18, yPos + 2);
+      yPos += li === 0 ? 7 : 5;
+    });
+
+    // Incoterm display
+    const carriers = segment.carriers || [];
+    const incoterms = carriers.map(c => c.incoterm).filter(Boolean);
+    if (incoterms.length > 0) {
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      doc.text(`Incoterm: ${incoterms.join(', ')}`, 18, yPos);
+      yPos += 5;
+    }
+    yPos += 3;
 
     // Freight Charges - Mutually exclusive with Ratio Charges for air segments
     // Check if ratio tables have actual data (carrier + meaningful amount)
@@ -1868,10 +1899,34 @@ export const generateMultiModalQuotePDF = (quoteData, userData = null, returnDoc
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(10);
 
-    const segmentMode = segment.mode?.toUpperCase() || 'N/A';
-    const segmentRoute = `${segment.origin || 'N/A'} -> ${segment.destination || 'N/A'}`;
-    doc.text(`Segment ${index + 1}: ${segmentMode} (${segmentRoute})`, 18, yPos + 2);
-    yPos += 10;
+    const segmentMode = segment.mode?.toUpperCase() || quoteData.freightCategory?.toUpperCase() || 'N/A';
+    // Build segment route including transit ports
+    let mmSegRouteArr = [segment.origin || 'N/A'];
+    if (segment.transits && segment.transits.length > 0) {
+      mmSegRouteArr.push(...segment.transits);
+    }
+    mmSegRouteArr.push(segment.destination || 'N/A');
+    const segmentRoute = mmSegRouteArr.join(' -> ');
+    const mmSegHeaderText = `Segment ${index + 1}: ${segmentMode} (${segmentRoute})`;
+    const mmSegHeaderLines = doc.splitTextToSize(mmSegHeaderText, 174);
+    mmSegHeaderLines.forEach((line, li) => {
+      if (li > 0) {
+        doc.rect(15, yPos - 3, 180, 5, 'F');
+      }
+      doc.text(line, 18, yPos + 2);
+      yPos += li === 0 ? 7 : 5;
+    });
+
+    // Incoterm display
+    const mmCarriers = segment.carriers || [];
+    const mmIncoterms = mmCarriers.map(c => c.incoterm).filter(Boolean);
+    if (mmIncoterms.length > 0) {
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      doc.text(`Incoterm: ${mmIncoterms.join(', ')}`, 18, yPos);
+      yPos += 5;
+    }
+    yPos += 3;
 
     // Freight Charges - Mutually exclusive with Ratio Charges for air segments
     const mmRatioTables = segment.seaFreightRatioChargesTables || [];
