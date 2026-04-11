@@ -64,7 +64,13 @@
       "Bash(grep -r \"RequireAny\\\\|public.*endpoint\\\\|\\\\[AllowAnonymous\\\\]\" D:KavinduScanWell-CRM-dev-2back-endback-end --include=*.cs)",
       "Bash(node generate-guide.js)",
       "Bash(node node_modules/.bin/react-scripts build)",
-      "Bash(grep -r \"slogan\\\\|tagline\\\\|ScanWell\\\\|Sales Drive\" D:KavinduScanWell-CRM-dev-2frontendsrc --include=*.jsx --include=*.js)"
+      "Bash(grep -r \"slogan\\\\|tagline\\\\|ScanWell\\\\|Sales Drive\" D:KavinduScanWell-CRM-dev-2frontendsrc --include=*.jsx --include=*.js)",
+      "Bash(node gen_scope.js)",
+      "Bash(node gen_timeline.js)",
+      "Bash(NODE_PATH=\"C:/nvm4w/nodejs/node_modules\" node gen_scope.js)",
+      "Bash(NODE_PATH=\"C:/nvm4w/nodejs/node_modules\" node gen_timeline.js)",
+      "Bash(python \"C:\\\\Users\\\\prasa\\\\AppData\\\\Roaming\\\\Claude\\\\local-agent-mode-sessions\\\\skills-plugin\\\\e4496f83-1546-4c6f-9df2-acd1c059ab8e\\\\2a282a18-ec0b-464d-b877-bacc464e9bef\\\\skills\\\\docx\\\\scripts\\\\office\\\\validate.py\" ScanWell_CRM_AI_Integration_Scope.docx)",
+      "Bash(python \"C:\\\\Users\\\\prasa\\\\AppData\\\\Roaming\\\\Claude\\\\local-agent-mode-sessions\\\\skills-plugin\\\\e4496f83-1546-4c6f-9df2-acd1c059ab8e\\\\2a282a18-ec0b-464d-b877-bacc464e9bef\\\\skills\\\\docx\\\\scripts\\\\office\\\\validate.py\" ScanWell_CRM_AI_Integration_Timeline.docx)"
     ]
   }
 }

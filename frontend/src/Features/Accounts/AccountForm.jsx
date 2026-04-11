@@ -141,14 +141,14 @@ export default function AccountForm({ onClose, account = null, onSuccess, loadAc
 
   const validateForm = () => {
     const newErrors = {};
-    
-    if (!formData.accountName.trim()) {
+
+    if (!formData.accountName?.trim()) {
       newErrors.accountName = 'Account name is required';
     }
-    if (!formData.fmsCode.trim()) {
+    if (!formData.fmsCode?.trim()) {
       newErrors.fmsCode = 'FMS code is required';
     }
-    if (!formData.salesPerson.trim()) {
+    if (!formData.salesPerson?.trim()) {
       newErrors.salesPerson = 'Sales Person is required';
     }
     
@@ -381,7 +381,7 @@ export default function AccountForm({ onClose, account = null, onSuccess, loadAc
               <div>
                 <label className="flex items-center gap-2 text-sm font-semibold text-slate-700 mb-3">
                   <Hash className="w-4 h-4 text-indigo-600" />
-                  FMS Code
+                  FMS Code <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
@@ -453,7 +453,7 @@ export default function AccountForm({ onClose, account = null, onSuccess, loadAc
               <div className="lg:col-span-1 relative">
                 <label className="flex items-center gap-2 text-sm font-semibold text-slate-700 mb-3">
                   <BarChart3 className="w-4 h-4 text-orange-600" />
-                  Sales Person
+                  Sales Person <span className="text-red-500">*</span>
                 </label>
                 <div className="relative">
                   <input

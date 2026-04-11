@@ -39,14 +39,14 @@ namespace back_end.Controllers
                             q.FreightType,
                             q.CreatedDate,
                             q.CreatedBy,
-                            ISNULL(e.fname + ' ' + e.lname, '') AS CreatedByName,
+                            ISNULL(a.salesPerson, '') AS CreatedByName,
                             qo.outcome_id,
                             qo.outcome_status,
                             qo.created_date AS outcome_date,
                             ISNULL(qo.invoice_completed, 0) AS invoice_completed
                         FROM [dbo].[Quotes] q
                         INNER JOIN quote_outcomes qo ON q.QuoteId = qo.quote_id
-                        LEFT JOIN [dbo].[emp_reg] e ON q.CreatedBy = e.SysID
+                        LEFT JOIN [dbo].[account_reg] a ON q.Customer = a.accountName
                         WHERE qo.outcome_status = 'won'
                         ORDER BY qo.created_date DESC";
 

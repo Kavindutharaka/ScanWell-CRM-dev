@@ -317,7 +317,8 @@ function addFreightChargesTableTransit(doc, charges, yPos, isAir, segmentNum, ta
       const currency = charge.currency || '';
       const amount = charge.amount || '';
       const formattedAmount = currency && amount ? `${currency} ${amount}` : amount;
-      const formattedTotal = currency ? `${currency} ${Math.round(total)}` : Math.round(total).toString();
+      const fmtTotal = formatCurrencyAmount(total);
+      const formattedTotal = currency ? `${currency} ${fmtTotal}` : fmtTotal;
 
       const row = [
         charge.carrier || '',
@@ -385,7 +386,7 @@ function addFreightChargesTableTransit(doc, charges, yPos, isAir, segmentNum, ta
       const currency = charge.currency || 'USD';
       const chargeAmount = charge.charge || '';
       const formattedCharge = chargeAmount ? `${currency} ${chargeAmount}` : '';
-      const formattedTotal = `${currency} ${Math.round(total)}`;
+      const formattedTotal = `${currency} ${formatCurrencyAmount(total)}`;
 
       return [
         charge.chargeableWeight || '',
@@ -735,10 +736,11 @@ const calculateChargeTotal = (charge) => {
 
 /**
  * Format amount based on currency
- * All currencies: no decimals (e.g., 2075, 18000)
+ * Show decimals only when needed (e.g., 2075.50, 18000)
  */
 const formatCurrencyAmount = (amount, currency) => {
-  return Math.round(amount).toString();
+  const val = parseFloat(amount) || 0;
+  return val % 1 === 0 ? val.toFixed(0) : val.toFixed(2);
 };
 
 /**
@@ -1350,7 +1352,8 @@ function addFreightChargesTableWithName(doc, charges, yPos, isAir, tableName = n
     const currency = charge.currency || '';
     const amount = charge.amount || '';
     const formattedAmount = currency && amount ? `${currency} ${amount}` : amount;
-    const formattedTotal = currency ? `${currency} ${Math.round(total)}` : Math.round(total).toString();
+    const fmtTotal = formatCurrencyAmount(total);
+    const formattedTotal = currency ? `${currency} ${fmtTotal}` : fmtTotal;
 
     const row = [
       charge.carrier || '',
@@ -1423,8 +1426,9 @@ function addFreightChargesTable(doc, charges, yPos, isAir) {
     const currency = charge.currency || '';
     const amount = charge.amount || '';
     const formattedAmount = currency && amount ? `${currency} ${amount}` : amount;
-    const formattedTotal = currency ? `${currency} ${Math.round(total)}` : Math.round(total).toString();
-    
+    const fmtTotal = formatCurrencyAmount(total);
+    const formattedTotal = currency ? `${currency} ${fmtTotal}` : fmtTotal;
+
     const row = [
       charge.carrier || '',
       charge.unitType || '',
@@ -1433,7 +1437,7 @@ function addFreightChargesTable(doc, charges, yPos, isAir) {
       charge.transitTime || '',
       charge.numberOfRouting || ''
     ];
-    
+
     row.push(formattedTotal);
     row.push(formatRemarksWithBreaks(charge.remarks || ''));
     return row;
@@ -1491,7 +1495,8 @@ function addOtherChargesTable(doc, charges, title, yPos) {
     const currency = charge.currency || '';
     const amount = charge.amount || '';
     const formattedAmount = currency && amount ? `${currency} ${amount}` : amount;
-    const formattedTotal = currency ? `${currency} ${Math.round(total)}` : Math.round(total).toString();
+    const fmtTotal = formatCurrencyAmount(total);
+    const formattedTotal = currency ? `${currency} ${fmtTotal}` : fmtTotal;
     
     return [
       charge.chargeName || '',
