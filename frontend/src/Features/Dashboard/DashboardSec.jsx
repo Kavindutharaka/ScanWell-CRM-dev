@@ -738,12 +738,12 @@ export default function DashboardSec() {
                     color={COLORS.purple} bg={COLORS.purpleLight} />
                 </div>
                 <div className="fade-in fade-in-3">
-                  <StatCard icon={Activity} label="Activities" value={activity.totalActivities || 0}
+                  <StatCard icon={Activity} label="Sales Visits" value={activity.totalActivities || 0}
                     subValue={`${activity.completedActivities || 0} completed`}
                     color={COLORS.warning} bg={COLORS.warningLight} />
                 </div>
                 <div className="fade-in fade-in-1">
-                  <StatCard icon={Briefcase} label="Total Sales" value={totalDealsPieCount}
+                  <StatCard icon={Briefcase} label="Quotations Won" value={totalDealsPieCount}
                     subValue={`${(deals.wonDeals || 0) + (quoteOutcomes.wonQuotes || 0)} won · ${(deals.lostDeals || 0) + (quoteOutcomes.lostQuotes || 0)} lost`}
                     color={COLORS.blue} bg={COLORS.blueLight} />
                 </div>
