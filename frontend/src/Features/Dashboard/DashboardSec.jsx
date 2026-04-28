@@ -480,9 +480,15 @@ export default function DashboardSec() {
   // Total Deals Won = RFQ Revenue + Won Quote Amount + Won Deal Value
   const totalDealsWon = (rfq.totalRevenue || 0) + (quoteOutcomes.totalWonAmount || 0) + (deals.wonDealValue || 0);
 
-  // Quote win rate (won vs total outcomes)
-  const totalOutcomes = (quoteOutcomes.wonQuotes || 0) + (quoteOutcomes.lostQuotes || 0);
-  const approvalRate = totalOutcomes > 0 ? (((quoteOutcomes.wonQuotes || 0) / totalOutcomes) * 100).toFixed(1) : "0";
+  // Quote win rate (won quotes vs total quotations)
+  // NOTE: denominator is total quotations, NOT (won + lost). Using (won + lost) gives 100%
+  // whenever there are no "lost" outcomes, which was the reported bug.
+  const wonQuotesCount = quoteOutcomes.wonQuotes || 0;
+  const lostQuotesCount = quoteOutcomes.lostQuotes || 0;
+  const totalQuotesForRate = qs.totalQuotes || 0;
+  const approvalRate = totalQuotesForRate > 0
+    ? ((wonQuotesCount / totalQuotesForRate) * 100).toFixed(1)
+    : "0";
 
   // RFQ monthly bars
   const rfqBars = (monthly.rfqRevenue || []).map(m => ({
@@ -743,8 +749,8 @@ export default function DashboardSec() {
                     color={COLORS.warning} bg={COLORS.warningLight} />
                 </div>
                 <div className="fade-in fade-in-1">
-                  <StatCard icon={Briefcase} label="Quotations Won" value={totalDealsPieCount}
-                    subValue={`${(deals.wonDeals || 0) + (quoteOutcomes.wonQuotes || 0)} won · ${(deals.lostDeals || 0) + (quoteOutcomes.lostQuotes || 0)} lost`}
+                  <StatCard icon={Briefcase} label="Quotations Won" value={wonQuotesCount}
+                    subValue={`${wonQuotesCount} won · ${lostQuotesCount} lost`}
                     color={COLORS.blue} bg={COLORS.blueLight} />
                 </div>
                 <div className="fade-in fade-in-2">
@@ -839,7 +845,16 @@ export default function DashboardSec() {
               {/* Pipeline Conversion - Monday.com funnel style (Gemini v2) */}
               <Widget title="Pipeline Conversion" icon={BarChart3} className="fade-in fade-in-1">
                 {(() => {
-                  const data = pipeline.length > 0 ? pipeline : [];
+                  // Sort pipeline stages into a logical funnel order so bars & flow %'s don't
+                  // depend on SQL GROUP BY ordering (which is not guaranteed).
+                  const stageOrder = ['draft', 'submitted', 'won', 'lost'];
+                  const data = pipeline.length > 0
+                    ? [...pipeline].sort((a, b) => {
+                        const ai = stageOrder.indexOf((a.status || '').toLowerCase());
+                        const bi = stageOrder.indexOf((b.status || '').toLowerCase());
+                        return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+                      })
+                    : [];
                   if (data.length === 0) return <div className="text-sm text-slate-400 text-center py-8">No pipeline data</div>;
 
                   const rawMax = Math.max(...data.map(d => d.count || 0), 1);
@@ -876,9 +891,19 @@ export default function DashboardSec() {
                   });
                   funnelPath += `L ${getX(totalStages - 1) + barWidth} ${getY(0)} Z`;
 
-                  const firstCount = data[0].count || 0;
-                  const lastCount = data[data.length - 1].count || 0;
-                  const overallConversion = firstCount === 0 ? 0 : Math.round((lastCount / firstCount) * 100);
+                  // Win Rate = won_count / total_quotes * 100
+                  // Numerator: count of items where status === 'won'
+                  // Denominator: sum of all NON-outcome statuses (draft, submitted, etc.)
+                  //   - excluding 'won' and 'lost' because those come from a separate outcomes table
+                  //   - (won + lost are appended by backend and would double-count)
+                  const wonItem = data.find(d => (d.status || '').toLowerCase() === 'won');
+                  const wonCount = wonItem ? (wonItem.count || 0) : 0;
+                  const totalQuotes = data.reduce((sum, d) => {
+                    const s = (d.status || '').toLowerCase();
+                    if (s === 'won' || s === 'lost') return sum;
+                    return sum + (d.count || 0);
+                  }, 0);
+                  const overallConversion = totalQuotes === 0 ? 0 : Math.round((wonCount / totalQuotes) * 100);
 
                   return (
                     <div className="flex items-stretch">
