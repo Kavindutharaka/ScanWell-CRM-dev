@@ -673,12 +673,16 @@ namespace back_end.Controllers
         {
             string ownerFilter = (!isAdmin && empId.HasValue) ? " AND q.CreatedBy = @EmpId" : "";
 
+            // Top customers = customers ranked by number of WON quotes (not total quote count).
+            // Inner join on quote_outcomes filtered to outcome_status = 'won'.
             string query = $@"
                 SELECT TOP 5
                     q.Customer,
                     COUNT(*) AS quoteCount
                 FROM [dbo].[Quotes] q
+                INNER JOIN quote_outcomes qo ON qo.quote_id = q.QuoteId
                 WHERE q.Customer IS NOT NULL AND q.Customer <> ''
+                  AND qo.outcome_status = 'won'
                   AND CAST(q.CreatedDate AS DATE) >= @DateFrom
                   AND CAST(q.CreatedDate AS DATE) <= @DateTo
                   {ownerFilter}

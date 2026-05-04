@@ -1155,7 +1155,7 @@ export default function DashboardSec() {
 
             {/* --- BOTTOM ROW --- */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-              <Widget title="Top Customers" icon={Users} className="fade-in fade-in-1">
+              <Widget title="Top Customers (Won)" icon={Users} className="fade-in fade-in-1">
                 {topCusts.length > 0 ? (
                   <div className="space-y-2 mt-1">
                     {topCusts.map((c, i) => (
@@ -1164,13 +1164,13 @@ export default function DashboardSec() {
                           style={{ backgroundColor: PIE_COLORS[i % PIE_COLORS.length] }}>{i + 1}</div>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium text-slate-700 truncate">{c.customer}</p>
-                          <p className="text-xs text-slate-400">{c.quoteCount} quotes</p>
+                          <p className="text-xs text-slate-400">{c.quoteCount} won {c.quoteCount === 1 ? 'quote' : 'quotes'}</p>
                         </div>
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <div className="flex items-center justify-center h-32 text-slate-300 text-sm">No customer data</div>
+                  <div className="flex items-center justify-center h-32 text-slate-300 text-sm">No won quotes in this period</div>
                 )}
               </Widget>
 
