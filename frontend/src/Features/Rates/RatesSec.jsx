@@ -1325,7 +1325,12 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
           throw new Error('Cannot read Excel sheet');
         }
         
-        const rawData = XLSX.utils.sheet_to_json(sheet, { raw: false });
+        // raw:true so date cells come through as raw Excel serial NUMBERS (e.g. 46156)
+        // instead of being formatted via the cell's number format.
+        // With raw:false, a VALID column formatted as "d-mmm" gets returned as the
+        // year-less string "14-May" — which downstream date parsing then misreads as
+        // year=14 → 2014. Numeric rate columns still parse fine via parseFloat.
+        const rawData = XLSX.utils.sheet_to_json(sheet, { raw: true });
         // Trim whitespace from column header keys (Excel often has trailing spaces)
         excelData = rawData.map(row => {
           const cleaned = {};
@@ -1461,18 +1466,62 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
       // Helper function to parse Excel date
       const parseExcelDate = (value) => {
         if (!value) return null;
+
+        // Build YYYY-MM-DD from UTC components — avoids timezone drift.
+        const fmtUTC = (d) => {
+          const y = d.getUTCFullYear();
+          const m = String(d.getUTCMonth() + 1).padStart(2, '0');
+          const day = String(d.getUTCDate()).padStart(2, '0');
+          return `${y}-${m}-${day}`;
+        };
+        // Build YYYY-MM-DD from LOCAL components — for Date objects produced by SheetJS,
+        // which encode the intended day in local components rather than UTC.
+        const fmtLocal = (d) => {
+          const y = d.getFullYear();
+          const m = String(d.getMonth() + 1).padStart(2, '0');
+          const day = String(d.getDate()).padStart(2, '0');
+          return `${y}-${m}-${day}`;
+        };
+
         if (typeof value === 'number') {
-          const excelEpoch = new Date(1899, 11, 30);
-          const jsDate = new Date(excelEpoch.getTime() + value * 86400000);
-          return jsDate.toISOString().split('T')[0];
-        } else if (value instanceof Date) {
-          return value.toISOString().split('T')[0];
-        } else if (typeof value === 'string' && value.includes('/')) {
-          const parts = value.split('/');
-          if (parts.length === 3) {
-            return `${parts[2]}-${parts[0].padStart(2, '0')}-${parts[1].padStart(2, '0')}`;
+          // Excel serial number → JS Date.
+          // Use Date.UTC anchor so the day arithmetic is exact (Date constructor with
+          // local-time anchor in 1899 picks up historical timezone jitter).
+          const ms = Date.UTC(1899, 11, 30) + value * 86400000;
+          return fmtUTC(new Date(ms));
+        }
+
+        if (value instanceof Date) {
+          return fmtLocal(value);
+        }
+
+        if (typeof value === 'string') {
+          const trimmed = value.trim();
+
+          // M/D/YYYY (US-style) — preserved from original logic
+          if (trimmed.includes('/')) {
+            const parts = trimmed.split('/');
+            if (parts.length === 3) {
+              const [mm, dd, yy] = parts;
+              const yearNum = parseInt(yy, 10);
+              const fullYear = yy.length === 2 ? (yearNum < 50 ? 2000 + yearNum : 1900 + yearNum) : yearNum;
+              return `${fullYear}-${mm.padStart(2, '0')}-${dd.padStart(2, '0')}`;
+            }
+          }
+
+          // Fallback: let JS try to parse (handles "1-May-2026", "May 1 2026", "2026-05-01", etc.)
+          // For year-less strings like "14-May" (which Excel produces for d-mmm format),
+          // JS would default to year 2001 — so we explicitly default to the current year instead.
+          const yearLessPattern = /^\d{1,2}[-\s][A-Za-z]{3,}$|^[A-Za-z]{3,}[-\s]\d{1,2}$/;
+          const candidate = yearLessPattern.test(trimmed)
+            ? `${trimmed} ${new Date().getFullYear()}`
+            : trimmed;
+          const parsed = new Date(candidate);
+          if (!isNaN(parsed.getTime())) {
+            return fmtLocal(parsed);
           }
         }
+
         return value;
       };
 

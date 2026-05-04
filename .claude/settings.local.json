@@ -73,7 +73,12 @@
       "Bash(python \"C:\\\\Users\\\\prasa\\\\AppData\\\\Roaming\\\\Claude\\\\local-agent-mode-sessions\\\\skills-plugin\\\\e4496f83-1546-4c6f-9df2-acd1c059ab8e\\\\2a282a18-ec0b-464d-b877-bacc464e9bef\\\\skills\\\\docx\\\\scripts\\\\office\\\\validate.py\" ScanWell_CRM_AI_Integration_Timeline.docx)",
       "Bash(pandoc \"C:\\\\Users\\\\prasa\\\\Documents\\\\AI Requirment.docx\" -o \"C:\\\\Users\\\\prasa\\\\Documents\\\\AI_Requirement.md\" --track-changes=all)",
       "Bash(npm root *)",
-      "Bash(NODE_PATH=$\\(npm root -g\\) node .claude/worktrees/generate_leadsbridge_doc.js)"
+      "Bash(NODE_PATH=$\\(npm root -g\\) node .claude/worktrees/generate_leadsbridge_doc.js)",
+      "Read(//d/tmp/**)",
+      "Bash(cp \"C:\\\\Users\\\\prasa\\\\Documents\\\\DESTINATION HEADER'S USEC MAY 1.xlsx\" usec.xlsx)",
+      "Bash(unzip -o usec.xlsx -d usec_unzipped)",
+      "Bash(rm -f \"D:\\\\Kavindu\\\\ScanWell-CRM-dev-2\\\\frontend\\\\node_modules\\\\.usec.xlsx\" /tmp/usec.xlsx)",
+      "Bash(rm -rf /tmp/usec_unzipped)"
     ]
   }
 }
