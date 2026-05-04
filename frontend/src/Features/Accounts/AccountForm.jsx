@@ -105,15 +105,22 @@ export default function AccountForm({ onClose, account = null, onSuccess, loadAc
       setSubmitError(null);
     }
 
-    // Handle sales person autocomplete
+    // Handle sales person autocomplete.
+    // BUG FIX: previously emp.email.toLowerCase() / emp.position.toLowerCase() would
+    // throw when a single employee row had a null email or position — the whole filter
+    // would then throw and the dropdown silently emptied. Short queries like "a" worked
+    // only because the name check matched first via || short-circuit, hiding the issue.
+    // Now every field access is null-safe.
     if (name === 'salesPerson') {
       if (value.trim()) {
+        const searchTerm = value.toLowerCase();
         const filtered = employees.filter(emp => {
-          const fullName = `${emp.fname} ${emp.lname}`.toLowerCase();
-          const searchTerm = value.toLowerCase();
-          return fullName.includes(searchTerm) || 
-                 emp.email.toLowerCase().includes(searchTerm) ||
-                 emp.position.toLowerCase().includes(searchTerm);
+          const fullName = `${emp.fname || ''} ${emp.lname || ''}`.toLowerCase().trim();
+          const email = (emp.email || '').toLowerCase();
+          const position = (emp.position || '').toLowerCase();
+          return fullName.includes(searchTerm) ||
+                 email.includes(searchTerm) ||
+                 position.includes(searchTerm);
         });
         setFilteredEmployees(filtered);
         setShowEmployeeDropdown(true);

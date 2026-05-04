@@ -12,6 +12,18 @@ export default function QuotesInvoiceSec({ modalOpen }) {
   const navigate = useNavigate();
   const { permission } = useContext(AuthContext);
   const isAdmin = permission?.IsAdmin;
+  // Granular permissions. QuotesView gives read-only access; explicit Add/Edit
+  // are required to create or modify. Submitted quotes are locked for non-admins.
+  const canAddQuotes = isAdmin || permission?.QuotesAdd;
+  const canEditQuotes = isAdmin || permission?.QuotesEdit;
+  const canDeleteQuotes = isAdmin; // delete = destructive, admin only
+
+  // Submitted quotes are locked for non-admins (admin can still edit).
+  const isQuoteLocked = (quote) => {
+    if (isAdmin) return false;
+    const status = (quote?.status || '').toLowerCase();
+    return status === 'submitted' || status === 'won' || status === 'lost';
+  };
   const [quotes, setQuotes] = useState([]);
   const [warehouseQuotes, setWarehouseQuotes] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -63,29 +75,44 @@ export default function QuotesInvoiceSec({ modalOpen }) {
     }
   };
 
-  // Inside the same file or a separate file
+  // Sales person lookup per row.
+  // Hardened to:
+  //  - guard against missing customer name (no spurious request)
+  //  - avoid stale state writes when the row unmounts mid-request
+  //  - render '-' instead of loading text when there's no name to look up
 function SalesPerson({ customerName }) {
-  const [salesPerson, setSalesPerson] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [salesPerson, setSalesPerson] = useState('-');
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (!customerName) {
+    if (!customerName || !customerName.trim()) {
+      setSalesPerson('-');
       setLoading(false);
       return;
     }
 
+    let cancelled = false;
+    setLoading(true);
+
     getSp(customerName)
       .then((res) => {
-        setSalesPerson(res?.[0]?.salesPerson || '-');
+        if (cancelled) return;
+        const name = Array.isArray(res) && res[0]?.salesPerson ? res[0].salesPerson : '-';
+        setSalesPerson(name);
       })
       .catch((err) => {
+        if (cancelled) return;
         console.error('Failed to load SP for', customerName, err);
         setSalesPerson('-');
       })
-      .finally(() => setLoading(false));
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => { cancelled = true; };
   }, [customerName]);
 
-  if (loading) return <span className="text-gray-400">Loading...</span>;
+  if (loading) return <span className="text-gray-400">…</span>;
 
   return <span className="text-gray-700">{salesPerson}</span>;
 }
@@ -423,12 +450,21 @@ function SalesPerson({ customerName }) {
   };
 
   const handleEdit = (quote) => {
+    if (!canEditQuotes) {
+      alert('You do not have permission to edit quotes.');
+      return;
+    }
+    if (isQuoteLocked(quote)) {
+      alert('This quote has been submitted and is locked. Contact an administrator to make changes.');
+      return;
+    }
+
     if (quote.isWarehouse) {
       // Navigate to warehouse quote edit
       navigate(`/warehouse-quotes/${quote.warehouseData.sysId}?edit=true`);
       return;
     }
-    
+
     if (quote.freightType === 'multimodal') {
       navigate(`/quotes?type=multimodal&id=${quote.quoteId}&edit=true`);
     } else {
@@ -689,13 +725,15 @@ function SalesPerson({ customerName }) {
           <h1 className="text-2xl font-bold text-gray-800">Freight Quotes</h1>
           <p className="text-sm text-gray-600 mt-1">Manage and track all your freight quotations</p>
         </div>
-        <button
-          onClick={() => modalOpen('quote')}
-          className="flex items-center gap-2 px-4 py-2.5 bg-teal-600 text-white rounded-lg hover:bg-teal-700 shadow-lg shadow-teal-200 transition-all"
-        >
-          <Plus size={20} />
-          Create Quote
-        </button>
+        {canAddQuotes && (
+          <button
+            onClick={() => modalOpen('quote')}
+            className="flex items-center gap-2 px-4 py-2.5 bg-teal-600 text-white rounded-lg hover:bg-teal-700 shadow-lg shadow-teal-200 transition-all"
+          >
+            <Plus size={20} />
+            Create Quote
+          </button>
+        )}
       </div>
 
       {/* Search and Filter Bar */}
@@ -802,7 +840,7 @@ function SalesPerson({ customerName }) {
               ? 'Try adjusting your search or filters'
               : 'Create your first quote to get started'}
           </p>
-          {!searchTerm && !hasActiveFilters && (
+          {!searchTerm && !hasActiveFilters && canAddQuotes && (
             <button
               onClick={() => modalOpen('quote')}
               className="inline-flex items-center gap-2 px-6 py-2.5 bg-teal-600 text-white rounded-lg hover:bg-teal-700"
@@ -979,7 +1017,7 @@ function SalesPerson({ customerName }) {
                         </td>
                         <td className="px-2 py-3">
                           <div className="flex items-center justify-end gap-1">
-                            {!quote.isWarehouse && (!quote.status || quote.status === 'draft') && (
+                            {canEditQuotes && !quote.isWarehouse && (!quote.status || quote.status === 'draft') && (
                               <button
                                 onClick={() => confirmSubmit(quote)}
                                 className="p-1.5 text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"
@@ -995,20 +1033,24 @@ function SalesPerson({ customerName }) {
                             >
                               <Eye size={15} />
                             </button>
-                            <button
-                              onClick={() => handleEdit(quote)}
-                              className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                              title="Edit"
-                            >
-                              <Edit2 size={15} />
-                            </button>
-                            <button
-                              onClick={() => confirmDelete(quote)}
-                              className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                              title="Delete"
-                            >
-                              <Trash2 size={15} />
-                            </button>
+                            {canEditQuotes && !isQuoteLocked(quote) && (
+                              <button
+                                onClick={() => handleEdit(quote)}
+                                className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                title="Edit"
+                              >
+                                <Edit2 size={15} />
+                              </button>
+                            )}
+                            {canDeleteQuotes && (
+                              <button
+                                onClick={() => confirmDelete(quote)}
+                                className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                title="Delete"
+                              >
+                                <Trash2 size={15} />
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -1100,19 +1142,23 @@ function SalesPerson({ customerName }) {
                   </div>
 
                   <div className="flex items-center gap-2 pt-3 border-t border-gray-100 mt-3">
-                    <button
-                      onClick={() => handleEdit(quote)}
-                      className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-green-600 bg-green-50 rounded-lg text-sm font-medium hover:bg-green-100"
-                    >
-                      <Edit2 size={16} />
-                      Edit
-                    </button>
-                    <button
-                      onClick={() => confirmDelete(quote)}
-                      className="flex items-center justify-center gap-2 px-3 py-2 text-red-600 bg-red-50 rounded-lg text-sm font-medium hover:bg-red-100"
-                    >
-                      <Trash2 size={16} />
-                    </button>
+                    {canEditQuotes && !isQuoteLocked(quote) && (
+                      <button
+                        onClick={() => handleEdit(quote)}
+                        className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-green-600 bg-green-50 rounded-lg text-sm font-medium hover:bg-green-100"
+                      >
+                        <Edit2 size={16} />
+                        Edit
+                      </button>
+                    )}
+                    {canDeleteQuotes && (
+                      <button
+                        onClick={() => confirmDelete(quote)}
+                        className="flex items-center justify-center gap-2 px-3 py-2 text-red-600 bg-red-50 rounded-lg text-sm font-medium hover:bg-red-100"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    )}
                   </div>
                 </div>
               );

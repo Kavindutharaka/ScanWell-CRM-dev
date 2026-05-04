@@ -490,6 +490,16 @@ export default function DashboardSec() {
     ? ((wonQuotesCount / totalQuotesForRate) * 100).toFixed(1)
     : "0";
 
+  // Loss & Pending rates over total quotations (same denominator as Win Rate, for consistency).
+  // Pending = quotes that haven't been marked won or lost yet.
+  const lossRate = totalQuotesForRate > 0
+    ? ((lostQuotesCount / totalQuotesForRate) * 100).toFixed(1)
+    : "0";
+  const pendingQuotesCount = Math.max(0, totalQuotesForRate - wonQuotesCount - lostQuotesCount);
+  const pendingRate = totalQuotesForRate > 0
+    ? ((pendingQuotesCount / totalQuotesForRate) * 100).toFixed(1)
+    : "0";
+
   // RFQ monthly bars
   const rfqBars = (monthly.rfqRevenue || []).map(m => ({
     label: m.monthName, value: m.rfqRevenue || 0, color: COLORS.success, colorEnd: "#4ADE80",
@@ -762,6 +772,16 @@ export default function DashboardSec() {
                   <StatCard icon={Zap} label="RFQ Revenue" value={fmtLKR(rfq.totalRevenue || 0)}
                     subValue={`${rfq.totalRfqs || 0} RFQs · ${rfq.totalEntries || 0} entries`}
                     color={COLORS.success} bg={COLORS.successLight} />
+                </div>
+                <div className="fade-in fade-in-1">
+                  <StatCard icon={XCircle} label="Loss Rate" value={`${lossRate}%`}
+                    subValue={`${lostQuotesCount} lost · of ${totalQuotesForRate} total`}
+                    color={COLORS.danger} bg={COLORS.dangerLight} />
+                </div>
+                <div className="fade-in fade-in-2">
+                  <StatCard icon={Clock} label="Pending Rate" value={`${pendingRate}%`}
+                    subValue={`${pendingQuotesCount} pending · of ${totalQuotesForRate} total`}
+                    color={COLORS.warning} bg={COLORS.warningLight} />
                 </div>
               </div>
             </div>

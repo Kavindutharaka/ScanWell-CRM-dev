@@ -4,6 +4,34 @@ import autoTable from 'jspdf-autotable';
 import logo from '../../../assets/images/logo.png';
 
 /**
+ * Safety net so the literal strings "null" / "undefined" never leak into the PDF.
+ * Applied as a didParseCell callback on every autoTable below.
+ */
+const SAFE_CELL_HOOK = (data) => {
+  const raw = data?.cell?.raw;
+  if (raw === null || raw === undefined) {
+    data.cell.text = [''];
+    return;
+  }
+  if (typeof raw === 'string' && (raw === 'null' || raw === 'undefined')) {
+    data.cell.text = [''];
+  }
+};
+
+// Wrapper around autoTable that always installs SAFE_CELL_HOOK while preserving
+// any didParseCell the caller passes in. Use this everywhere instead of autoTable.
+const safeAutoTable = (doc, options) => {
+  const userHook = options && options.didParseCell;
+  return autoTable(doc, {
+    ...options,
+    didParseCell: (data) => {
+      SAFE_CELL_HOOK(data);
+      if (typeof userHook === 'function') userHook(data);
+    }
+  });
+};
+
+/**
  * Add Air Freight Charges Table for Transit/MultiModal (Pivoted by Carrier)
  */
 function addAirFreightChargesTableTransit(doc, chargesData, yPos, segmentNum, tableName = null) {
@@ -180,7 +208,7 @@ function addAirFreightChargesTableTransit(doc, chargesData, yPos, segmentNum, ta
   // Surcharges column
   columnStyles[3 + numUnitTypes] = { cellWidth: 20 };  // SURCHARGES
 
-  autoTable(doc, {
+  safeAutoTable(doc, {
     startY: yPos,
     head: [headers],
     body: tableData,
@@ -286,7 +314,7 @@ function addFreightChargesTableTransit(doc, charges, yPos, isAir, segmentNum, ta
 
       const airHeaders = ['Unit Type', 'Amount'];
 
-      autoTable(doc, {
+      safeAutoTable(doc, {
         startY: yPos,
         head: [airHeaders],
         body: airTableData,
@@ -336,7 +364,7 @@ function addFreightChargesTableTransit(doc, charges, yPos, isAir, segmentNum, ta
 
     const headers = ['Carrier', 'Unit Type', 'Units', 'Amount', 'Transit', 'Routing', 'Total', 'Remarks'];
 
-    autoTable(doc, {
+    safeAutoTable(doc, {
       startY: yPos,
       head: [headers],
       body: tableData,
@@ -398,7 +426,7 @@ function addFreightChargesTableTransit(doc, charges, yPos, isAir, segmentNum, ta
       ];
     });
 
-    autoTable(doc, {
+    safeAutoTable(doc, {
       startY: yPos,
       head: [['Chargeable Weight', 'Weight Breaker', 'Pricing Unit', 'Charge', 'Total', 'Remark']],
       body: tableData,
@@ -573,7 +601,7 @@ function addAirFreightRatioChargesTable(doc, charges, yPos, title = 'Air Freight
   columnStyles[5 + numRatios] = { cellWidth: 15 };      // ROUTING
   columnStyles[6 + numRatios] = { cellWidth: 28, overflow: 'linebreak' };  // REMARKS
 
-  autoTable(doc, {
+  safeAutoTable(doc, {
     startY: yPos,
     head: [headers],
     body: tableData,
@@ -1171,7 +1199,7 @@ function addAirFreightChargesTableWithName(doc, charges, yPos, tableName = null,
   // Build headers
   const headers = ['AIRLINE', 'Currency', ...unitTypeColumns, 'MIN', 'SURCH', 'T/T', 'FREQ', 'ROUTING', 'REMARKS'];
 
-  autoTable(doc, {
+  safeAutoTable(doc, {
     startY: yPos,
     head: [headers],
     body: tableData,
@@ -1303,7 +1331,7 @@ function addAirFreightChargesTable(doc, charges, yPos) {
   columnStyles[6 + numUnitTypes] = { cellWidth: 15 };  // ROUTING
   columnStyles[7 + numUnitTypes] = { cellWidth: 28, overflow: 'linebreak' };  // REMARKS - much wider
   
-  autoTable(doc, {
+  safeAutoTable(doc, {
     startY: yPos,
     head: [headers],
     body: tableData,
@@ -1371,7 +1399,7 @@ function addFreightChargesTableWithName(doc, charges, yPos, isAir, tableName = n
 
   const headers = ['Carrier', 'Unit Type', 'Units', 'Amount', 'Transit', 'Routing', 'Total', 'Remarks'];
 
-  autoTable(doc, {
+  safeAutoTable(doc, {
     startY: yPos,
     head: [headers],
     body: tableData,
@@ -1445,7 +1473,7 @@ function addFreightChargesTable(doc, charges, yPos, isAir) {
   
   const headers = ['Carrier', 'Unit Type', 'Units', 'Amount', 'Transit', 'Routing', 'Total', 'Remarks'];
   
-  autoTable(doc, {
+  safeAutoTable(doc, {
     startY: yPos,
     head: [headers],
     body: tableData,
@@ -1508,7 +1536,7 @@ function addOtherChargesTable(doc, charges, title, yPos) {
     ];
   });
   
-  autoTable(doc, {
+  safeAutoTable(doc, {
     startY: yPos,
     head: [['Charge Name', 'Unit Type', 'Units', 'Amount', 'Total', 'Remark']],
     body: tableData,

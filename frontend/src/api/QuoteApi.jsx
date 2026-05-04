@@ -94,7 +94,12 @@ export const updateWareQuoteStatus = async (id, status) => {
 };
 
 export const getSp = async (name) => {
-  const response = await api.get(`/quote/quote/sale-person?name=${name}`);
+  // URL-encode the customer name. Without this, names with spaces, ampersands,
+  // hashes, etc. silently break the request (which is why salesperson sometimes
+  // shows and sometimes doesn't on the quote list).
+  if (!name) return [];
+  const encoded = encodeURIComponent(name);
+  const response = await api.get(`/quote/quote/sale-person?name=${encoded}`);
   return response.data;
 };
 

@@ -30,10 +30,17 @@ import { AuthContext } from "../../context/AuthContext";
 
 
 export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
-  // Get permission from AuthContext - delete buttons visible to admin or users with RateManageView
+  // Get permission from AuthContext.
+  // RateManageView = read-only access. RateManageAdd / RateManageEdit gate write operations.
+  // Bug fix: previously canManageRates was based on RateManageView, so view-only users
+  // could see edit/delete UI. Now each action is gated by the matching permission.
   const { permission } = useContext(AuthContext);
   const isAdmin = permission?.IsAdmin;
-  const canManageRates = isAdmin || permission?.RateManageView;
+  const canAddRates = isAdmin || permission?.RateManageAdd;
+  const canEditRates = isAdmin || permission?.RateManageEdit;
+  const canDeleteRates = isAdmin; // delete is destructive — admin only
+  // Backward-compat alias for existing destination-header delete buttons.
+  const canManageRates = canDeleteRates;
   const [activeTab, setActiveTab] = useState('air');
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -1776,8 +1783,12 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
   };
 
   const formatCurrency = (amount) => {
-    if (amount === null || amount === undefined || amount === '') return '-';
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
+    // Treat the literal "-" placeholder (returned by getQuickRate when no rate is set)
+    // as missing too — otherwise Intl.NumberFormat coerces it to NaN → "$NaN".
+    if (amount === null || amount === undefined || amount === '' || amount === '-') return '-';
+    const num = typeof amount === 'number' ? amount : parseFloat(amount);
+    if (!Number.isFinite(num)) return '-';
+    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(num);
   };
 
   const formatDate = (dateString) => {
@@ -1797,13 +1808,43 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
     return rate.rate1_167 || rate.rate1_200 || rate.rate1_300 || rate.rate1_400 || rate.rate1_500;
   };
 
+  // Pick the first AIR rate field that actually has a value, and remember
+  // which bracket it came from so the label below can match.
+  // Brackets are returned in priority order: heaviest first.
+  const AIR_RATE_BRACKETS = [
+    { field: 'rate45Plus',   label: 'per kg (+45)' },
+    { field: 'rate45MinusM', label: 'per kg (-45 M)' },
+    { field: 'rate45Minus',  label: 'per kg (-45)' },
+    { field: 'rate100',      label: 'per kg (+100)' },
+    { field: 'rate300',      label: 'per kg (+300)' },
+    { field: 'rate500',      label: 'per kg (+500)' },
+    { field: 'rate1000',     label: 'per kg (+1000)' },
+    { field: 'rateM',        label: 'per kg (M)' },
+  ];
+
+  const AIR_RATIO_BRACKETS = [
+    { field: 'rate1_167', label: 'ratio (1:167)' },
+    { field: 'rate1_200', label: 'ratio (1:200)' },
+    { field: 'rate1_300', label: 'ratio (1:300)' },
+    { field: 'rate1_400', label: 'ratio (1:400)' },
+    { field: 'rate1_500', label: 'ratio (1:500)' },
+  ];
+
+  // Find the first bracket whose field has a usable value (number or numeric string > 0).
+  const findAirBracket = (rate) => {
+    const hasVal = (v) => v !== null && v !== undefined && v !== '' && Number.isFinite(parseFloat(v));
+    if (isRatioBasedRate(rate)) {
+      return AIR_RATIO_BRACKETS.find(b => hasVal(rate[b.field])) || null;
+    }
+    return AIR_RATE_BRACKETS.find(b => hasVal(rate[b.field])) || null;
+  };
+
+  const isRatioBasedRate_ = isRatioBasedRate; // for clarity below
+
   const getQuickRate = (rate) => {
     if (rate.freightType?.toLowerCase().includes('air')) {
-      // Check ratio-based rates first
-      if (isRatioBasedRate(rate)) {
-        return rate.rate1_167 ?? rate.rate1_200 ?? rate.rate1_300 ?? rate.rate1_400 ?? rate.rate1_500 ?? '-';
-      }
-      return rate.rate45Plus ?? rate.rate45MinusM ?? rate.rate45Minus ?? rate.rate100 ?? rate.rateM ?? '-';
+      const b = findAirBracket(rate);
+      return b ? rate[b.field] : '-';
     } else if (rate.freightType?.toLowerCase().includes('fcl')) {
       return rate.rate20GP ?? rate.rate40GP ?? rate.rate40HQ ?? '-';
     } else if (rate.freightType?.toLowerCase().includes('lcl')) {
@@ -1814,8 +1855,10 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
 
   const getQuickRateLabel = (rate) => {
     if (rate.freightType?.toLowerCase().includes('air')) {
-      if (isRatioBasedRate(rate)) return 'ratio (1:167)';
-      return 'per kg (+45)';
+      const b = findAirBracket(rate);
+      // Fall back to the type's default label when no bracket has a value
+      if (!b) return isRatioBasedRate_(rate) ? 'ratio' : 'per kg';
+      return b.label;
     }
     if (rate.freightType?.toLowerCase().includes('fcl')) return 'per container';
     if (rate.freightType?.toLowerCase().includes('lcl')) return 'per CBM';
@@ -1885,8 +1928,8 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
               <p className="text-slate-600 mt-1">Manage and compare freight rates across routes</p>
             </div>
             
-            {/* Conditional Button Display */}
-            {activeTab === 'seaspot' || activeTab === 'seabond' || activeTab === 'airexport' || activeTab === null ? null : !activeLiner ? (
+            {/* Conditional Button Display — only shown to users with add permission */}
+            {!canAddRates ? null : activeTab === 'seaspot' || activeTab === 'seabond' || activeTab === 'airexport' || activeTab === null ? null : !activeLiner ? (
               <button
                 onClick={modalOpen}
                 className="inline-flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 transition-colors shadow-lg hover:shadow-xl"
@@ -1895,8 +1938,8 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
                 Create New Rate
               </button>
             ) : (
-              <button 
-                onClick={() => setShowLinerModal(true)} 
+              <button
+                onClick={() => setShowLinerModal(true)}
                 className={`inline-flex items-center gap-2 px-6 py-3 ${activeLinerDetails?.color || 'bg-blue-600'} text-white rounded-lg font-medium hover:opacity-90 transition-all shadow-lg hover:shadow-xl`}
               >
                 <Upload className="w-5 h-5" />
@@ -2069,13 +2112,15 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
                   <span className="text-sm font-semibold text-indigo-700">Sea Spot Rates ({seaSpotRates.length})</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => setShowSeaSpotUploadModal(true)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-xs font-medium hover:bg-indigo-700 transition-colors"
-                  >
-                    <Upload className="w-3.5 h-3.5" />
-                    Upload Excel
-                  </button>
+                  {canAddRates && (
+                    <button
+                      onClick={() => setShowSeaSpotUploadModal(true)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-xs font-medium hover:bg-indigo-700 transition-colors"
+                    >
+                      <Upload className="w-3.5 h-3.5" />
+                      Upload Excel
+                    </button>
+                  )}
                   {isAdmin && seaSpotRates.length > 0 && (
                     <button
                       onClick={handleDeleteAllSpotRates}
@@ -2211,13 +2256,15 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
                   <span className="text-sm font-semibold text-teal-700">Sea Bond Rates ({seaBondRates.length})</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => setShowSeaBondUploadModal(true)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-teal-600 text-white rounded-lg text-xs font-medium hover:bg-teal-700 transition-colors"
-                  >
-                    <Upload className="w-3.5 h-3.5" />
-                    Upload Excel
-                  </button>
+                  {canAddRates && (
+                    <button
+                      onClick={() => setShowSeaBondUploadModal(true)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-teal-600 text-white rounded-lg text-xs font-medium hover:bg-teal-700 transition-colors"
+                    >
+                      <Upload className="w-3.5 h-3.5" />
+                      Upload Excel
+                    </button>
+                  )}
                   {isAdmin && seaBondRates.length > 0 && (
                     <button
                       onClick={handleDeleteAllSeaBondRates}
@@ -2493,13 +2540,15 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => setShowAirExportUploadModal(true)}
-                      className="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg transition-all flex items-center gap-2 text-sm font-medium"
-                    >
-                      <Upload className="w-4 h-4" />
-                      Upload Excel
-                    </button>
+                    {canAddRates && (
+                      <button
+                        onClick={() => setShowAirExportUploadModal(true)}
+                        className="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg transition-all flex items-center gap-2 text-sm font-medium"
+                      >
+                        <Upload className="w-4 h-4" />
+                        Upload Excel
+                      </button>
+                    )}
                     {isAdmin && airExportRates.length > 0 && (
                       <button
                         onClick={handleDeleteAllAirExportRates}
@@ -2886,13 +2935,15 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
                       </p>
                     </div>
                   </div>
-                  <button
-                    onClick={() => setShowLinerModal(true)}
-                    className="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg transition-all flex items-center gap-2"
-                  >
-                    <Upload className="w-4 h-4" />
-                    Upload Excel
-                  </button>
+                  {canAddRates && (
+                    <button
+                      onClick={() => setShowLinerModal(true)}
+                      className="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg transition-all flex items-center gap-2"
+                    >
+                      <Upload className="w-4 h-4" />
+                      Upload Excel
+                    </button>
+                  )}
                 </div>
               </div>
             )}
@@ -3228,8 +3279,10 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
                           </div>
 
                           <div className="col-span-1 flex items-center justify-end gap-2">
-                            <button onClick={() => onEditRate(rate)} className="p-2 hover:bg-indigo-50 rounded-lg"><Edit className="w-4 h-4 text-slate-600 hover:text-indigo-600" /></button>
-                            {isAdmin && (
+                            {canEditRates && (
+                              <button onClick={() => onEditRate(rate)} className="p-2 hover:bg-indigo-50 rounded-lg"><Edit className="w-4 h-4 text-slate-600 hover:text-indigo-600" /></button>
+                            )}
+                            {canDeleteRates && (
                               <button onClick={() => handleDelete(rate.sysID || rate.id)} className="p-2 hover:bg-red-50 rounded-lg"><Trash2 className="w-4 h-4 text-slate-600 hover:text-red-600" /></button>
                             )}
                             <button onClick={() => toggleRow(rate.sysID || rate.id)} className="p-2 hover:bg-slate-100 rounded-lg">
@@ -3247,10 +3300,12 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
                               <span className="uppercase">{rate.freightType?.replace(/-/g, ' ')}</span>
                             </div>
                             <div className="flex items-center gap-1">
-                              <button onClick={() => onEditRate(rate)} className="p-2 hover:bg-indigo-50 rounded-lg">
-                                <Edit className="w-4 h-4 text-slate-600 hover:text-indigo-600" />
-                              </button>
-                              {isAdmin && (
+                              {canEditRates && (
+                                <button onClick={() => onEditRate(rate)} className="p-2 hover:bg-indigo-50 rounded-lg">
+                                  <Edit className="w-4 h-4 text-slate-600 hover:text-indigo-600" />
+                                </button>
+                              )}
+                              {canDeleteRates && (
                                 <button onClick={() => handleDelete(rate.sysID || rate.id)} className="p-2 hover:bg-red-50 rounded-lg">
                                   <Trash2 className="w-4 h-4 text-slate-600 hover:text-red-600" />
                                 </button>
@@ -3620,14 +3675,14 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
                   : 'Create your first rate'
               }
             </p>
-            {!searchQuery && !activeLiner && (
+            {!searchQuery && !activeLiner && canAddRates && (
               <button onClick={modalOpen} className="inline-flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">
                 <Plus className="w-5 h-5" />Create New Rate
               </button>
             )}
-            {activeLiner && (
-              <button 
-                onClick={() => setShowLinerModal(true)} 
+            {activeLiner && canAddRates && (
+              <button
+                onClick={() => setShowLinerModal(true)}
                 className={`inline-flex items-center gap-2 px-6 py-3 ${activeLinerDetails?.color || 'bg-blue-600'} text-white rounded-lg hover:opacity-90`}
               >
                 <Upload className="w-5 h-5" />Upload Excel for {activeLiner}
