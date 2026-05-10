@@ -155,10 +155,13 @@ export default function AccountForm({ onClose, account = null, onSuccess, loadAc
     if (!formData.fmsCode?.trim()) {
       newErrors.fmsCode = 'FMS code is required';
     }
+    if (!formData.accountType?.trim()) {
+      newErrors.accountType = 'Account type is required';
+    }
     if (!formData.salesPerson?.trim()) {
       newErrors.salesPerson = 'Sales Person is required';
     }
-    
+
     // if (formData.domain && !formData.domain.match(/^https?:\/\/.+/)) {
     //   newErrors.domain = 'Please enter a valid URL (starting with http:// or https://)';
     // }
@@ -353,19 +356,22 @@ export default function AccountForm({ onClose, account = null, onSuccess, loadAc
               <div>
                 <label className="flex items-center gap-2 text-sm font-semibold text-slate-700 mb-3">
                   <ArrowUpDown className="w-4 h-4 text-purple-600" />
-                  Account Type
+                  Account Type <span className="text-red-500">*</span>
                 </label>
                 <select
                   name="accountType"
                   value={formData.accountType}
                   onChange={handleInputChange}
-                  className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent hover:border-slate-400 transition-all bg-white"
+                  className={`w-full px-4 py-3 border ${errors.accountType ? 'border-red-500' : 'border-slate-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent hover:border-slate-400 transition-all bg-white`}
                 >
                   <option value="">Select account type</option>
                   <option value="import">Import</option>
                   <option value="export">Export</option>
                   <option value="both">Both Import & Export</option>
                 </select>
+                {errors.accountType && (
+                  <p className="mt-1 text-sm text-red-600">{errors.accountType}</p>
+                )}
               </div>
 
               {/* Domain */}

@@ -80,7 +80,9 @@
       "Bash(rm -f \"D:\\\\Kavindu\\\\ScanWell-CRM-dev-2\\\\frontend\\\\node_modules\\\\.usec.xlsx\" /tmp/usec.xlsx)",
       "Bash(rm -rf /tmp/usec_unzipped)",
       "Bash(tasklist)",
-      "Bash(py -3 -c ' *)"
+      "Bash(py -3 -c ' *)",
+      "Bash(Get-ChildItem -Path \"D:\\\\Kavindu\\\\ScanWell-CRM-dev-2\" -Recurse -Include \"*.md\" -ErrorAction SilentlyContinue)",
+      "Bash(Select-Object FullName)"
     ]
   }
 }

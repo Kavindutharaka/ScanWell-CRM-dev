@@ -357,6 +357,8 @@ namespace back_end.Controllers
                 return BadRequest(new { message = "Account name is required." });
             if (string.IsNullOrWhiteSpace(account.fmsCode))
                 return BadRequest(new { message = "FMS code is required." });
+            if (string.IsNullOrWhiteSpace(account.accountType))
+                return BadRequest(new { message = "Account type is required." });
             if (string.IsNullOrWhiteSpace(account.salesPerson))
                 return BadRequest(new { message = "Sales person is required." });
 
@@ -413,6 +415,8 @@ namespace back_end.Controllers
                 return BadRequest(new { message = "Account name is required." });
             if (string.IsNullOrWhiteSpace(account.fmsCode))
                 return BadRequest(new { message = "FMS code is required." });
+            if (string.IsNullOrWhiteSpace(account.accountType))
+                return BadRequest(new { message = "Account type is required." });
             if (string.IsNullOrWhiteSpace(account.salesPerson))
                 return BadRequest(new { message = "Sales person is required." });
 
