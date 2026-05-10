@@ -318,9 +318,11 @@ function SalesPerson({ customerName }) {
   }, [filters]);
 
   // Load quotes when page, filters, debounced search, or permission changes.
-  // isAdmin and permission?.EmployeeId are included so that when permission
-  // loads asynchronously (after mount), the non-admin createdBy filter is applied.
+  // Guard: do NOT fetch until permission has resolved from the server.
+  // Without this guard the effect fires on mount while permission is still null,
+  // returning ALL quotes briefly — a visible flash of wrong data for non-admins.
   useEffect(() => {
+    if (permission === null || permission === undefined) return;
     loadQuotes();
   }, [currentPage, pageSize, debouncedSearch, filters, isAdmin, permission?.EmployeeId]);
 
@@ -352,6 +354,7 @@ function SalesPerson({ customerName }) {
   }, []);
 
   useEffect(() => {
+    if (permission === null || permission === undefined) return;
     loadStatsCounts();
   }, [isAdmin, permission?.EmployeeId]);
 
