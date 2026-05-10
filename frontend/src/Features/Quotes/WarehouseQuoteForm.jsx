@@ -21,7 +21,7 @@ import { AuthContext } from "../../context/AuthContext";
 import { fetchUserDetailsByRoleID } from '../../api/UserRoleApi';
 
 export default function WarehouseQuoteForm({ disabled = false }) {
-    const { user } = useContext(AuthContext);
+    const { user, permission } = useContext(AuthContext);
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [customers, setCustomers] = useState([]);
@@ -221,6 +221,11 @@ export default function WarehouseQuoteForm({ disabled = false }) {
 
     setLoading(true);
 
+    // Resolve the current user's employee ID for CreatedBy tracking
+    const createdById = permission?.EmployeeId
+      ? String(permission.EmployeeId)
+      : (user?.id ? String(user.id) : null);
+
     // Prepare payload - exclude customerId if not set or invalid
     const payload = {
       customerName: formData.customerName,
@@ -228,7 +233,8 @@ export default function WarehouseQuoteForm({ disabled = false }) {
       issuedDate: formData.issuedDate,
       validityDays: formData.validityDays,
       lineItems: formData.lineItems,
-      notes: formData.notes
+      notes: formData.notes,
+      createdBy: createdById,
     };
 
     // Only include customerId if it's a valid value (not empty, not null)

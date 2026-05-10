@@ -216,7 +216,8 @@ namespace back_end.Controllers
                         command.Parameters.AddWithValue("@ValidityDays", request.ValidityDays ?? 30);
                         command.Parameters.AddWithValue("@LineItemsJson", lineItemsJson);
                         command.Parameters.AddWithValue("@NotesJson", notesJson);
-                        command.Parameters.AddWithValue("@CreatedBy", "System");
+                        command.Parameters.AddWithValue("@CreatedBy",
+                            !string.IsNullOrWhiteSpace(request.CreatedBy) ? (object)request.CreatedBy : DBNull.Value);
 
                         var result = await command.ExecuteScalarAsync();
                         quoteId = Convert.ToInt32(result);
@@ -381,6 +382,7 @@ namespace back_end.Controllers
         public DateTime? ValidityDate { get; set; }              // Ignored on save – computed in DB
         public List<LineItemRequest>? LineItems { get; set; }
         public List<string>? Notes { get; set; }
+        public string? CreatedBy { get; set; }                   // Employee SysID of the creating user
     }
 
     public class LineItemRequest
