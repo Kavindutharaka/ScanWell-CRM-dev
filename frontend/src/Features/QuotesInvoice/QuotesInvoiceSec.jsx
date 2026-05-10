@@ -10,7 +10,7 @@ import useFilters from '../../components/filters/useFilters';
 
 export default function QuotesInvoiceSec({ modalOpen }) {
   const navigate = useNavigate();
-  const { permission } = useContext(AuthContext);
+  const { user, permission } = useContext(AuthContext);
   const isAdmin = permission?.IsAdmin;
   // Granular permissions. QuotesView gives read-only access; explicit Add/Edit
   // are required to create or modify. Submitted quotes are locked for non-admins.
@@ -356,6 +356,11 @@ function SalesPerson({ customerName }) {
       const apiFilters = getApiParams();
       const categoryParam = apiFilters.category || 'all';
       const typeParam = apiFilters.type || 'all';
+      // Non-admin users only see quotes they created.
+      // permission.EmployeeId matches q.CreatedBy (emp_reg.SysID) in the backend.
+      if (!isAdmin && permission?.EmployeeId) {
+        apiFilters.createdBy = permission.EmployeeId;
+      }
       const result = await fetchQuotesPaged(currentPage, pageSize, debouncedSearch, categoryParam, typeParam, apiFilters);
       setQuotes(result.data || []);
       setTotalCount(result.totalCount || 0);

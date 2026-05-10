@@ -53,7 +53,7 @@ namespace back_end.Controllers
 
         // GET: api/quote/quote/paged?page=1&pageSize=10&search=&category=all&type=all
         [HttpGet, Route("quote/paged")]
-        public ActionResult GetPagedQuotes(int page = 1, int pageSize = 10, string search = "", string category = "all", string type = "all", string status = "all")
+        public ActionResult GetPagedQuotes(int page = 1, int pageSize = 10, string search = "", string category = "all", string type = "all", string status = "all", string createdBy = "")
         {
             try
             {
@@ -63,6 +63,13 @@ namespace back_end.Controllers
                 // Build WHERE clause
                 var conditions = new List<string>();
                 var parameters = new List<SqlParameter>();
+
+                // Filter by creator (non-admin users only see their own quotes)
+                if (!string.IsNullOrWhiteSpace(createdBy))
+                {
+                    conditions.Add("q.CreatedBy = @CreatedBy");
+                    parameters.Add(new SqlParameter("@CreatedBy", createdBy));
+                }
 
                 if (!string.IsNullOrWhiteSpace(search))
                 {
