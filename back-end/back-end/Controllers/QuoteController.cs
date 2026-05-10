@@ -174,23 +174,31 @@ namespace back_end.Controllers
             }
         }
 
-        // GET: api/quote/quote/counts
+        // GET: api/quote/quote/counts?createdBy=123
         [HttpGet, Route("quote/counts")]
-        public ActionResult GetQuoteCounts()
+        public ActionResult GetQuoteCounts([FromQuery] string createdBy = "")
         {
-            string query = @"
+            string whereClause = string.IsNullOrWhiteSpace(createdBy)
+                ? ""
+                : "WHERE CreatedBy = @CreatedBy";
+
+            string query = $@"
                 SELECT
                     COUNT(*) AS total,
                     SUM(CASE WHEN FreightCategory = 'air' THEN 1 ELSE 0 END) AS air,
                     SUM(CASE WHEN FreightCategory = 'sea' THEN 1 ELSE 0 END) AS sea,
                     SUM(CASE WHEN FreightCategory = 'multimodal' THEN 1 ELSE 0 END) AS multimodal
-                FROM [dbo].[Quotes];";
+                FROM [dbo].[Quotes]
+                {whereClause};";
 
             try
             {
                 using var con = GetConnection();
                 con.Open();
                 using var cmd = new SqlCommand(query, con);
+                if (!string.IsNullOrWhiteSpace(createdBy))
+                    cmd.Parameters.AddWithValue("@CreatedBy", createdBy);
+
                 using var reader = cmd.ExecuteReader();
 
                 if (reader.Read())

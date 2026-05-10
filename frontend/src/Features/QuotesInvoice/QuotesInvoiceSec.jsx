@@ -317,10 +317,12 @@ function SalesPerson({ customerName }) {
     setCurrentPage(1);
   }, [filters]);
 
-  // Load quotes when page, filters, or debounced search changes
+  // Load quotes when page, filters, debounced search, or permission changes.
+  // isAdmin and permission?.EmployeeId are included so that when permission
+  // loads asynchronously (after mount), the non-admin createdBy filter is applied.
   useEffect(() => {
     loadQuotes();
-  }, [currentPage, pageSize, debouncedSearch, filters]);
+  }, [currentPage, pageSize, debouncedSearch, filters, isAdmin, permission?.EmployeeId]);
 
   // Filter configuration for Quotes
   const quoteFilterConfig = [
@@ -344,11 +346,14 @@ function SalesPerson({ customerName }) {
     ]}
   ];
 
-  // Load warehouse quotes and stats counts once on mount
+  // Load warehouse quotes once on mount; reload stats when permission changes
   useEffect(() => {
     loadWarehouseQuotes();
-    loadStatsCounts();
   }, []);
+
+  useEffect(() => {
+    loadStatsCounts();
+  }, [isAdmin, permission?.EmployeeId]);
 
   const loadQuotes = async () => {
     try {
@@ -408,7 +413,11 @@ function SalesPerson({ customerName }) {
 
   const loadStatsCounts = async () => {
     try {
-      const counts = await fetchQuoteCounts();
+      // Non-admin users only see counts for their own quotes
+      const createdByFilter = (!isAdmin && permission?.EmployeeId)
+        ? String(permission.EmployeeId)
+        : '';
+      const counts = await fetchQuoteCounts(createdByFilter);
       setStatsCounts(prev => ({
         ...prev,
         total: (counts.total || 0) + warehouseQuotes.length,

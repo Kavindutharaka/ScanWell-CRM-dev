@@ -8,8 +8,9 @@ export const fetchQuotes = async () => {
   return response.data;
 };
 
-export const fetchQuoteCounts = async () => {
-  const response = await api.get(`/quote/quote/counts`);
+export const fetchQuoteCounts = async (createdBy = '') => {
+  const params = createdBy ? `?createdBy=${encodeURIComponent(createdBy)}` : '';
+  const response = await api.get(`/quote/quote/counts${params}`);
   return response.data;
 };
 
