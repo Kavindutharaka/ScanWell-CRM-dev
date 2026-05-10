@@ -220,12 +220,15 @@ export default function AccountForm({ onClose, account = null, onSuccess, loadAc
       onClose();
     } catch (error) {
       console.error('Error submitting form:', error);
-      
-      // Set error message
-      const errorMessage = error.response?.data?.message 
-        || error.message 
+
+      // Extract a user-friendly message.
+      // Backend returns { message: "..." } for all error responses.
+      // Guard against accidentally surfacing raw server/SQL strings.
+      const data = error.response?.data;
+      const errorMessage =
+        (data && typeof data === 'object' && typeof data.message === 'string' ? data.message : null)
         || `Failed to ${isEditMode ? 'update' : 'create'} account. Please try again.`;
-      
+
       setSubmitError(errorMessage);
     } finally {
       setIsSubmitting(false);

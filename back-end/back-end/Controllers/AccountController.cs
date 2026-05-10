@@ -352,11 +352,19 @@ namespace back_end.Controllers
         [HttpPost, Route("account")]
         public IActionResult CreateAccount([FromBody] Account account)
         {
+            // Required field validation
+            if (string.IsNullOrWhiteSpace(account.accountName))
+                return BadRequest(new { message = "Account name is required." });
+            if (string.IsNullOrWhiteSpace(account.fmsCode))
+                return BadRequest(new { message = "FMS code is required." });
+            if (string.IsNullOrWhiteSpace(account.salesPerson))
+                return BadRequest(new { message = "Sales person is required." });
+
             string query = @"
-        INSERT INTO [dbo].[account_reg] 
+        INSERT INTO [dbo].[account_reg]
         (accountName, domain, fmsCode, accountType, industry, tp, location, salesPerson,
          primaryContact, primaryEmail, primaryPosition, primaryMobile, description, contactsJson)
-        VALUES 
+        VALUES
         (@accountName, @domain, @fmsCode, @accountType, @industry, @tp, @location, @salesPerson,
          @primaryContact, @primaryEmail, @primaryPosition, @primaryMobile, @description, @contactsJson)";
 
@@ -389,7 +397,8 @@ namespace back_end.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, "Error: " + ex.Message);
+                Console.WriteLine($"CreateAccount Error: {ex.Message}");
+                return StatusCode(500, new { message = "Unable to create account. Please try again." });
             }
         }
 
@@ -397,7 +406,15 @@ namespace back_end.Controllers
         public IActionResult UpdateAccount([FromBody] Account account)
         {
             if (string.IsNullOrEmpty(account.sysID))
-                return BadRequest("sysID is required.");
+                return BadRequest(new { message = "Account ID is missing. Please refresh and try again." });
+
+            // Required field validation
+            if (string.IsNullOrWhiteSpace(account.accountName))
+                return BadRequest(new { message = "Account name is required." });
+            if (string.IsNullOrWhiteSpace(account.fmsCode))
+                return BadRequest(new { message = "FMS code is required." });
+            if (string.IsNullOrWhiteSpace(account.salesPerson))
+                return BadRequest(new { message = "Sales person is required." });
 
             string query = @"
         UPDATE [dbo].[account_reg] SET
@@ -441,14 +458,15 @@ namespace back_end.Controllers
                         myCom.Parameters.AddWithValue("@contactsJson", account.contactsJson ?? "[]");
 
                         int rows = myCom.ExecuteNonQuery();
-                        if (rows == 0) return NotFound("Account not found.");
+                        if (rows == 0) return NotFound(new { message = "Account not found. It may have been deleted." });
                     }
                 }
                 return Ok(new { message = "Account updated successfully" });
             }
             catch (Exception ex)
             {
-                return StatusCode(500, "Error: " + ex.Message);
+                Console.WriteLine($"UpdateAccount Error: {ex.Message}");
+                return StatusCode(500, new { message = "Unable to update account. Please try again." });
             }
         }
 
