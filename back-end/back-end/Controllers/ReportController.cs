@@ -80,12 +80,14 @@ namespace back_end.Controllers
             }
             if (!string.IsNullOrEmpty(salesPerson) && salesPerson != "all")
             {
-                conditions.Add("(ISNULL(e.fname, '') + ' ' + ISNULL(e.lname, '')) = @SalesPerson");
+                // Filter on the sales person assigned to the customer account, not the quote entrant
+                conditions.Add("ar.salesPerson = @SalesPerson");
                 parameters.Add(new SqlParameter("@SalesPerson", salesPerson));
             }
             if (!string.IsNullOrEmpty(department) && department != "all")
             {
-                conditions.Add("e.department = @Department");
+                // Department of the sales person (looked up via account_reg → emp_reg by name)
+                conditions.Add("esp.department = @Department");
                 parameters.Add(new SqlParameter("@Department", department));
             }
 
@@ -108,10 +110,13 @@ namespace back_end.Controllers
                     q.PortOfDischarge,
                     q.Status,
                     q.CreatedBy,
-                    ISNULL(e.fname, '') + ' ' + ISNULL(e.lname, '') AS SalesPerson,
-                    e.department AS Department
+                    -- SalesPerson: the person assigned to this customer in account_reg,
+                    -- NOT the employee who entered the quote (q.CreatedBy).
+                    ar.salesPerson AS SalesPerson,
+                    esp.department AS Department
                 FROM [dbo].[Quotes] q
-                LEFT JOIN [dbo].[emp_reg] e ON q.CreatedBy = e.SysID
+                LEFT JOIN [dbo].[account_reg] ar  ON q.Customer = ar.accountName
+                LEFT JOIN [dbo].[emp_reg]     esp ON ar.salesPerson = ISNULL(esp.fname, '') + ' ' + ISNULL(esp.lname, '')
                 {whereClause}
                 ORDER BY q.CreatedDate DESC, q.QuoteId DESC;";
 
@@ -355,14 +360,16 @@ namespace back_end.Controllers
         // HELPER: Get distinct values for filter dropdowns
         // ====================================================================
 
-        // Get distinct salesperson names
+        // Get distinct salesperson names from account_reg.
+        // These are the names assigned to customer accounts — the correct source
+        // for the Quotation, Invoice Profit, and Customer List report filters.
         [HttpGet, Route("filter/salespersons")]
         public ActionResult GetSalespersons()
         {
             string query = @"
-                SELECT DISTINCT ISNULL(e.fname, '') + ' ' + ISNULL(e.lname, '') AS name
-                FROM [dbo].[emp_reg] e
-                WHERE e.fname IS NOT NULL AND e.fname <> ''
+                SELECT DISTINCT salesPerson AS name
+                FROM [dbo].[account_reg]
+                WHERE salesPerson IS NOT NULL AND salesPerson <> ''
                 ORDER BY name;";
 
             DataTable tb = new DataTable();
@@ -483,7 +490,8 @@ namespace back_end.Controllers
             }
             if (!string.IsNullOrEmpty(salesPerson) && salesPerson != "all")
             {
-                conditions.Add("(ISNULL(e.fname, '') + ' ' + ISNULL(e.lname, '')) = @SalesPerson");
+                // Filter on the sales person assigned to the customer account, not the quote entrant
+                conditions.Add("ar.salesPerson = @SalesPerson");
                 parameters.Add(new SqlParameter("@SalesPerson", salesPerson));
             }
 
@@ -497,8 +505,8 @@ namespace back_end.Controllers
                     q.Customer,
                     q.FreightCategory,
                     q.FreightType,
-                    ISNULL(e.fname, '') + ' ' + ISNULL(e.lname, '') AS SalesPerson,
-                    e.department AS Department,
+                    ar.salesPerson AS SalesPerson,
+                    esp.department AS Department,
                     ie.entry_date AS EntryDate,
                     ie.invoice_number AS InvoiceNumber,
                     ie.amount AS Amount,
@@ -508,7 +516,8 @@ namespace back_end.Controllers
                 FROM invoice_entries ie
                 INNER JOIN [dbo].[Quotes] q ON ie.quote_id = q.QuoteId
                 INNER JOIN quote_outcomes qo ON q.QuoteId = qo.quote_id
-                LEFT JOIN [dbo].[emp_reg] e ON q.CreatedBy = e.SysID
+                LEFT JOIN [dbo].[account_reg] ar  ON q.Customer = ar.accountName
+                LEFT JOIN [dbo].[emp_reg]     esp ON ar.salesPerson = ISNULL(esp.fname, '') + ' ' + ISNULL(esp.lname, '')
                 {whereClause}
                 ORDER BY ie.entry_date DESC, ie.id DESC;";
 

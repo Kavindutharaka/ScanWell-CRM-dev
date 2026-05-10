@@ -79,7 +79,8 @@
       "Bash(unzip -o usec.xlsx -d usec_unzipped)",
       "Bash(rm -f \"D:\\\\Kavindu\\\\ScanWell-CRM-dev-2\\\\frontend\\\\node_modules\\\\.usec.xlsx\" /tmp/usec.xlsx)",
       "Bash(rm -rf /tmp/usec_unzipped)",
-      "Bash(tasklist)"
+      "Bash(tasklist)",
+      "Bash(py -3 -c ' *)"
     ]
   }
 }
