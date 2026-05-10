@@ -10,8 +10,14 @@ import { AuthContext } from '../../context/AuthContext';
 const EMPTY_ROW = { entryDate: '', invoiceNumber: '', amount: '', costInvoice: '', currency: 'LKR', dollarAmount: '', dollarRate: '' };
 
 export default function InvoicesSec() {
-  const { permission } = useContext(AuthContext);
+  const { permission, user } = useContext(AuthContext);
   const isAdmin = permission?.IsAdmin;
+
+  // Resolve the current user's display name and ID for entry tracking
+  const currentUserName = permission?.Username || user?.username || '';
+  const currentUserId   = permission?.EmployeeId
+    ? String(permission.EmployeeId)
+    : (user?.id ? String(user.id) : '');
 
   const [wonQuotes, setWonQuotes] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -106,15 +112,32 @@ export default function InvoicesSec() {
 
   const handleSave = async (quoteId) => {
     const rows = newRows[quoteId] || [];
-    const validRows = rows.filter(r => r.invoiceNumber.trim() || r.amount || r.entryDate || (r.currency === 'USD' && r.dollarAmount));
+    // Only consider rows where the user has started filling something in
+    const validRows = rows.filter(r =>
+      (r.invoiceNumber || '').trim() || r.amount || r.entryDate || (r.currency === 'USD' && r.dollarAmount)
+    );
 
     if (validRows.length === 0) {
       setError('Please fill in at least one entry.');
       return;
     }
 
+    // Validate each row
     for (let i = 0; i < validRows.length; i++) {
       const row = validRows[i];
+
+      // Date is required
+      if (!row.entryDate) {
+        setError(`Row ${i + 1}: Date is required.`);
+        return;
+      }
+
+      // Invoice number is required
+      if (!(row.invoiceNumber || '').trim()) {
+        setError(`Row ${i + 1}: Invoice Number is required.`);
+        return;
+      }
+
       if (row.currency === 'USD') {
         const dollarAmt = parseFloat(row.dollarAmount);
         const rate = parseFloat(row.dollarRate);
@@ -125,7 +148,7 @@ export default function InvoicesSec() {
       } else {
         const amt = parseFloat(row.amount);
         if (isNaN(amt) || amt <= 0) {
-          setError(`Row ${i + 1}: Amount must be a valid positive number.`);
+          setError(`Row ${i + 1}: Invoice Amount must be a valid positive number.`);
           return;
         }
       }
@@ -142,10 +165,13 @@ export default function InvoicesSec() {
           finalAmount = parseFloat(row.amount);
         }
         return {
-          entryDate: row.entryDate || null,
-          invoiceNumber: row.invoiceNumber || null,
+          entryDate: row.entryDate,
+          invoiceNumber: row.invoiceNumber.trim(),
           amount: finalAmount,
-          costInvoice: row.costInvoice ? parseFloat(row.costInvoice) : null
+          costInvoice: row.costInvoice ? parseFloat(row.costInvoice) : null,
+          // Track who entered this invoice
+          enteredByName: currentUserName || null,
+          enteredById: currentUserId || null,
         };
       });
 
@@ -155,7 +181,8 @@ export default function InvoicesSec() {
       await loadEntries(quoteId);
       setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
-      setError('Failed to save entries.');
+      console.error('Save invoice entries error:', err);
+      setError(err?.response?.data?.message || err?.message || 'Failed to save entries.');
     } finally {
       setSaving(false);
     }
@@ -405,6 +432,7 @@ export default function InvoicesSec() {
                                 <th className="px-3 py-2 text-right text-xs font-semibold text-slate-600 uppercase">Invoice Amount (LKR)</th>
                                 <th className="px-3 py-2 text-right text-xs font-semibold text-slate-600 uppercase">Cost Invoice (LKR)</th>
                                 <th className="px-3 py-2 text-right text-xs font-semibold text-slate-600 uppercase">Margin (LKR)</th>
+                                <th className="px-3 py-2 text-left text-xs font-semibold text-slate-600 uppercase">Entered By</th>
                                 {!isCompleted && (
                                   <th className="px-3 py-2 text-center text-xs font-semibold text-slate-600 uppercase w-12"></th>
                                 )}
@@ -423,6 +451,14 @@ export default function InvoicesSec() {
                                   <td className="px-3 py-2 text-right font-medium text-slate-700">{entry.costInvoice != null ? formatCurrency(entry.costInvoice) : '—'}</td>
                                   <td className={`px-3 py-2 text-right font-medium ${entry.invoiceMargin != null ? (entry.invoiceMargin >= 0 ? 'text-emerald-700' : 'text-red-600') : 'text-slate-400'}`}>
                                     {entry.invoiceMargin != null ? formatCurrency(entry.invoiceMargin) : '—'}
+                                  </td>
+                                  <td className="px-3 py-2">
+                                    <div className="flex items-center gap-1">
+                                      <User size={11} className="text-slate-400 flex-shrink-0" />
+                                      <span className="text-xs text-slate-600 whitespace-nowrap">
+                                        {entry.enteredByName || '—'}
+                                      </span>
+                                    </div>
                                   </td>
                                   {!isCompleted && (
                                     <td className="px-3 py-2 text-center">
@@ -447,6 +483,7 @@ export default function InvoicesSec() {
                                 <td className="px-3 py-2 text-right font-bold text-emerald-700 text-base">
                                   {entries.some(e => e.invoiceMargin != null) ? formatCurrency(entries.reduce((sum, e) => sum + (e.invoiceMargin || 0), 0)) : '—'}
                                 </td>
+                                <td></td>
                                 {!isCompleted && <td></td>}
                               </tr>
                             </tfoot>
