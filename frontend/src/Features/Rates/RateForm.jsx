@@ -15,7 +15,22 @@ import {
 } from "lucide-react";
 import * as RateAPI from '../../api/rateAPI';
 
-export default function RateForm({ onClose, editRate, onSuccess }) {
+const NATURE_OF_GOODS_OPTIONS = [
+  'General Cargo',
+  'Perishables',
+  'Dangerous Goods (DG/IMO)',
+  'Live Animals',
+  'Valuable Cargo (VAL)',
+  'Human Remains (HUM)',
+  'Pharmaceuticals',
+  'Electronics',
+  'Automotive',
+  'Textiles & Garments',
+  'Others',
+];
+
+// enteredBy = { name: string, id: string } — passed from RatesSec (current user)
+export default function RateForm({ onClose, editRate, onSuccess, enteredBy }) {
   const [step, setStep] = useState(1);
   const [freightType, setFreightType] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -44,6 +59,7 @@ export default function RateForm({ onClose, editRate, onSuccess }) {
       note: '', // Note field for all categories
       remark: '', // New for Air Freight
       airRateType: 'kg', // 'kg' or 'ratio' - Air Freight rate type selection
+      nature_of_goods: '',
       // Air Freight rates (kg-based)
       rate45Minus: '',
       rate45MinusM: '', // New -45Kg(M)
@@ -97,6 +113,7 @@ export default function RateForm({ onClose, editRate, onSuccess }) {
         validateDate: editRate.validateDate || '',
         note: editRate.note || '',
         remark: editRate.remark || '',
+        nature_of_goods: editRate.nature_of_goods || '',
         airRateType: detectedAirRateType,
         rate45Minus: editRate.rate45Minus || '',
         rate45MinusM: editRate.rate45MinusM || '',
@@ -147,6 +164,7 @@ export default function RateForm({ onClose, editRate, onSuccess }) {
     note: '',
     remark: '',
     airRateType: 'kg',
+    nature_of_goods: '',
     rate45Minus: '',
     rate45MinusM: '',
     rate45Plus: '',
@@ -266,6 +284,7 @@ export default function RateForm({ onClose, editRate, onSuccess }) {
           validateDate: routeData.validateDate || null,
           note: routeData.note || null,
           remark: routeData.remark || null,
+          nature_of_goods: routeData.nature_of_goods || null,
           rateDataJson: JSON.stringify({
             rate45Minus: routeData.airRateType === 'kg' ? (routeData.rate45Minus || null) : null,
             rate45MinusM: routeData.airRateType === 'kg' ? (routeData.rate45MinusM || null) : null,
@@ -316,6 +335,9 @@ export default function RateForm({ onClose, editRate, onSuccess }) {
               validateDate: route.validateDate || null,
               note: route.note || null,
               remark: route.remark || null,
+              nature_of_goods: route.nature_of_goods || null,
+              entered_by_name: enteredBy?.name || null,
+              entered_by_id: enteredBy?.id || null,
               rateDataJson: JSON.stringify({
                 rate45Minus: route.airRateType === 'kg' ? (route.rate45Minus || null) : null,
                 rate45MinusM: route.airRateType === 'kg' ? (route.rate45MinusM || null) : null,
@@ -615,6 +637,25 @@ export default function RateForm({ onClose, editRate, onSuccess }) {
               />
             </div>
           </div>
+
+          {/* Nature of Goods (Air & Sea only) */}
+          {(isAirFreight || isFCL || isLCL) && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Nature of Goods</label>
+                <select
+                  value={route.nature_of_goods}
+                  onChange={(e) => handleRouteChange(route.id, 'nature_of_goods', e.target.value)}
+                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                >
+                  <option value="">— Select —</option>
+                  {NATURE_OF_GOODS_OPTIONS.map(opt => (
+                    <option key={opt} value={opt}>{opt}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          )}
 
           {/* Air Freight Rates */}
           {isAirFreight && (

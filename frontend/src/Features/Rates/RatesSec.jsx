@@ -34,13 +34,25 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
   // RateManageView = read-only access. RateManageAdd / RateManageEdit gate write operations.
   // Bug fix: previously canManageRates was based on RateManageView, so view-only users
   // could see edit/delete UI. Now each action is gated by the matching permission.
-  const { permission } = useContext(AuthContext);
+  const { permission, user } = useContext(AuthContext);
   const isAdmin = permission?.IsAdmin;
+  // Current user info used for rate entrant tracking
+  const currentUserName = permission?.Username || user?.username || '';
+  const currentUserId   = permission?.EmployeeId ? String(permission.EmployeeId) : (user?.id ? String(user.id) : '');
   const canAddRates = isAdmin || permission?.RateManageAdd;
   const canEditRates = isAdmin || permission?.RateManageEdit;
   const canDeleteRates = isAdmin; // delete is destructive — admin only
   // Backward-compat alias for existing destination-header delete buttons.
   const canManageRates = canDeleteRates;
+  // A non-admin with RateManageEdit can only edit rates they personally entered.
+  // Admins can edit everything. If entered_by_id is empty (old record), allow edit.
+  const canEditThisRate = (rate) => {
+    if (!canEditRates) return false;
+    if (isAdmin) return true;
+    const enteredById = rate.entered_by_id || rate.EnteredById || '';
+    if (!enteredById) return true; // legacy records with no entrant info — allow
+    return String(enteredById) === String(currentUserId);
+  };
   const [activeTab, setActiveTab] = useState('air');
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -3279,7 +3291,7 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
                           </div>
 
                           <div className="col-span-1 flex items-center justify-end gap-2">
-                            {canEditRates && (
+                            {canEditThisRate(rate) && (
                               <button onClick={() => onEditRate(rate)} className="p-2 hover:bg-indigo-50 rounded-lg"><Edit className="w-4 h-4 text-slate-600 hover:text-indigo-600" /></button>
                             )}
                             {canDeleteRates && (
@@ -3300,7 +3312,7 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
                               <span className="uppercase">{rate.freightType?.replace(/-/g, ' ')}</span>
                             </div>
                             <div className="flex items-center gap-1">
-                              {canEditRates && (
+                              {canEditThisRate(rate) && (
                                 <button onClick={() => onEditRate(rate)} className="p-2 hover:bg-indigo-50 rounded-lg">
                                   <Edit className="w-4 h-4 text-slate-600 hover:text-indigo-600" />
                                 </button>
@@ -3604,6 +3616,22 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
                             {rate.surcharges && (
                               <div><div className="text-xs text-slate-500">Surcharges</div><div className="text-sm font-medium">{rate.surcharges}</div></div>
                             )}
+                            {(rate.nature_of_goods || rate.NatureOfGoods) && (
+                              <div>
+                                <div className="text-xs text-slate-500">Nature of Goods</div>
+                                <div className="text-sm font-medium">{rate.nature_of_goods || rate.NatureOfGoods}</div>
+                              </div>
+                            )}
+                            <div className="grid grid-cols-2 gap-4 pt-3 border-t border-slate-100">
+                              <div>
+                                <div className="text-xs text-slate-500">Entered By</div>
+                                <div className="text-sm font-medium">{rate.entered_by_name || rate.EnteredByName || '—'}</div>
+                              </div>
+                              <div>
+                                <div className="text-xs text-slate-500">Entered At</div>
+                                <div className="text-sm font-medium">{rate.entered_at ? new Date(rate.entered_at).toLocaleString() : (rate.EnteredAt ? new Date(rate.EnteredAt).toLocaleString() : '—')}</div>
+                              </div>
+                            </div>
                             <div className="grid grid-cols-2 gap-4 pt-3 border-t border-slate-100">
                               <div>
                                 <div className="text-xs text-slate-500">Created</div>

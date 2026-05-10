@@ -82,10 +82,10 @@ namespace back_end.Controllers
         public IActionResult CreateRate([FromBody] Rate rate)
         {
             string query = @"
-                INSERT INTO [dbo].[rates] 
-                (freightType, origin, destination, airline, liner, route, surcharges, transitTime, transshipmentTime, frequency, routingType, rateDataJson, validateDate, note, remark, owner, currency)
-                VALUES 
-                (@freightType, @origin, @destination, @airline, @liner, @route, @surcharges, @transitTime, @transshipmentTime, @frequency, @routingType, @rateDataJson, @validateDate, @note, @remark, @owner, @currency);
+                INSERT INTO [dbo].[rates]
+                (freightType, origin, destination, airline, liner, route, surcharges, transitTime, transshipmentTime, frequency, routingType, rateDataJson, validateDate, note, remark, owner, currency, nature_of_goods, entered_by_name, entered_by_id, entered_at)
+                VALUES
+                (@freightType, @origin, @destination, @airline, @liner, @route, @surcharges, @transitTime, @transshipmentTime, @frequency, @routingType, @rateDataJson, @validateDate, @note, @remark, @owner, @currency, @nature_of_goods, @entered_by_name, @entered_by_id, GETDATE());
                 SELECT SCOPE_IDENTITY();";
 
             string newId;
@@ -111,6 +111,9 @@ namespace back_end.Controllers
                     myCom.Parameters.AddWithValue("@remark", rate.remark ?? (object)DBNull.Value);
                     myCom.Parameters.AddWithValue("@owner", rate.owner ?? (object)DBNull.Value);
                     myCom.Parameters.AddWithValue("@currency", rate.currency ?? (object)DBNull.Value);
+                    myCom.Parameters.AddWithValue("@nature_of_goods", rate.nature_of_goods ?? (object)DBNull.Value);
+                    myCom.Parameters.AddWithValue("@entered_by_name", rate.entered_by_name ?? (object)DBNull.Value);
+                    myCom.Parameters.AddWithValue("@entered_by_id", rate.entered_by_id ?? (object)DBNull.Value);
 
                     newId = myCom.ExecuteScalar().ToString();
                 }
@@ -142,7 +145,8 @@ namespace back_end.Controllers
                     note = @note,
                     remark = @remark,
                     owner = @owner,
-                    currency = @currency
+                    currency = @currency,
+                    nature_of_goods = @nature_of_goods
                 WHERE sysID = @id";
 
             using (myCon)
@@ -168,6 +172,7 @@ namespace back_end.Controllers
                     myCom.Parameters.AddWithValue("@remark", rate.remark ?? (object)DBNull.Value);
                     myCom.Parameters.AddWithValue("@owner", rate.owner ?? (object)DBNull.Value);
                     myCom.Parameters.AddWithValue("@currency", rate.currency ?? (object)DBNull.Value);
+                    myCom.Parameters.AddWithValue("@nature_of_goods", rate.nature_of_goods ?? (object)DBNull.Value);
 
                     int rowsAffected = myCom.ExecuteNonQuery();
 

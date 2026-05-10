@@ -75,8 +75,15 @@ export default function DashboardSec() {
 
   const now = new Date();
   const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  const firstOfYear  = new Date(now.getFullYear(), 0, 1);
   const [dateFrom, setDateFrom] = useState(toLocalDateStr(firstOfMonth));
   const [dateTo, setDateTo] = useState(toLocalDateStr(now));
+
+  // ===== PIPELINE — separate date range =====
+  const [pipelineDateFrom, setPipelineDateFrom] = useState(toLocalDateStr(firstOfYear));
+  const [pipelineDateTo,   setPipelineDateTo]   = useState(toLocalDateStr(now));
+  const [pipelineData, setPipelineData] = useState([]);
+  const [pipelineLoading, setPipelineLoading] = useState(false);
 
   const [activeTab, setActiveTab] = useState("dashboard");
   const [activePreset, setActivePreset] = useState("thisMonth");
@@ -126,6 +133,25 @@ export default function DashboardSec() {
   useEffect(() => {
     fetchDashboard();
   }, [fetchDashboard]);
+
+  // ===== PIPELINE FETCH (independent date range) =====
+  const fetchPipeline = useCallback(async () => {
+    if (authLoading || !user?.id || permission === null) return;
+    setPipelineLoading(true);
+    try {
+      const params = { dateFrom: pipelineDateFrom, dateTo: pipelineDateTo, isAdmin: isAdmin.toString(), userRoleId: user.id };
+      const res = await api.get("/dashboard/pipeline", { params });
+      setPipelineData(res.data?.pipeline || []);
+    } catch (err) {
+      console.error("Pipeline fetch error:", err);
+    } finally {
+      setPipelineLoading(false);
+    }
+  }, [pipelineDateFrom, pipelineDateTo, isAdmin, user?.id, authLoading, permission]);
+
+  useEffect(() => {
+    fetchPipeline();
+  }, [fetchPipeline]);
 
   // ===== SALES TARGET =====
   const fetchSalesTarget = useCallback(async () => {
@@ -462,7 +488,7 @@ export default function DashboardSec() {
 
   // ===== DATA =====
   const qs = data?.quotationStats || {};
-  const pipeline = data?.pipelineConversion || [];
+  const pipeline = pipelineData.length > 0 ? pipelineData : (data?.pipelineConversion || []);
   const monthly = data?.monthlyRevenue || { rfqRevenue: [], quoteVolume: [] };
   const activity = data?.activityStats || {};
   const rfq = data?.rfqRevenue || {};
@@ -505,9 +531,15 @@ export default function DashboardSec() {
     label: m.monthName, value: m.rfqRevenue || 0, color: COLORS.success, colorEnd: "#4ADE80",
   }));
 
-  // Quote volume monthly bars
+  // Quote volume monthly bars — show sales amount (won quotes total)
+  // Falls back to count if no sales amounts exist yet (legacy data)
+  const hasSalesAmounts = (monthly.quoteVolume || []).some(m => (m.totalSalesAmount || 0) > 0);
   const quoteBars = (monthly.quoteVolume || []).map(m => ({
-    label: m.monthName, value: m.quoteCount || 0, color: COLORS.primary, colorEnd: COLORS.blue,
+    label: m.monthName,
+    value: hasSalesAmounts ? (m.totalSalesAmount || 0) : (m.quoteCount || 0),
+    count: m.quoteCount || 0,
+    color: COLORS.primary,
+    colorEnd: COLORS.blue,
   }));
 
   // Pie segments — full sales status distribution (all quote statuses + deals)
@@ -864,6 +896,24 @@ export default function DashboardSec() {
               <div className="w-full lg:w-[60%]">
               {/* Pipeline Conversion - Monday.com funnel style (Gemini v2) */}
               <Widget title="Pipeline Conversion" icon={BarChart3} className="fade-in fade-in-1">
+                {/* Independent date filter for pipeline */}
+                <div className="flex items-center gap-2 mb-4 flex-wrap">
+                  <Calendar className="w-4 h-4 text-slate-400 shrink-0" />
+                  <input
+                    type="date"
+                    value={pipelineDateFrom}
+                    onChange={e => setPipelineDateFrom(e.target.value)}
+                    className="px-2 py-1 text-xs border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  />
+                  <span className="text-xs text-slate-400">to</span>
+                  <input
+                    type="date"
+                    value={pipelineDateTo}
+                    onChange={e => setPipelineDateTo(e.target.value)}
+                    className="px-2 py-1 text-xs border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  />
+                  {pipelineLoading && <span className="text-xs text-slate-400 italic">Loading…</span>}
+                </div>
                 {(() => {
                   // Sort pipeline stages into a logical funnel order so bars & flow %'s don't
                   // depend on SQL GROUP BY ordering (which is not guaranteed).
@@ -1144,10 +1194,13 @@ export default function DashboardSec() {
                   )}
                 </div>
               </Widget>
-              <Widget title="Monthly Quotation Volume" icon={BarChart3} className="fade-in fade-in-2">
+              <Widget title={hasSalesAmounts ? "Monthly Quotation Sales Amount" : "Monthly Quotation Volume"} icon={BarChart3} className="fade-in fade-in-2">
                 <div className="pt-4">
                   {quoteBars.length > 0 ? <BarChart items={quoteBars} maxHeight={180} /> : (
                     <div className="flex items-center justify-center h-[180px] text-slate-300 text-sm">No quote data for this period</div>
+                  )}
+                  {hasSalesAmounts && (
+                    <div className="text-xs text-slate-400 text-center mt-1">Bars show total won sales amount per month</div>
                   )}
                 </div>
               </Widget>

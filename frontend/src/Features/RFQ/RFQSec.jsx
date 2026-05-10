@@ -198,6 +198,9 @@ export default function RFQSec({ modalOpen, onEdit, onSalesEntry }) {
                     Valid Date
                   </th>
                   <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                    Amount
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
                     Link
                   </th>
                   <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
@@ -214,6 +217,7 @@ export default function RFQSec({ modalOpen, onEdit, onSalesEntry }) {
                         <td className="px-6 py-4"><div className="h-4 bg-slate-200 rounded skeleton w-3/4"></div></td>
                         <td className="px-6 py-4"><div className="h-4 bg-slate-200 rounded skeleton w-2/3"></div></td>
                         <td className="px-6 py-4"><div className="h-4 bg-slate-200 rounded skeleton w-1/2"></div></td>
+                        <td className="px-6 py-4"><div className="h-4 bg-slate-200 rounded skeleton w-1/3"></div></td>
                         <td className="px-6 py-4"><div className="h-4 bg-slate-200 rounded skeleton w-1/2"></div></td>
                         <td className="px-6 py-4">
                           <div className="flex gap-2">
@@ -256,6 +260,11 @@ export default function RFQSec({ modalOpen, onEdit, onSalesEntry }) {
                               </span>
                             )}
                           </div>
+                        </td>
+                        <td className="px-6 py-4 text-sm text-slate-700">
+                          {item.amount != null
+                            ? <span className="font-medium">${Number(item.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                            : <span className="text-slate-400">—</span>}
                         </td>
                         <td className="px-6 py-4 text-sm">
                           {item.link ? (

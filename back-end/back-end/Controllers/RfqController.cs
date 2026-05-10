@@ -22,7 +22,7 @@ namespace back_end.Controllers
         [HttpGet]
         public ActionResult GetRfqs()
         {
-            string query = "SELECT sysID, rfq_number, customer, valid_date, link, added_by, created_at FROM [dbo].[rfq] ORDER BY sysID DESC";
+            string query = "SELECT sysID, rfq_number, customer, valid_date, link, added_by, created_at, amount FROM [dbo].[rfq] ORDER BY sysID DESC";
             DataTable table = new DataTable();
             using (SqlConnection myCon = new SqlConnection(_dbConnectionString))
             {
@@ -43,8 +43,8 @@ namespace back_end.Controllers
         [HttpPost]
         public ActionResult CreateRfq([FromBody] Rfq rfq)
         {
-            string query = @"INSERT INTO [dbo].[rfq] (rfq_number, customer, valid_date, link, added_by, created_at)
-                     VALUES (@rfq_number, @customer, @valid_date, @link, @added_by, GETDATE())";
+            string query = @"INSERT INTO [dbo].[rfq] (rfq_number, customer, valid_date, link, added_by, created_at, amount)
+                     VALUES (@rfq_number, @customer, @valid_date, @link, @added_by, GETDATE(), @amount)";
 
             using (SqlConnection myCon = new SqlConnection(_dbConnectionString))
             {
@@ -56,6 +56,7 @@ namespace back_end.Controllers
                     myCom.Parameters.AddWithValue("@valid_date", rfq.valid_date);
                     myCom.Parameters.AddWithValue("@link", rfq.link ?? (object)DBNull.Value);
                     myCom.Parameters.AddWithValue("@added_by", rfq.added_by ?? (object)DBNull.Value);
+                    myCom.Parameters.AddWithValue("@amount", rfq.amount.HasValue ? (object)rfq.amount.Value : DBNull.Value);
 
                     myCom.ExecuteNonQuery();
                 }
@@ -73,7 +74,8 @@ namespace back_end.Controllers
                 rfq_number = @rfq_number,
                 customer = @customer,
                 valid_date = @valid_date,
-                link = @link
+                link = @link,
+                amount = @amount
                 WHERE sysID = @sysID";
 
             using (SqlConnection myCon = new SqlConnection(_dbConnectionString))
@@ -86,6 +88,7 @@ namespace back_end.Controllers
                     myCom.Parameters.AddWithValue("@customer", rfq.customer ?? (object)DBNull.Value);
                     myCom.Parameters.AddWithValue("@valid_date", rfq.valid_date);
                     myCom.Parameters.AddWithValue("@link", rfq.link ?? (object)DBNull.Value);
+                    myCom.Parameters.AddWithValue("@amount", rfq.amount.HasValue ? (object)rfq.amount.Value : DBNull.Value);
 
                     int rowsAffected = myCom.ExecuteNonQuery();
                     if (rowsAffected == 0)

@@ -24,6 +24,14 @@ namespace back_end.Models
         public string? note { get; set; }
         public string? remark { get; set; }
         public string? owner { get; set; }
-        
+        // DB migration required:
+        //   ALTER TABLE [dbo].[rates] ADD nature_of_goods NVARCHAR(200) NULL;
+        //   ALTER TABLE [dbo].[rates] ADD entered_by_name  NVARCHAR(200) NULL;
+        //   ALTER TABLE [dbo].[rates] ADD entered_by_id    NVARCHAR(50)  NULL;
+        //   ALTER TABLE [dbo].[rates] ADD entered_at       DATETIME      NULL;
+        public string? nature_of_goods { get; set; }
+        public string? entered_by_name { get; set; }
+        public string? entered_by_id { get; set; }
+        public DateTime? entered_at { get; set; }
     }
 }

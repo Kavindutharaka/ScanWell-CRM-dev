@@ -9,6 +9,7 @@ export default function RFQForm({ onClose, initialItem, isEditMode }) {
     customer: "",
     valid_date: "",
     link: "",
+    amount: "",
   });
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
@@ -32,6 +33,7 @@ export default function RFQForm({ onClose, initialItem, isEditMode }) {
           ? new Date(initialItem.valid_date).toISOString().split("T")[0]
           : "",
         link: initialItem.link || "",
+        amount: initialItem.amount != null ? String(initialItem.amount) : "",
       });
       setCustomerQuery(initialItem.customer || "");
     }
@@ -108,6 +110,7 @@ export default function RFQForm({ onClose, initialItem, isEditMode }) {
         valid_date: formData.valid_date,
         link: formData.link || null,
         added_by: "",
+        amount: formData.amount !== "" ? parseFloat(formData.amount) : null,
       };
 
       if (isEditMode && initialItem) {
@@ -234,6 +237,26 @@ export default function RFQForm({ onClose, initialItem, isEditMode }) {
           {errors.valid_date && (
             <p className="mt-1.5 text-sm text-red-600">{errors.valid_date}</p>
           )}
+        </div>
+
+        {/* Amount */}
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-2">
+            Amount <span className="text-slate-400 text-xs">(optional)</span>
+          </label>
+          <div className="relative">
+            <DollarSignIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <input
+              type="number"
+              name="amount"
+              value={formData.amount}
+              onChange={handleInputChange}
+              placeholder="Enter RFQ amount..."
+              min="0"
+              step="0.01"
+              className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200"
+            />
+          </div>
         </div>
 
         {/* Link with SharePoint folder suggestion */}

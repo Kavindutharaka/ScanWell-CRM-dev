@@ -18,6 +18,40 @@ namespace back_end.Controllers
         }
 
         // ====================================================================
+        // PIPELINE ENDPOINT (separate date range for Pipeline Conversion widget)
+        // GET /api/dashboard/pipeline?dateFrom=&dateTo=&userRoleId=&isAdmin=
+        // ====================================================================
+        [HttpGet("pipeline")]
+        public ActionResult GetPipelineData(
+            [FromQuery] string? dateFrom,
+            [FromQuery] string? dateTo,
+            [FromQuery] int? userRoleId,
+            [FromQuery] bool isAdmin = false)
+        {
+            try
+            {
+                long? employeeId = null;
+                if (!isAdmin && userRoleId.HasValue)
+                    employeeId = GetEmployeeIdFromRoleId(userRoleId.Value);
+
+                DateTime dtFrom = !string.IsNullOrEmpty(dateFrom)
+                    ? DateTime.Parse(dateFrom)
+                    : new DateTime(DateTime.Now.Year, 1, 1);   // default: start of year
+
+                DateTime dtTo = !string.IsNullOrEmpty(dateTo)
+                    ? DateTime.Parse(dateTo)
+                    : DateTime.Now.Date;
+
+                var pipeline = GetPipelineConversion(dtFrom, dtTo, employeeId, isAdmin);
+                return Ok(new { pipeline, dateFrom = dtFrom.ToString("yyyy-MM-dd"), dateTo = dtTo.ToString("yyyy-MM-dd") });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Pipeline error: " + ex.Message });
+            }
+        }
+
+        // ====================================================================
         // MAIN DASHBOARD ENDPOINT
         // GET /api/dashboard?dateFrom=&dateTo=&userRoleId=&isAdmin=
         // Returns all dashboard data in a single call
@@ -329,14 +363,16 @@ namespace back_end.Controllers
                 }
             }
 
-            // Quotes by month (count only, no amounts)
+            // Quotes by month — count + total won sales amount from quote_outcomes
             string quoteOwnerFilter = (!isAdmin && empId.HasValue) ? " AND q.CreatedBy = @EmpId" : "";
             string quoteQuery = $@"
                 SELECT
                     YEAR(q.CreatedDate) AS yr,
                     MONTH(q.CreatedDate) AS mn,
-                    COUNT(*) AS quoteCount
+                    COUNT(DISTINCT q.QuoteId) AS quoteCount,
+                    ISNULL(SUM(CASE WHEN qo.outcome_status = 'won' THEN qo.won_amount ELSE 0 END), 0) AS totalSalesAmount
                 FROM [dbo].[Quotes] q
+                LEFT JOIN [dbo].[quote_outcomes] qo ON qo.quote_id = q.QuoteId
                 WHERE CAST(q.CreatedDate AS DATE) >= @DateFrom
                   AND CAST(q.CreatedDate AS DATE) <= @DateTo
                   {quoteOwnerFilter}
@@ -365,7 +401,8 @@ namespace back_end.Controllers
                                 year = yr,
                                 month = mn,
                                 monthName = new DateTime(yr, mn, 1).ToString("MMM"),
-                                quoteCount = Convert.ToInt32(reader2["quoteCount"])
+                                quoteCount = Convert.ToInt32(reader2["quoteCount"]),
+                                totalSalesAmount = Convert.ToDecimal(reader2["totalSalesAmount"])
                             });
                         }
                     }

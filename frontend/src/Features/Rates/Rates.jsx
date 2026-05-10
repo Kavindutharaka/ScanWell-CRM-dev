@@ -1,10 +1,16 @@
-import { useState } from "react";
+import { useState, useContext } from "react";
 import Header from "../../components/Header";
 import SideNav from "../../components/SideNav";
 import RatesSec from "./RatesSec";
 import RateForm from "./RateForm";
+import { AuthContext } from "../../context/AuthContext";
 
 export default function Rates() {
+  const { permission, user } = useContext(AuthContext);
+  const enteredBy = {
+    name: permission?.Username || user?.username || '',
+    id:   permission?.EmployeeId ? String(permission.EmployeeId) : (user?.id ? String(user.id) : ''),
+  };
   const [openModal, setOpenModal] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [editingRate, setEditingRate] = useState(null);
@@ -67,10 +73,11 @@ export default function Rates() {
           />
           <div className="flex items-center justify-center min-h-screen p-4">
             <div className="relative w-full animate-fadeIn">
-              <RateForm 
-                onClose={modalClose} 
+              <RateForm
+                onClose={modalClose}
                 editRate={editingRate}
                 onSuccess={handleSuccess}
+                enteredBy={enteredBy}
               />
             </div>
           </div>
