@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useContext } from "react";
 import {
   Info,
   RotateCcw,
@@ -13,11 +13,16 @@ import {
 } from "lucide-react";
 
 import ResourceApi from '../../api/ResourceApi'; // Adjust the import path as necessary
+import { AuthContext } from "../../context/AuthContext";
 
 export default function InfoAndUpdatesSec({ modalOpen, onEdit }) {
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [infoItems, setInfoItems] = useState([]);
+
+  const { permission } = useContext(AuthContext);
+  const canAdd  = permission?.IsAdmin || permission?.UsefulLinksAdd  || false;
+  const canEdit = permission?.IsAdmin || permission?.UsefulLinksEdit || false;
 
   useEffect(() => {
     fetchInfoItems();
@@ -146,13 +151,15 @@ export default function InfoAndUpdatesSec({ modalOpen, onEdit }) {
 
           {/* Header Actions */}
           <div className="flex flex-wrap items-center gap-2 lg:gap-3">
-            <button
-              onClick={modalOpen}
-              className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all duration-200 shadow-md hover:shadow-lg font-medium text-sm"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Add New Link</span>
-            </button>
+            {canAdd && (
+              <button
+                onClick={modalOpen}
+                className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all duration-200 shadow-md hover:shadow-lg font-medium text-sm"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Add New Link</span>
+              </button>
+            )}
           </div>
         </div>
 
@@ -182,7 +189,7 @@ export default function InfoAndUpdatesSec({ modalOpen, onEdit }) {
                   <th className="px-6 py-4 font-semibold text-sm text-slate-600">Link</th>
                   <th className="px-6 py-4 font-semibold text-sm text-slate-600">Added Date</th>
                   <th className="px-6 py-4 font-semibold text-sm text-slate-600">Added By</th>
-                  <th className="px-6 py-4 font-semibold text-sm text-slate-600">Actions</th>
+                  {canEdit && <th className="px-6 py-4 font-semibold text-sm text-slate-600">Actions</th>}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200">
@@ -258,29 +265,31 @@ export default function InfoAndUpdatesSec({ modalOpen, onEdit }) {
                       <td className="px-6 py-4 text-sm text-slate-600">
                         {item.addedBy}
                       </td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => onEdit(item)}
-                            className="p-1.5 hover:bg-blue-50 rounded-lg transition-colors duration-150 text-blue-600 hover:text-blue-700"
-                            title="Edit"
-                          >
-                            <Edit className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => handleDelete(item.id)}
-                            className="p-1.5 hover:bg-red-50 rounded-lg transition-colors duration-150 text-red-600 hover:text-red-700"
-                            title="Delete"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </td>
+                      {canEdit && (
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => onEdit(item)}
+                              className="p-1.5 hover:bg-blue-50 rounded-lg transition-colors duration-150 text-blue-600 hover:text-blue-700"
+                              title="Edit"
+                            >
+                              <Edit className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => handleDelete(item.id)}
+                              className="p-1.5 hover:bg-red-50 rounded-lg transition-colors duration-150 text-red-600 hover:text-red-700"
+                              title="Delete"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </td>
+                      )}
                     </tr>
                   ))
                 ) : (
                   <tr>
-                    <td colSpan="7" className="px-6 py-12">
+                    <td colSpan={canEdit ? 7 : 6} className="px-6 py-12">
                       <div className="flex flex-col items-center justify-center text-center">
                         <LinkIcon className="w-12 h-12 text-slate-300 mb-4" />
                         <p className="text-slate-500 font-medium">No resources found</p>
@@ -375,22 +384,24 @@ export default function InfoAndUpdatesSec({ modalOpen, onEdit }) {
                 </div>
 
                 {/* Card Footer with Actions */}
-                <div className="px-4 py-3 bg-slate-50 border-t border-slate-100 flex items-center justify-end gap-2">
-                  <button
-                    onClick={() => onEdit(item)}
-                    className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-blue-600 hover:bg-blue-50 rounded-lg transition-colors duration-150"
-                  >
-                    <Edit className="w-4 h-4" />
-                    Edit
-                  </button>
-                  <button
-                    onClick={() => handleDelete(item.id)}
-                    className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors duration-150"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                    Delete
-                  </button>
-                </div>
+                {canEdit && (
+                  <div className="px-4 py-3 bg-slate-50 border-t border-slate-100 flex items-center justify-end gap-2">
+                    <button
+                      onClick={() => onEdit(item)}
+                      className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-blue-600 hover:bg-blue-50 rounded-lg transition-colors duration-150"
+                    >
+                      <Edit className="w-4 h-4" />
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => handleDelete(item.id)}
+                      className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors duration-150"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      Delete
+                    </button>
+                  </div>
+                )}
               </div>
             ))
           ) : (
