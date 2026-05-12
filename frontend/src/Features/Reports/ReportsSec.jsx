@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useContext } from "react";
 import { BASE_URL } from "../../config/apiConfig";
+import { AuthContext } from "../../context/AuthContext";
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -11,6 +12,31 @@ import {
 } from "lucide-react";
 
 export default function ReportsSec() {
+  const { permission } = useContext(AuthContext);
+  const isAdmin        = permission?.IsAdmin || false;
+  // User List tab: visible only to admins or users with SystemManagement access
+  const canSeeUserList = isAdmin || permission?.SystemManagementView || false;
+
+  // Full name of the logged-in non-admin — resolved once from emp_reg via EmployeeId.
+  // Used to lock all salesPerson filters so non-admins can only generate their own reports.
+  const [myFullName, setMyFullName] = useState('');
+
+  useEffect(() => {
+    if (!permission?.EmployeeId || isAdmin) return;
+    const resolveMyName = async () => {
+      try {
+        const res = await fetch(`${BASE_URL}/auth/get-user/${permission.EmployeeId}`, { credentials: 'include' });
+        const data = await res.json();
+        const fname = data.fname || '';
+        const lname = data.lname || '';
+        setMyFullName(`${fname} ${lname}`.trim());
+      } catch (err) {
+        console.error('Failed to resolve employee name for reports:', err);
+      }
+    };
+    resolveMyName();
+  }, [permission?.EmployeeId, isAdmin]);
+
   const [activeReport, setActiveReport] = useState("quotation");
   const [loading, setLoading] = useState(false);
   const [reportData, setReportData] = useState([]);
@@ -146,6 +172,9 @@ export default function ReportsSec() {
       let url = "";
       const params = new URLSearchParams();
 
+      // Non-admins are always locked to their own name — they cannot change the salesPerson filter.
+      const effectiveSalesPerson = isAdmin ? null : myFullName;
+
       switch (activeReport) {
         case "quotation":
           url = `${BASE_URL}/report/quotation`;
@@ -154,14 +183,14 @@ export default function ReportsSec() {
           if (qFreightCategory !== "all") params.append("freightCategory", qFreightCategory);
           if (qFreightModes.length > 0) params.append("freightMode", qFreightModes.join(","));
           if (qCountry) params.append("country", qCountry);
-          if (qSalesPerson !== "all") params.append("salesPerson", qSalesPerson);
+          { const sp = effectiveSalesPerson ?? qSalesPerson; if (sp && sp !== "all") params.append("salesPerson", sp); }
           if (qDepartment !== "all") params.append("department", qDepartment);
           break;
         case "sales-activity":
           url = `${BASE_URL}/report/sales-activity`;
           if (saDateFrom) params.append("dateFrom", saDateFrom);
           if (saDateTo) params.append("dateTo", saDateTo);
-          if (saSalesPerson !== "all") params.append("salesPerson", saSalesPerson);
+          { const sp = effectiveSalesPerson ?? saSalesPerson; if (sp && sp !== "all") params.append("salesPerson", sp); }
           if (saActivityTypes.length > 0) params.append("activityType", saActivityTypes.join(","));
           if (saStatuses.length > 0) params.append("status", saStatuses.join(","));
           break;
@@ -170,7 +199,7 @@ export default function ReportsSec() {
           break;
         case "customer-list":
           url = `${BASE_URL}/report/customer-list`;
-          if (clSalesPerson !== "all") params.append("salesPerson", clSalesPerson);
+          { const sp = effectiveSalesPerson ?? clSalesPerson; if (sp && sp !== "all") params.append("salesPerson", sp); }
           if (clCountry !== "all") params.append("country", clCountry);
           if (clAccountType !== "all") params.append("accountType", clAccountType);
           break;
@@ -178,12 +207,12 @@ export default function ReportsSec() {
           url = `${BASE_URL}/report/invoice-profit`;
           if (ipDateFrom) params.append("dateFrom", ipDateFrom);
           if (ipDateTo) params.append("dateTo", ipDateTo);
-          if (ipSalesPerson !== "all") params.append("salesPerson", ipSalesPerson);
+          { const sp = effectiveSalesPerson ?? ipSalesPerson; if (sp && sp !== "all") params.append("salesPerson", sp); }
           break;
         case "sales-target":
           url = `${BASE_URL}/report/sales-target`;
           params.append("year", stYear);
-          if (stSalesPerson !== "all") params.append("salesPerson", stSalesPerson);
+          { const sp = effectiveSalesPerson ?? stSalesPerson; if (sp && sp !== "all") params.append("salesPerson", sp); }
           break;
       }
 
@@ -653,7 +682,7 @@ export default function ReportsSec() {
             { key: "sales-activity", label: "Sales Activity", icon: TrendingUp, color: "blue" },
             { key: "invoice-profit", label: "Invoice / Profit", icon: DollarSign, color: "green" },
             { key: "sales-target", label: "Sales Target", icon: Target, color: "rose" },
-            { key: "user-list", label: "User List", icon: Users, color: "emerald" },
+            ...(canSeeUserList ? [{ key: "user-list", label: "User List", icon: Users, color: "emerald" }] : []),
             { key: "customer-list", label: "Customer List", icon: Building2, color: "amber" },
           ].map(({ key, label, icon: Icon, color }) => (
             <button
@@ -745,10 +774,17 @@ export default function ReportsSec() {
                 {/* Sales Person */}
                 <div>
                   <label className="block text-xs font-medium text-slate-600 mb-1">Sales Person</label>
-                  <select value={qSalesPerson} onChange={e => setQSalesPerson(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 bg-white">
-                    <option value="all">All</option>
-                    {salespersons.map(sp => <option key={sp} value={sp}>{sp}</option>)}
-                  </select>
+                  {isAdmin ? (
+                    <select value={qSalesPerson} onChange={e => setQSalesPerson(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 bg-white">
+                      <option value="all">All</option>
+                      {salespersons.map(sp => <option key={sp} value={sp}>{sp}</option>)}
+                    </select>
+                  ) : (
+                    <div>
+                      <div className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-slate-50 text-slate-700 font-medium">{myFullName || '...'}</div>
+                      <p className="mt-1 text-xs text-slate-400">Your reports only</p>
+                    </div>
+                  )}
                 </div>
                 {/* Department */}
                 <div>
@@ -782,10 +818,17 @@ export default function ReportsSec() {
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-slate-600 mb-1">Sales Person</label>
-                  <select value={saSalesPerson} onChange={e => setSaSalesPerson(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
-                    <option value="all">All</option>
-                    {salespersons.map(sp => <option key={sp} value={sp}>{sp}</option>)}
-                  </select>
+                  {isAdmin ? (
+                    <select value={saSalesPerson} onChange={e => setSaSalesPerson(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+                      <option value="all">All</option>
+                      {salespersons.map(sp => <option key={sp} value={sp}>{sp}</option>)}
+                    </select>
+                  ) : (
+                    <div>
+                      <div className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-slate-50 text-slate-700 font-medium">{myFullName || '...'}</div>
+                      <p className="mt-1 text-xs text-slate-400">Your reports only</p>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -843,10 +886,17 @@ export default function ReportsSec() {
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
                 <label className="block text-xs font-medium text-slate-600 mb-1">Sales Person</label>
-                <select value={clSalesPerson} onChange={e => setClSalesPerson(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white">
-                  <option value="all">All</option>
-                  {salespersons.map(sp => <option key={sp} value={sp}>{sp}</option>)}
-                </select>
+                {isAdmin ? (
+                  <select value={clSalesPerson} onChange={e => setClSalesPerson(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white">
+                    <option value="all">All</option>
+                    {salespersons.map(sp => <option key={sp} value={sp}>{sp}</option>)}
+                  </select>
+                ) : (
+                  <div>
+                    <div className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-slate-50 text-slate-700 font-medium">{myFullName || '...'}</div>
+                    <p className="mt-1 text-xs text-slate-400">Your reports only</p>
+                  </div>
+                )}
               </div>
               <div>
                 <label className="block text-xs font-medium text-slate-600 mb-1">Country / Location</label>
@@ -884,10 +934,17 @@ export default function ReportsSec() {
               </div>
               <div>
                 <label className="block text-xs font-medium text-slate-600 mb-1">Sales Person</label>
-                <select value={ipSalesPerson} onChange={e => setIpSalesPerson(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 bg-white">
-                  <option value="all">All</option>
-                  {salespersons.map(sp => <option key={sp} value={sp}>{sp}</option>)}
-                </select>
+                {isAdmin ? (
+                  <select value={ipSalesPerson} onChange={e => setIpSalesPerson(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 bg-white">
+                    <option value="all">All</option>
+                    {salespersons.map(sp => <option key={sp} value={sp}>{sp}</option>)}
+                  </select>
+                ) : (
+                  <div>
+                    <div className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-slate-50 text-slate-700 font-medium">{myFullName || '...'}</div>
+                    <p className="mt-1 text-xs text-slate-400">Your reports only</p>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -906,10 +963,17 @@ export default function ReportsSec() {
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-slate-600 mb-1">Employee</label>
-                  <select value={stSalesPerson} onChange={e => setStSalesPerson(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-rose-500 bg-white">
-                    <option value="all">All Employees</option>
-                    {salespersons.map(sp => <option key={sp} value={sp}>{sp}</option>)}
-                  </select>
+                  {isAdmin ? (
+                    <select value={stSalesPerson} onChange={e => setStSalesPerson(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-rose-500 bg-white">
+                      <option value="all">All Employees</option>
+                      {salespersons.map(sp => <option key={sp} value={sp}>{sp}</option>)}
+                    </select>
+                  ) : (
+                    <div>
+                      <div className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-slate-50 text-slate-700 font-medium">{myFullName || '...'}</div>
+                      <p className="mt-1 text-xs text-slate-400">Your reports only</p>
+                    </div>
+                  )}
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-slate-600 mb-1">View Period</label>
