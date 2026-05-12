@@ -1,9 +1,11 @@
 import api from '../config/axios';
 
 // Fetch all won quotes (for invoice module)
-export const fetchWonQuotes = async () => {
+// Pass createdBy (employeeId) to restrict to a specific user's quotes; omit for all.
+export const fetchWonQuotes = async (createdBy = '') => {
   try {
-    const response = await api.get(`/Invoice/won-quotes`);
+    const params = createdBy ? `?createdBy=${encodeURIComponent(createdBy)}` : '';
+    const response = await api.get(`/Invoice/won-quotes${params}`);
     return response.data;
   } catch (error) {
     throw new Error('Failed to fetch won quotes');

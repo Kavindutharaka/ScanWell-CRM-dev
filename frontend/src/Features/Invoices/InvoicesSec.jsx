@@ -30,14 +30,22 @@ export default function InvoicesSec() {
   const [success, setSuccess] = useState(null);
   const [loadingEntries, setLoadingEntries] = useState({});
 
+  // Guard: do NOT fetch until permission has resolved from the server.
+  // Without this guard the effect fires on mount while permission is still null,
+  // returning ALL quotes briefly — a visible flash of wrong data for non-admins.
   useEffect(() => {
+    if (permission === null || permission === undefined) return;
     loadWonQuotes();
-  }, []);
+  }, [isAdmin, permission?.EmployeeId]);
 
   const loadWonQuotes = async () => {
     setLoading(true);
     try {
-      const data = await fetchWonQuotes();
+      // Non-admin users only see invoices for quotes they created.
+      const createdBy = (!isAdmin && permission?.EmployeeId)
+        ? String(permission.EmployeeId)
+        : '';
+      const data = await fetchWonQuotes(createdBy);
       const quotes = Array.isArray(data) ? data : [];
       setWonQuotes(quotes);
 

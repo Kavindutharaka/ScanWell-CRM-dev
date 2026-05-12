@@ -19,8 +19,9 @@ namespace back_end.Controllers
 
         // GET: api/Invoice/won-quotes
         // Get all quotes with outcome = 'won'
+        // Optional ?createdBy=<employeeId> — when supplied only returns quotes created by that employee
         [HttpGet("won-quotes")]
-        public IActionResult GetWonQuotes()
+        public IActionResult GetWonQuotes([FromQuery] string createdBy = "")
         {
             try
             {
@@ -48,10 +49,14 @@ namespace back_end.Controllers
                         INNER JOIN quote_outcomes qo ON q.QuoteId = qo.quote_id
                         LEFT JOIN [dbo].[account_reg] a ON q.Customer = a.accountName
                         WHERE qo.outcome_status = 'won'
+                          AND (@CreatedBy = '' OR q.CreatedBy = @CreatedBy)
                         ORDER BY qo.created_date DESC";
 
                     using (var cmd = new SqlCommand(query, con))
                     {
+                        cmd.Parameters.AddWithValue("@CreatedBy",
+                            string.IsNullOrWhiteSpace(createdBy) ? "" : createdBy);
+
                         using (var reader = cmd.ExecuteReader())
                         {
                             while (reader.Read())
