@@ -19,7 +19,7 @@ namespace back_end.Controllers
         // ====================================================================
         // 1. QUOTATION REPORT
         // Filters: dateFrom, dateTo, freightCategory, freightMode, country,
-        //          salesPerson, department
+        //          salesPerson, department, createdById
         // ====================================================================
         [HttpGet, Route("quotation")]
         public ActionResult GetQuotationReport(
@@ -29,7 +29,8 @@ namespace back_end.Controllers
             [FromQuery] string? freightMode,
             [FromQuery] string? country,
             [FromQuery] string? salesPerson,
-            [FromQuery] string? department)
+            [FromQuery] string? department,
+            [FromQuery] long? createdById)
         {
             var conditions = new List<string>();
             var parameters = new List<SqlParameter>();
@@ -90,6 +91,12 @@ namespace back_end.Controllers
                 conditions.Add("esp.department = @Department");
                 parameters.Add(new SqlParameter("@Department", department));
             }
+            if (createdById.HasValue)
+            {
+                // Filter by the employee who created the quote
+                conditions.Add("q.CreatedBy = @CreatedById");
+                parameters.Add(new SqlParameter("@CreatedById", createdById.Value));
+            }
 
             string whereClause = conditions.Count > 0 ? "WHERE " + string.Join(" AND ", conditions) : "";
 
@@ -110,11 +117,14 @@ namespace back_end.Controllers
                     q.PortOfDischarge,
                     q.Status,
                     q.CreatedBy,
+                    -- CreatedByName: the employee who entered the quote
+                    ISNULL(ecb.fname, '') + ' ' + ISNULL(ecb.lname, '') AS CreatedByName,
                     -- SalesPerson: the person assigned to this customer in account_reg,
                     -- NOT the employee who entered the quote (q.CreatedBy).
                     ar.salesPerson AS SalesPerson,
                     esp.department AS Department
                 FROM [dbo].[Quotes] q
+                LEFT JOIN [dbo].[emp_reg]     ecb ON q.CreatedBy = ecb.SysID
                 LEFT JOIN [dbo].[account_reg] ar  ON q.Customer = ar.accountName
                 LEFT JOIN [dbo].[emp_reg]     esp ON ar.salesPerson = ISNULL(esp.fname, '') + ' ' + ISNULL(esp.lname, '')
                 {whereClause}
@@ -612,6 +622,33 @@ namespace back_end.Controllers
         // ====================================================================
         // HELPER: Get distinct values for filter dropdowns
         // ====================================================================
+
+        // Get distinct employees who have created at least one quote (for Created By filter)
+        [HttpGet, Route("filter/quote-creators")]
+        public ActionResult GetQuoteCreators()
+        {
+            string query = @"
+                SELECT DISTINCT e.SysID AS id,
+                    ISNULL(e.fname, '') + ' ' + ISNULL(e.lname, '') AS name
+                FROM [dbo].[Quotes] q
+                INNER JOIN [dbo].[emp_reg] e ON q.CreatedBy = e.SysID
+                WHERE e.fname IS NOT NULL OR e.lname IS NOT NULL
+                ORDER BY name;";
+
+            DataTable tb = new DataTable();
+            using (SqlConnection con = new SqlConnection(_dbConnectionString))
+            {
+                con.Open();
+                using (SqlCommand cmd = new SqlCommand(query, con))
+                {
+                    using (SqlDataReader reader = cmd.ExecuteReader())
+                    {
+                        tb.Load(reader);
+                    }
+                }
+            }
+            return Ok(tb);
+        }
 
         // Get distinct countries from quotes
         [HttpGet, Route("filter/countries")]

@@ -49,6 +49,7 @@ export default function ReportsSec() {
   const [countries, setCountries] = useState([]);
   const [customerLocations, setCustomerLocations] = useState([]);
   const [accountTypes, setAccountTypes] = useState([]);
+  const [quoteCreators, setQuoteCreators] = useState([]); // { id, name } list for Created By filter
 
   // Quotation filters
   const [qDateFrom, setQDateFrom] = useState("");
@@ -58,6 +59,7 @@ export default function ReportsSec() {
   const [qCountry, setQCountry] = useState("");
   const [qSalesPerson, setQSalesPerson] = useState("all");
   const [qDepartment, setQDepartment] = useState("all");
+  const [qCreatedBy, setQCreatedBy] = useState("all"); // employee SysID or "all"
 
   // Sales Activity filters
   const [saDateFrom, setSaDateFrom] = useState("");
@@ -116,23 +118,26 @@ export default function ReportsSec() {
     const loadFilters = async () => {
       try {
         const opts = { credentials: 'include' };
-        const [spRes, deptRes, countryRes, custLocRes, accTypeRes] = await Promise.all([
+        const [spRes, deptRes, countryRes, custLocRes, accTypeRes, qcRes] = await Promise.all([
           fetch(`${BASE_URL}/report/filter/salespersons`, opts),
           fetch(`${BASE_URL}/report/filter/departments`, opts),
           fetch(`${BASE_URL}/report/filter/countries`, opts),
           fetch(`${BASE_URL}/report/filter/customer-locations`, opts),
           fetch(`${BASE_URL}/report/filter/account-types`, opts),
+          fetch(`${BASE_URL}/report/filter/quote-creators`, opts),
         ]);
         const spData = await spRes.json();
         const deptData = await deptRes.json();
         const countryData = await countryRes.json();
         const custLocData = await custLocRes.json();
         const accTypeData = await accTypeRes.json();
+        const qcData = await qcRes.json();
         setSalespersons(spData.map(s => s.name || s.Name).filter(Boolean));
         setDepartments(deptData.map(d => d.d_name || d.dName || d.DName || d.dname).filter(Boolean));
         setCountries(countryData.map(c => c.country || c.Country).filter(Boolean));
         setCustomerLocations(custLocData.map(c => c.country || c.Country).filter(Boolean));
         setAccountTypes(accTypeData.map(t => t.type || t.Type).filter(Boolean));
+        setQuoteCreators(qcData.map(c => ({ id: String(c.id || c.Id), name: c.name || c.Name || '' })).filter(c => c.name));
       } catch (err) {
         console.error("Failed to load filter data:", err);
       }
@@ -185,6 +190,7 @@ export default function ReportsSec() {
           if (qCountry) params.append("country", qCountry);
           { const sp = effectiveSalesPerson ?? qSalesPerson; if (sp && sp !== "all") params.append("salesPerson", sp); }
           if (qDepartment !== "all") params.append("department", qDepartment);
+          if (qCreatedBy !== "all") params.append("createdById", qCreatedBy);
           break;
         case "sales-activity":
           url = `${BASE_URL}/report/sales-activity`;
@@ -305,6 +311,7 @@ export default function ReportsSec() {
             'POD': row.PortOfDischarge || row.portOfDischarge || '—',
             'Sales Person': row.SalesPerson || row.salesPerson || '—',
             'Department': row.Department || row.department || '—',
+            'Created By': row.CreatedByName || row.createdByName || '—',
             'Status': (row.Status || row.status || 'draft').charAt(0).toUpperCase() + (row.Status || row.status || 'draft').slice(1)
           };
         case "sales-activity":
@@ -637,6 +644,7 @@ export default function ReportsSec() {
         if (qCountry) parts.push(`Country: ${qCountry}`);
         if (qSalesPerson !== "all") parts.push(`Sales Person: ${qSalesPerson}`);
         if (qDepartment !== "all") parts.push(`Department: ${qDepartment}`);
+        if (qCreatedBy !== "all") { const creator = quoteCreators.find(c => c.id === qCreatedBy); if (creator) parts.push(`Created By: ${creator.name}`); }
         break;
       case "sales-activity":
         if (saDateFrom || saDateTo) parts.push(`End Date: ${saDateFrom || "start"} to ${saDateTo || "now"}`);
@@ -770,7 +778,7 @@ export default function ReportsSec() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 {/* Sales Person */}
                 <div>
                   <label className="block text-xs font-medium text-slate-600 mb-1">Sales Person</label>
@@ -792,6 +800,14 @@ export default function ReportsSec() {
                   <select value={qDepartment} onChange={e => setQDepartment(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 bg-white">
                     <option value="all">All</option>
                     {departments.map(d => <option key={d} value={d}>{d}</option>)}
+                  </select>
+                </div>
+                {/* Created By */}
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 mb-1">Created By</label>
+                  <select value={qCreatedBy} onChange={e => setQCreatedBy(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 bg-white">
+                    <option value="all">All</option>
+                    {quoteCreators.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                   </select>
                 </div>
               </div>
@@ -1063,6 +1079,7 @@ export default function ReportsSec() {
                           <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-600">POD</th>
                           <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-600">Sales Person</th>
                           <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-600">Department</th>
+                          <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-600">Created By</th>
                           <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-600">Status</th>
                         </tr>
                       </thead>
@@ -1088,6 +1105,7 @@ export default function ReportsSec() {
                               <td className="px-3 py-2 text-slate-600">{row.PortOfDischarge || row.portOfDischarge || "—"}</td>
                               <td className="px-3 py-2 text-slate-700">{row.SalesPerson || row.salesPerson || "—"}</td>
                               <td className="px-3 py-2 text-slate-600 text-xs">{row.Department || row.department || "—"}</td>
+                              <td className="px-3 py-2 text-slate-600 text-xs">{row.CreatedByName || row.createdByName || "—"}</td>
                               <td className="px-3 py-2">
                                 <span className={`inline-flex px-2 py-0.5 rounded text-xs font-medium ${
                                   status === "approved" ? "bg-green-100 text-green-700" :
