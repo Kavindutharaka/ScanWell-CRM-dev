@@ -2689,13 +2689,15 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
                                 {new Date(rate.updatedDate).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
                               </div>
                             )}
-                            <button
-                              onClick={() => { setEditingAirExportRate({...rate}); setShowAirExportEditModal(true); }}
-                              className="p-2 hover:bg-sky-50 rounded-lg transition-colors"
-                              title="Edit Rate"
-                            >
-                              <Edit className="w-4 h-4 text-slate-600 hover:text-sky-600" />
-                            </button>
+                            {canEditThisRate(rate) && (
+                              <button
+                                onClick={() => { setEditingAirExportRate({...rate}); setShowAirExportEditModal(true); }}
+                                className="p-2 hover:bg-sky-50 rounded-lg transition-colors"
+                                title="Edit Rate"
+                              >
+                                <Edit className="w-4 h-4 text-slate-600 hover:text-sky-600" />
+                              </button>
+                            )}
                             {isAdmin && (
                               <button
                                 onClick={() => handleDeleteAirExportRate(rate.id)}
@@ -2724,9 +2726,11 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
                               </div>
                             </div>
                             <div className="flex items-center gap-1">
-                              <button onClick={() => { setEditingAirExportRate({...rate}); setShowAirExportEditModal(true); }} className="p-2 hover:bg-sky-50 rounded-lg">
-                                <Edit className="w-4 h-4 text-slate-600" />
-                              </button>
+                              {canEditThisRate(rate) && (
+                                <button onClick={() => { setEditingAirExportRate({...rate}); setShowAirExportEditModal(true); }} className="p-2 hover:bg-sky-50 rounded-lg">
+                                  <Edit className="w-4 h-4 text-slate-600" />
+                                </button>
+                              )}
                               {isAdmin && (
                                 <button onClick={() => handleDeleteAirExportRate(rate.id)} className="p-2 hover:bg-red-50 rounded-lg">
                                   <Trash2 className="w-4 h-4 text-red-600" />
