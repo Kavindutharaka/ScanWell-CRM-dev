@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useContext } from "react";
 import {
   CircleDollarSign,
   RotateCcw,
@@ -13,11 +13,17 @@ import {
 import { fetchRfq, deleteRfq } from "../../api/RfqApi";
 import FilterPanel from "../../components/filters/FilterPanel";
 import useFilters from "../../components/filters/useFilters";
+import { AuthContext } from "../../context/AuthContext";
 
 export default function RFQSec({ modalOpen, onEdit, onSalesEntry }) {
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [rfqItems, setRfqItems] = useState([]);
+
+  const { permission } = useContext(AuthContext);
+  const isAdmin  = permission?.IsAdmin  || false;
+  const canAdd   = isAdmin || permission?.RfqAdd  || false;
+  const canEdit  = isAdmin || permission?.RfqEdit || false;
 
   // Filters
   const { filters, setFilter, clearAllFilters } = useFilters(['customer', 'rfqStatus']);
@@ -140,13 +146,15 @@ export default function RFQSec({ modalOpen, onEdit, onSalesEntry }) {
           </div>
 
           <div className="flex flex-wrap items-center gap-2 lg:gap-3">
-            <button
-              onClick={modalOpen}
-              className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all duration-200 shadow-md hover:shadow-lg font-medium text-sm"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Add New RFQ</span>
-            </button>
+            {canAdd && (
+              <button
+                onClick={modalOpen}
+                className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all duration-200 shadow-md hover:shadow-lg font-medium text-sm"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Add New RFQ</span>
+              </button>
+            )}
           </div>
         </div>
 
@@ -203,9 +211,11 @@ export default function RFQSec({ modalOpen, onEdit, onSalesEntry }) {
                   <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
                     Link
                   </th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
-                    Actions
-                  </th>
+                  {canEdit && (
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                      Actions
+                    </th>
+                  )}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200">
@@ -281,37 +291,39 @@ export default function RFQSec({ modalOpen, onEdit, onSalesEntry }) {
                             <span className="text-slate-400">—</span>
                           )}
                         </td>
-                        <td className="px-6 py-4">
-                          <div className="flex items-center gap-1.5">
-                            <button
-                              onClick={() => onSalesEntry(item)}
-                              className="p-1.5 hover:bg-green-50 rounded-lg transition-colors text-green-600 hover:text-green-700"
-                              title="Sales Entries"
-                            >
-                              <DollarSign className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={() => onEdit(item)}
-                              className="p-1.5 hover:bg-blue-50 rounded-lg transition-colors text-blue-600 hover:text-blue-700"
-                              title="Edit"
-                            >
-                              <Edit className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={() => handleDelete(item.sysID)}
-                              className="p-1.5 hover:bg-red-50 rounded-lg transition-colors text-red-500 hover:text-red-700"
-                              title="Delete"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </td>
+                        {canEdit && (
+                          <td className="px-6 py-4">
+                            <div className="flex items-center gap-1.5">
+                              <button
+                                onClick={() => onSalesEntry(item)}
+                                className="p-1.5 hover:bg-green-50 rounded-lg transition-colors text-green-600 hover:text-green-700"
+                                title="Sales Entries"
+                              >
+                                <DollarSign className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => onEdit(item)}
+                                className="p-1.5 hover:bg-blue-50 rounded-lg transition-colors text-blue-600 hover:text-blue-700"
+                                title="Edit"
+                              >
+                                <Edit className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => handleDelete(item.sysID)}
+                                className="p-1.5 hover:bg-red-50 rounded-lg transition-colors text-red-500 hover:text-red-700"
+                                title="Delete"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </td>
+                        )}
                       </tr>
                     );
                   })
                 ) : (
                   <tr>
-                    <td colSpan="5" className="px-6 py-12">
+                    <td colSpan={canEdit ? 6 : 5} className="px-6 py-12">
                       <div className="flex flex-col items-center justify-center text-center">
                         <CircleDollarSign className="w-12 h-12 text-slate-300 mb-4" />
                         <p className="text-slate-500 font-medium">No RFQ found</p>
@@ -394,29 +406,31 @@ export default function RFQSec({ modalOpen, onEdit, onSalesEntry }) {
                       )}
                     </div>
 
-                    <div className="px-4 py-3 bg-slate-50 border-t border-slate-100 flex items-center gap-2">
-                      <button
-                        onClick={() => onSalesEntry(item)}
-                        className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium text-green-600 hover:bg-green-50 rounded-lg transition-colors"
-                      >
-                        <DollarSign className="w-4 h-4" />
-                        Sales
-                      </button>
-                      <button
-                        onClick={() => onEdit(item)}
-                        className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                      >
-                        <Edit className="w-4 h-4" />
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => handleDelete(item.sysID)}
-                        className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                        Delete
-                      </button>
-                    </div>
+                    {canEdit && (
+                      <div className="px-4 py-3 bg-slate-50 border-t border-slate-100 flex items-center gap-2">
+                        <button
+                          onClick={() => onSalesEntry(item)}
+                          className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                        >
+                          <DollarSign className="w-4 h-4" />
+                          Sales
+                        </button>
+                        <button
+                          onClick={() => onEdit(item)}
+                          className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                        >
+                          <Edit className="w-4 h-4" />
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => handleDelete(item.sysID)}
+                          className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                          Delete
+                        </button>
+                      </div>
+                    )}
                   </div>
                 );
               })
