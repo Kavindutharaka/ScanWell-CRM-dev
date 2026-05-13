@@ -115,6 +115,15 @@ export default function ReportsSec() {
 
   // Load filter data on mount
   useEffect(() => {
+    const safeJson = async (res) => {
+      try {
+        if (!res.ok) return [];
+        return await res.json();
+      } catch {
+        return [];
+      }
+    };
+
     const loadFilters = async () => {
       try {
         const opts = { credentials: 'include' };
@@ -126,12 +135,14 @@ export default function ReportsSec() {
           fetch(`${BASE_URL}/report/filter/account-types`, opts),
           fetch(`${BASE_URL}/report/filter/quote-creators`, opts),
         ]);
-        const spData = await spRes.json();
-        const deptData = await deptRes.json();
-        const countryData = await countryRes.json();
-        const custLocData = await custLocRes.json();
-        const accTypeData = await accTypeRes.json();
-        const qcData = await qcRes.json();
+        const [spData, deptData, countryData, custLocData, accTypeData, qcData] = await Promise.all([
+          safeJson(spRes),
+          safeJson(deptRes),
+          safeJson(countryRes),
+          safeJson(custLocRes),
+          safeJson(accTypeRes),
+          safeJson(qcRes),
+        ]);
         setSalespersons(spData.map(s => s.name || s.Name).filter(Boolean));
         setDepartments(deptData.map(d => d.d_name || d.dName || d.DName || d.dname).filter(Boolean));
         setCountries(countryData.map(c => c.country || c.Country).filter(Boolean));

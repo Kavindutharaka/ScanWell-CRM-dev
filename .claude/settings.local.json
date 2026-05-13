@@ -82,7 +82,8 @@
       "Bash(tasklist)",
       "Bash(py -3 -c ' *)",
       "Bash(Get-ChildItem -Path \"D:\\\\Kavindu\\\\ScanWell-CRM-dev-2\" -Recurse -Include \"*.md\" -ErrorAction SilentlyContinue)",
-      "Bash(Select-Object FullName)"
+      "Bash(Select-Object FullName)",
+      "Bash(dotnet publish *)"
     ]
   }
 }

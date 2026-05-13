@@ -117,16 +117,26 @@ namespace back_end.Controllers
                     q.PortOfDischarge,
                     q.Status,
                     q.CreatedBy,
-                    -- CreatedByName: the employee who entered the quote
-                    ISNULL(ecb.fname, '') + ' ' + ISNULL(ecb.lname, '') AS CreatedByName,
+                    -- CreatedByName: resolve via user_roles (q.CreatedBy = user_roles.Id) then to emp_reg.
+                    -- Also try direct SysID match as fallback so both storage patterns are covered.
+                    NULLIF(RTRIM(LTRIM(
+                        ISNULL(
+                            ISNULL(ecb.fname, '') + ' ' + ISNULL(ecb.lname, ''),
+                            ISNULL(ecb2.fname, '') + ' ' + ISNULL(ecb2.lname, '')
+                        )
+                    )), '') AS CreatedByName,
                     -- SalesPerson: the person assigned to this customer in account_reg,
                     -- NOT the employee who entered the quote (q.CreatedBy).
                     ar.salesPerson AS SalesPerson,
                     esp.department AS Department
                 FROM [dbo].[Quotes] q
-                LEFT JOIN [dbo].[emp_reg]     ecb ON q.CreatedBy = ecb.SysID
-                LEFT JOIN [dbo].[account_reg] ar  ON q.Customer = ar.accountName
-                LEFT JOIN [dbo].[emp_reg]     esp ON ar.salesPerson = ISNULL(esp.fname, '') + ' ' + ISNULL(esp.lname, '')
+                -- Path 1: q.CreatedBy = user_roles.Id (quote forms store the role row id)
+                LEFT JOIN [dbo].[user_roles]  ucb  ON q.CreatedBy = ucb.Id
+                LEFT JOIN [dbo].[emp_reg]     ecb  ON ucb.EmployeeId = CAST(ecb.SysID AS NVARCHAR(50))
+                -- Path 2: q.CreatedBy = emp_reg.SysID directly (fallback for older records)
+                LEFT JOIN [dbo].[emp_reg]     ecb2 ON q.CreatedBy = ecb2.SysID
+                LEFT JOIN [dbo].[account_reg] ar   ON q.Customer = ar.accountName
+                LEFT JOIN [dbo].[emp_reg]     esp  ON ar.salesPerson = ISNULL(esp.fname, '') + ' ' + ISNULL(esp.lname, '')
                 {whereClause}
                 ORDER BY q.CreatedDate DESC, q.QuoteId DESC;";
 
@@ -628,11 +638,18 @@ namespace back_end.Controllers
         public ActionResult GetQuoteCreators()
         {
             string query = @"
-                SELECT DISTINCT e.SysID AS id,
-                    ISNULL(e.fname, '') + ' ' + ISNULL(e.lname, '') AS name
+                SELECT DISTINCT
+                    q.CreatedBy AS id,
+                    NULLIF(RTRIM(LTRIM(ISNULL(e.fname, '') + ' ' + ISNULL(e.lname, ''))), '') AS name
                 FROM [dbo].[Quotes] q
-                INNER JOIN [dbo].[emp_reg] e ON q.CreatedBy = e.SysID
-                WHERE e.fname IS NOT NULL OR e.lname IS NOT NULL
+                -- Path 1: q.CreatedBy = user_roles.Id
+                LEFT JOIN [dbo].[user_roles] ur ON q.CreatedBy = ur.Id
+                LEFT JOIN [dbo].[emp_reg]    e1 ON ur.EmployeeId = CAST(e1.SysID AS NVARCHAR(50))
+                -- Path 2: q.CreatedBy = emp_reg.SysID directly
+                LEFT JOIN [dbo].[emp_reg]    e2 ON q.CreatedBy = e2.SysID
+                CROSS APPLY (SELECT COALESCE(e1.fname, e2.fname) AS fname,
+                                    COALESCE(e1.lname, e2.lname) AS lname) e
+                WHERE NULLIF(RTRIM(LTRIM(ISNULL(e.fname, '') + ' ' + ISNULL(e.lname, ''))), '') IS NOT NULL
                 ORDER BY name;";
 
             DataTable tb = new DataTable();
