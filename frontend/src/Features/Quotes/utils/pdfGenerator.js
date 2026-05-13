@@ -32,6 +32,36 @@ const safeAutoTable = (doc, options) => {
 };
 
 /**
+ * Remove columns where every row has an empty / blank value.
+ * columnStyles: object keyed by original column index.
+ * Returns { filteredHeaders, filteredData, filteredStyles }.
+ */
+function filterEmptyColumns(headers, tableData, columnStyles = {}) {
+  const keepIndices = headers
+    .map((_, colIdx) =>
+      tableData.some(row => {
+        const val = row[colIdx];
+        return val !== '' && val !== null && val !== undefined && String(val).trim() !== '';
+      })
+    )
+    .map((keep, i) => (keep ? i : -1))
+    .filter(i => i >= 0);
+
+  const filteredHeaders = keepIndices.map(i => headers[i]);
+  const filteredData = tableData.map(row => keepIndices.map(i => row[i]));
+
+  // Remap column styles to the new sequential indices
+  const filteredStyles = {};
+  keepIndices.forEach((origIdx, newIdx) => {
+    if (columnStyles[origIdx]) {
+      filteredStyles[newIdx] = columnStyles[origIdx];
+    }
+  });
+
+  return { filteredHeaders, filteredData, filteredStyles };
+}
+
+/**
  * Add Air Freight Charges Table for Transit/MultiModal (Pivoted by Carrier)
  */
 function addAirFreightChargesTableTransit(doc, chargesData, yPos, segmentNum, tableName = null) {
@@ -364,29 +394,33 @@ function addFreightChargesTableTransit(doc, charges, yPos, isAir, segmentNum, ta
 
     const headers = ['Carrier', 'Unit Type', 'Units', 'Amount', 'Transit', 'Routing', 'Total', 'Remarks'];
 
+    const transitCarrierColStyles = {
+      0: { cellWidth: 16 },  // Carrier
+      1: { cellWidth: 13 },  // Unit Type
+      2: { cellWidth: 8 },   // Units
+      3: { cellWidth: 25 },  // Amount (with currency)
+      4: { cellWidth: 12 },  // Transit
+      5: { cellWidth: 14 },  // Routing
+      6: { cellWidth: 24 },  // Total (with currency)
+      7: { cellWidth: 50, overflow: 'linebreak', fontSize: 6.5 }  // Remarks
+    };
+    const { filteredHeaders: tcH, filteredData: tcD, filteredStyles: tcS } =
+      filterEmptyColumns(headers, tableData, transitCarrierColStyles);
+
     safeAutoTable(doc, {
       startY: yPos,
-      head: [headers],
-      body: tableData,
+      head: [tcH],
+      body: tcD,
       theme: 'grid',
       headStyles: { fillColor: [200, 200, 200], textColor: 0, fontSize: 7, fontStyle: 'bold' },
       bodyStyles: { fontSize: 6.5, overflow: 'linebreak', cellPadding: 1.5 },
-      columnStyles: {
-        0: { cellWidth: 16 },  // Carrier
-        1: { cellWidth: 13 },  // Unit Type
-        2: { cellWidth: 8 },   // Units
-        3: { cellWidth: 25 },  // Amount (with currency)
-        4: { cellWidth: 12 },  // Transit
-        5: { cellWidth: 14 },  // Routing
-        6: { cellWidth: 24 },  // Total (with currency)
-        7: { cellWidth: 50, overflow: 'linebreak', fontSize: 6.5 }  // Remarks
-      },
+      columnStyles: tcS,
       margin: { left: 15, right: 15 }
     });
 
     return doc.lastAutoTable.finalY + 8;
   }
-  
+
   // Handle chargeableWeight format (original Transit format)
   if (hasWeightFormat) {
     const validCharges = charges.filter(c => c.chargeableWeight || c.weightBreaker || c.charge);
@@ -426,21 +460,26 @@ function addFreightChargesTableTransit(doc, charges, yPos, isAir, segmentNum, ta
       ];
     });
 
+    const weightHeaders = ['Chargeable Weight', 'Weight Breaker', 'Pricing Unit', 'Charge', 'Total', 'Remark'];
+    const weightColStyles = {
+      0: { cellWidth: 22 },
+      1: { cellWidth: 22 },
+      2: { cellWidth: 22 },
+      3: { cellWidth: 28 },  // Charge (with currency)
+      4: { cellWidth: 28 },  // Total (with currency)
+      5: { cellWidth: 48, overflow: 'linebreak' }  // Remark
+    };
+    const { filteredHeaders: wH, filteredData: wD, filteredStyles: wS } =
+      filterEmptyColumns(weightHeaders, tableData, weightColStyles);
+
     safeAutoTable(doc, {
       startY: yPos,
-      head: [['Chargeable Weight', 'Weight Breaker', 'Pricing Unit', 'Charge', 'Total', 'Remark']],
-      body: tableData,
+      head: [wH],
+      body: wD,
       theme: 'grid',
       headStyles: { fillColor: [200, 200, 200], textColor: 0, fontSize: 7, fontStyle: 'bold' },
       bodyStyles: { fontSize: 6.5, overflow: 'linebreak', cellPadding: 1.5 },
-      columnStyles: {
-        0: { cellWidth: 22 },
-        1: { cellWidth: 22 },
-        2: { cellWidth: 22 },
-        3: { cellWidth: 28 },  // Charge (with currency)
-        4: { cellWidth: 28 },  // Total (with currency)
-        5: { cellWidth: 48, overflow: 'linebreak' }  // Remark
-      },
+      columnStyles: wS,
       margin: { left: 15, right: 15 }
     });
     
@@ -601,14 +640,17 @@ function addAirFreightRatioChargesTable(doc, charges, yPos, title = 'Air Freight
   columnStyles[5 + numRatios] = { cellWidth: 15 };      // ROUTING
   columnStyles[6 + numRatios] = { cellWidth: 28, overflow: 'linebreak' };  // REMARKS
 
+  const { filteredHeaders: ratioH, filteredData: ratioD, filteredStyles: ratioS } =
+    filterEmptyColumns(headers, tableData, columnStyles);
+
   safeAutoTable(doc, {
     startY: yPos,
-    head: [headers],
-    body: tableData,
+    head: [ratioH],
+    body: ratioD,
     theme: 'grid',
     headStyles: { fillColor: [200, 200, 200], textColor: 0, fontSize: 6.5, fontStyle: 'bold' },
     bodyStyles: { fontSize: 6.5, overflow: 'linebreak', cellPadding: 1.5 },
-    columnStyles: columnStyles,
+    columnStyles: ratioS,
     margin: { left: 15, right: 15 }
   });
 
@@ -1199,13 +1241,29 @@ function addAirFreightChargesTableWithName(doc, charges, yPos, tableName = null,
   // Build headers
   const headers = ['AIRLINE', 'Currency', ...unitTypeColumns, 'MIN', 'SURCH', 'T/T', 'FREQ', 'ROUTING', 'REMARKS'];
 
+  // Build columnStyles for filtering
+  const numUT = unitTypeColumns.length;
+  const utWidth = numUT > 6 ? 10 : 12;
+  const airWithNameColStyles = { 0: { cellWidth: 15 }, 1: { cellWidth: 10 } };
+  for (let i = 0; i < numUT; i++) airWithNameColStyles[2 + i] = { cellWidth: utWidth };
+  airWithNameColStyles[2 + numUT] = { cellWidth: 12 };  // MIN
+  airWithNameColStyles[3 + numUT] = { cellWidth: 14 };  // SURCH
+  airWithNameColStyles[4 + numUT] = { cellWidth: 10 };  // T/T
+  airWithNameColStyles[5 + numUT] = { cellWidth: 13 };  // FREQ
+  airWithNameColStyles[6 + numUT] = { cellWidth: 15 };  // ROUTING
+  airWithNameColStyles[7 + numUT] = { cellWidth: 28, overflow: 'linebreak' };  // REMARKS
+
+  const { filteredHeaders: awnH, filteredData: awnD, filteredStyles: awnS } =
+    filterEmptyColumns(headers, tableData, airWithNameColStyles);
+
   safeAutoTable(doc, {
     startY: yPos,
-    head: [headers],
-    body: tableData,
+    head: [awnH],
+    body: awnD,
     theme: 'grid',
     headStyles: { fillColor: [200, 200, 200], textColor: 0, fontSize: 6.5, fontStyle: 'bold' },
     bodyStyles: { fontSize: 6.5, overflow: 'linebreak', cellPadding: 1.5 },
+    columnStyles: awnS,
     margin: { left: 15, right: 15 }
   });
 
@@ -1308,40 +1366,43 @@ function addAirFreightChargesTable(doc, charges, yPos) {
   const headers = ['AIRLINE', 'Currency', 'M'];
   headers.push(...unitTypeColumns);
   headers.push('SURCHARGES', 'T/T', 'FREQUENCY', 'ROUTING', 'REMARKS');
-  
+
   // Calculate column widths dynamically based on number of unit types
   const numUnitTypes = unitTypeColumns.length;
   const unitTypeWidth = numUnitTypes > 6 ? 10 : 12;
-  
+
   const columnStyles = {
     0: { cellWidth: 15 },  // AIRLINE
     1: { cellWidth: 10 },  // CCY
     2: { cellWidth: 10 }   // M
   };
-  
+
   // Unit type columns
   for (let i = 0; i < numUnitTypes; i++) {
     columnStyles[3 + i] = { cellWidth: unitTypeWidth };
   }
-  
+
   // Remaining columns
   columnStyles[3 + numUnitTypes] = { cellWidth: 16 };  // SURCHARGES
   columnStyles[4 + numUnitTypes] = { cellWidth: 10 };  // T/T
   columnStyles[5 + numUnitTypes] = { cellWidth: 13 };  // FREQUENCY
   columnStyles[6 + numUnitTypes] = { cellWidth: 15 };  // ROUTING
   columnStyles[7 + numUnitTypes] = { cellWidth: 28, overflow: 'linebreak' };  // REMARKS - much wider
-  
+
+  const { filteredHeaders: airH, filteredData: airD, filteredStyles: airS } =
+    filterEmptyColumns(headers, tableData, columnStyles);
+
   safeAutoTable(doc, {
     startY: yPos,
-    head: [headers],
-    body: tableData,
+    head: [airH],
+    body: airD,
     theme: 'grid',
     headStyles: { fillColor: [200, 200, 200], textColor: 0, fontSize: 6.5, fontStyle: 'bold' },
     bodyStyles: { fontSize: 6.5, overflow: 'linebreak', cellPadding: 1.5 },
-    columnStyles: columnStyles,
+    columnStyles: airS,
     margin: { left: 15, right: 15 }
   });
-  
+
   return doc.lastAutoTable.finalY + 8;
 }
 
@@ -1399,23 +1460,27 @@ function addFreightChargesTableWithName(doc, charges, yPos, isAir, tableName = n
 
   const headers = ['Carrier', 'Unit Type', 'Units', 'Amount', 'Transit', 'Routing', 'Total', 'Remarks'];
 
+  const fctwnColStyles = {
+    0: { cellWidth: 16 },  // Carrier
+    1: { cellWidth: 13 },  // Unit Type
+    2: { cellWidth: 8 },   // Units
+    3: { cellWidth: 25 },  // Amount (with currency)
+    4: { cellWidth: 12 },  // Transit
+    5: { cellWidth: 14 },  // Routing
+    6: { cellWidth: 24 },  // Total (with currency)
+    7: { cellWidth: 50, overflow: 'linebreak', fontSize: 6.5 }  // Remarks
+  };
+  const { filteredHeaders: fctwnH, filteredData: fctwnD, filteredStyles: fctwnS } =
+    filterEmptyColumns(headers, tableData, fctwnColStyles);
+
   safeAutoTable(doc, {
     startY: yPos,
-    head: [headers],
-    body: tableData,
+    head: [fctwnH],
+    body: fctwnD,
     theme: 'grid',
     headStyles: { fillColor: [200, 200, 200], textColor: 0, fontSize: 7, fontStyle: 'bold' },
     bodyStyles: { fontSize: 6.5, overflow: 'linebreak', cellPadding: 1.5 },
-    columnStyles: {
-      0: { cellWidth: 16 },  // Carrier
-      1: { cellWidth: 13 },  // Unit Type
-      2: { cellWidth: 8 },   // Units
-      3: { cellWidth: 25 },  // Amount (with currency)
-      4: { cellWidth: 12 },  // Transit
-      5: { cellWidth: 14 },  // Routing
-      6: { cellWidth: 24 },  // Total (with currency)
-      7: { cellWidth: 50, overflow: 'linebreak', fontSize: 6.5 }  // Remarks
-    },
+    columnStyles: fctwnS,
     margin: { left: 15, right: 15 }
   });
 
@@ -1472,27 +1537,31 @@ function addFreightChargesTable(doc, charges, yPos, isAir) {
   });
   
   const headers = ['Carrier', 'Unit Type', 'Units', 'Amount', 'Transit', 'Routing', 'Total', 'Remarks'];
-  
+
+  const fctColStyles = {
+    0: { cellWidth: 16 },  // Carrier
+    1: { cellWidth: 13 },  // Unit Type
+    2: { cellWidth: 8 },   // Units
+    3: { cellWidth: 25 },  // Amount (with currency)
+    4: { cellWidth: 12 },  // Transit
+    5: { cellWidth: 14 },  // Routing
+    6: { cellWidth: 24 },  // Total (with currency)
+    7: { cellWidth: 50, overflow: 'linebreak', fontSize: 6.5 }  // Remarks
+  };
+  const { filteredHeaders: fctH, filteredData: fctD, filteredStyles: fctS } =
+    filterEmptyColumns(headers, tableData, fctColStyles);
+
   safeAutoTable(doc, {
     startY: yPos,
-    head: [headers],
-    body: tableData,
+    head: [fctH],
+    body: fctD,
     theme: 'grid',
     headStyles: { fillColor: [200, 200, 200], textColor: 0, fontSize: 7, fontStyle: 'bold' },
     bodyStyles: { fontSize: 6.5, overflow: 'linebreak', cellPadding: 1.5 },
-    columnStyles: {
-      0: { cellWidth: 16 },  // Carrier
-      1: { cellWidth: 13 },  // Unit Type
-      2: { cellWidth: 8 },   // Units
-      3: { cellWidth: 25 },  // Amount (with currency)
-      4: { cellWidth: 12 },  // Transit
-      5: { cellWidth: 14 },  // Routing
-      6: { cellWidth: 24 },  // Total (with currency)
-      7: { cellWidth: 50, overflow: 'linebreak', fontSize: 6.5 }  // Remarks
-    },
+    columnStyles: fctS,
     margin: { left: 15, right: 15 }
   });
-  
+
   return doc.lastAutoTable.finalY + 8;
 }
 
@@ -1536,24 +1605,29 @@ function addOtherChargesTable(doc, charges, title, yPos) {
     ];
   });
   
+  const octHeaders = ['Charge Name', 'Unit Type', 'Units', 'Amount', 'Total', 'Remark'];
+  const octColStyles = {
+    0: { cellWidth: 36 },
+    1: { cellWidth: 22 },
+    2: { cellWidth: 12 },
+    3: { cellWidth: 28 },  // Amount (with currency)
+    4: { cellWidth: 28 },  // Total (with currency)
+    5: { cellWidth: 44, overflow: 'linebreak' }  // Remark
+  };
+  const { filteredHeaders: octH, filteredData: octD, filteredStyles: octS } =
+    filterEmptyColumns(octHeaders, tableData, octColStyles);
+
   safeAutoTable(doc, {
     startY: yPos,
-    head: [['Charge Name', 'Unit Type', 'Units', 'Amount', 'Total', 'Remark']],
-    body: tableData,
+    head: [octH],
+    body: octD,
     theme: 'grid',
     headStyles: { fillColor: [200, 200, 200], textColor: 0, fontSize: 7, fontStyle: 'bold' },
     bodyStyles: { fontSize: 6.5, overflow: 'linebreak', cellPadding: 1.5 },
-    columnStyles: {
-      0: { cellWidth: 36 },
-      1: { cellWidth: 22 },
-      2: { cellWidth: 12 },
-      3: { cellWidth: 28 },  // Amount (with currency)
-      4: { cellWidth: 28 },  // Total (with currency)
-      5: { cellWidth: 44, overflow: 'linebreak' }  // Remark
-    },
+    columnStyles: octS,
     margin: { left: 15, right: 15 }
   });
-  
+
   return doc.lastAutoTable.finalY + 8;
 }
 
