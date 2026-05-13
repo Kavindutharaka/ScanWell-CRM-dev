@@ -271,6 +271,8 @@ export default function ReportsSec() {
         .badge-lost { background: #fee2e2; color: #991b1b; }
         .badge-scheduled { background: #dbeafe; color: #1e40af; }
         .badge-completed { background: #dcfce7; color: #166534; }
+        .badge-reschedule { background: #fef3c7; color: #92400e; }
+        .badge-cancelled { background: #fee2e2; color: #991b1b; }
         .summary { margin-bottom: 16px; display: flex; gap: 20px; flex-wrap: wrap; }
         .summary-item { background: #f1f5f9; padding: 8px 14px; border-radius: 6px; font-size: 12px; }
         .summary-item strong { display: block; font-size: 18px; color: #1e293b; }
@@ -478,18 +480,21 @@ export default function ReportsSec() {
         statusCounts[s] = (statusCounts[s] || 0) + 1;
       });
       const total = reportData.length;
-      const planned = statusCounts["planned"] || 0;
-      const completed = statusCounts["completed"] || 0;
-      const cancelled = statusCounts["cancelled"] || 0;
+      const planned   = statusCounts["planned"]    || 0;
+      const completed = statusCounts["completed"]  || 0;
+      const rescheduled = statusCounts["reschedule"] || 0;
+      const cancelled = statusCounts["cancelled"]  || 0;
 
       const summaryItems = [
-        { label: "Total Activities", count: total, color: [51, 65, 85] },      // slate-700
-        { label: "Planned", count: planned, color: [59, 130, 246] },            // blue-500
-        { label: "Completed", count: completed, color: [34, 197, 94] },         // green-500
-        { label: "Cancelled", count: cancelled, color: [239, 68, 68] },         // red-500
+        { label: "Total Activities", count: total,       color: [51,  65,  85]  }, // slate-700
+        { label: "Planned",          count: planned,     color: [59,  130, 246] }, // blue-500
+        { label: "Completed",        count: completed,   color: [34,  197, 94]  }, // green-500
+        { label: "Reschedule",       count: rescheduled, color: [217, 119, 6]   }, // amber-600
+        { label: "Cancelled",        count: cancelled,   color: [239, 68,  68]  }, // red-500
       ];
 
-      const boxW = 45, boxH = 18, boxGap = 6, boxY = 26;
+      // 5 boxes — shrink width slightly to keep all within page margins
+      const boxW = 38, boxH = 18, boxGap = 5, boxY = 26;
       const boxStartX = 14;
 
       summaryItems.forEach((item, i) => {
@@ -1174,8 +1179,8 @@ export default function ReportsSec() {
                                 <span className={`badge ${
                                   status === "completed" ? "badge-completed" :
                                   status === "scheduled" || status === "planned" ? "badge-scheduled" :
-                                  status === "cancelled" ? "badge-lost" :
-                                  status === "reschedule" ? "bg-amber-100 text-amber-700" :
+                                  status === "cancelled" ? "badge-cancelled" :
+                                  status === "reschedule" ? "badge-reschedule" :
                                   status === "in_progress" ? "bg-blue-100 text-blue-700" :
                                   "bg-slate-100 text-slate-600"
                                 }`}>
@@ -1511,6 +1516,8 @@ export default function ReportsSec() {
         .badge-lost { background: #fee2e2; color: #991b1b; }
         .badge-scheduled { background: #dbeafe; color: #1e40af; }
         .badge-completed { background: #dcfce7; color: #166534; }
+        .badge-reschedule { background: #fef3c7; color: #92400e; }
+        .badge-cancelled { background: #fee2e2; color: #991b1b; }
         .summary { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
         .summary-item { background: #f1f5f9; padding: 8px 14px; border-radius: 8px; font-size: 12px; }
         .summary-item strong { display: block; font-size: 20px; color: #1e293b; }
