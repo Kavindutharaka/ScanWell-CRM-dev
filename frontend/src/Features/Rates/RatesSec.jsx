@@ -3626,6 +3626,18 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
                                 <div className="text-sm font-medium">{rate.nature_of_goods || rate.NatureOfGoods}</div>
                               </div>
                             )}
+                            {(rate.remark || rate.Remark) && (
+                              <div>
+                                <div className="text-xs text-slate-500">Remark</div>
+                                <div className="text-sm font-medium">{rate.remark || rate.Remark}</div>
+                              </div>
+                            )}
+                            {(rate.note || rate.Note) && (
+                              <div>
+                                <div className="text-xs text-slate-500">Note</div>
+                                <div className="text-sm font-medium whitespace-pre-line">{rate.note || rate.Note}</div>
+                              </div>
+                            )}
                             <div className="grid grid-cols-2 gap-4 pt-3 border-t border-slate-100">
                               <div>
                                 <div className="text-xs text-slate-500">Entered By</div>
