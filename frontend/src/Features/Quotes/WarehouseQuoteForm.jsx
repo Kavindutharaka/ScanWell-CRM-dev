@@ -298,7 +298,7 @@ export default function WarehouseQuoteForm({ disabled = false }) {
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-6">
+      <form onSubmit={handleSubmit} onKeyDown={(e) => { if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') e.preventDefault(); }} className="space-y-6">
         {/* Basic Information Card */}
         <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
           <div className="p-6 border-b border-slate-200">
