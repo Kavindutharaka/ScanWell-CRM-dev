@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useContext } from "react";
 import { BASE_URL } from "../../config/apiConfig";
 import { AuthContext } from "../../context/AuthContext";
+import { fetchUserDetailsByRoleID } from "../../api/UserRoleApi";
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -12,7 +13,7 @@ import {
 } from "lucide-react";
 
 export default function ReportsSec() {
-  const { permission } = useContext(AuthContext);
+  const { user, permission } = useContext(AuthContext);
   const isAdmin        = permission?.IsAdmin || false;
   // User List tab: visible only to admins or users with SystemManagement access
   const canSeeUserList = isAdmin || permission?.SystemManagementView || false;
@@ -22,20 +23,47 @@ export default function ReportsSec() {
   const [myFullName, setMyFullName] = useState('');
 
   useEffect(() => {
-    if (!permission?.EmployeeId || isAdmin) return;
+    if (isAdmin) return;
+
     const resolveMyName = async () => {
-      try {
-        const res = await fetch(`${BASE_URL}/auth/get-user/${permission.EmployeeId}`, { credentials: 'include' });
-        const data = await res.json();
-        const fname = data.fname || '';
-        const lname = data.lname || '';
-        setMyFullName(`${fname} ${lname}`.trim());
-      } catch (err) {
-        console.error('Failed to resolve employee name for reports:', err);
+      // Method 1: role-based lookup — API returns firstName / lastName
+      if (user?.id) {
+        try {
+          const res = await fetchUserDetailsByRoleID(user.id);
+          const row = Array.isArray(res) ? res[0] : res;
+          if (row) {
+            const fname = row.firstName || row.fname || row.Fname || '';
+            const lname = row.lastName  || row.lname  || row.Lname  || '';
+            const fullName = `${fname} ${lname}`.trim();
+            if (fullName) { setMyFullName(fullName); return; }
+          }
+        } catch (err) {
+          console.error('Primary name lookup failed:', err);
+        }
+      }
+
+      // Method 2: EmployeeId-based fallback — API returns fname / lname
+      if (permission?.EmployeeId) {
+        try {
+          const res = await fetch(`${BASE_URL}/auth/get-user/${permission.EmployeeId}`, { credentials: 'include' });
+          if (res.ok) {
+            const data = await res.json();
+            const fname = data.fname || data.Fname || data.firstName || '';
+            const lname = data.lname || data.Lname || data.lastName  || '';
+            const fullName = `${fname} ${lname}`.trim();
+            if (fullName) { setMyFullName(fullName); return; }
+          }
+        } catch (err) {
+          console.error('Fallback name lookup failed:', err);
+        }
       }
     };
-    resolveMyName();
-  }, [permission?.EmployeeId, isAdmin]);
+
+    // Run when either user.id or permission.EmployeeId first becomes available
+    if (user?.id || permission?.EmployeeId) {
+      resolveMyName();
+    }
+  }, [user?.id, permission?.EmployeeId, isAdmin]);
 
   const [activeReport, setActiveReport] = useState("quotation");
   const [loading, setLoading] = useState(false);
@@ -182,6 +210,13 @@ export default function ReportsSec() {
 
   // ====== GENERATE REPORT ======
   const generateReport = async () => {
+    // Non-admins must have their name resolved before generating — without it no filter
+    // would be applied and they would see every employee's data.
+    if (!isAdmin && !myFullName) {
+      window.alert('Your profile is still loading. Please wait a moment and try again.');
+      return;
+    }
+
     setLoading(true);
     setGenerated(false);
     try {
@@ -1038,11 +1073,12 @@ export default function ReportsSec() {
           <div className="mt-5 flex items-center gap-3">
             <button
               onClick={generateReport}
-              disabled={loading}
+              disabled={loading || (!isAdmin && !myFullName)}
               className="px-6 py-2.5 bg-violet-600 text-white rounded-lg font-medium hover:bg-violet-700 transition-colors flex items-center gap-2 disabled:opacity-50 shadow-md"
+              title={!isAdmin && !myFullName ? "Loading your profile..." : undefined}
             >
               {loading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <BarChart3 className="w-4 h-4" />}
-              {loading ? "Generating..." : "Generate Report"}
+              {loading ? "Generating..." : (!isAdmin && !myFullName) ? "Loading profile..." : "Generate Report"}
             </button>
 
             {generated && reportData.length > 0 && (
