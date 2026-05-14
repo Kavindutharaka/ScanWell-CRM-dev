@@ -2,9 +2,9 @@
 import { Plus, Trash2 } from 'lucide-react';
 import AutocompleteInput from './AutocompleteInput';
 import { getCarriersByCategory, currencySuggestions } from '../../../data/quoteData';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, memo } from 'react';
 
-export default function AirFreightChargesSection({ formData, setFormData, disabled = false, carrierName = null }) {
+function AirFreightChargesSection({ formData, setFormData, disabled = false, carrierName = null }) {
   // Define standard unit types for air freight - match existing data format
   const standardUnitTypes = ['-45 Kg', '+45 Kg', '+100 kg', '+300 kg', '+500 kg', '+1000 kg'];
   
@@ -77,20 +77,23 @@ export default function AirFreightChargesSection({ formData, setFormData, disabl
   };
 
   const [horizontalData, setHorizontalData] = useState(() => transformToHorizontal(formData.freightCharges));
+  // Tracks whether the last freightCharges change was caused by this component's own edit
+  const isInternalUpdate = useRef(false);
 
-  // Update formData whenever horizontalData changes
+  // Effect 1: local edit → push to parent
   useEffect(() => {
+    isInternalUpdate.current = true;
     const verticalCharges = transformToVertical(horizontalData);
     setFormData(prev => ({ ...prev, freightCharges: verticalCharges }));
   }, [horizontalData]);
 
-  // Sync from formData when it changes externally (like on load)
+  // Effect 2: parent change → sync local (skip if we caused it to avoid loop)
   useEffect(() => {
-    const currentVertical = JSON.stringify(transformToVertical(horizontalData));
-    const newVertical = JSON.stringify(formData.freightCharges);
-    
-    // Only update if the data actually changed from external source
-    if (currentVertical !== newVertical && formData.freightCharges.length > 0) {
+    if (isInternalUpdate.current) {
+      isInternalUpdate.current = false;
+      return;
+    }
+    if (formData.freightCharges.length > 0) {
       setHorizontalData(transformToHorizontal(formData.freightCharges));
     }
   }, [formData.freightCharges]);
@@ -289,3 +292,5 @@ export default function AirFreightChargesSection({ formData, setFormData, disabl
     </div>
   );
 }
+
+export default memo(AirFreightChargesSection);

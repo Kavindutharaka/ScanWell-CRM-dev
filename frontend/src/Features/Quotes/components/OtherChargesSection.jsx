@@ -1,9 +1,10 @@
 // src/Features/Quotes/components/OtherChargesSection.jsx
+import { memo } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import AutocompleteInput from './AutocompleteInput';
 import { currencySuggestions, chargeNameSuggestions } from '../../../data/quoteData';
 
-export default function OtherChargesSection({ formData, setFormData, disabled = false }) {
+function OtherChargesSection({ formData, setFormData, disabled = false }) {
   const addCharge = () => {
     if (disabled) return;
     setFormData(prev => ({
@@ -30,9 +31,12 @@ export default function OtherChargesSection({ formData, setFormData, disabled = 
 
   const updateCharge = (index, field, value) => {
     if (disabled) return;
-    const updated = [...formData.otherCharges];
-    updated[index][field] = value;
-    setFormData(prev => ({ ...prev, otherCharges: updated }));
+    setFormData(prev => ({
+      ...prev,
+      otherCharges: prev.otherCharges.map((charge, i) =>
+        i === index ? { ...charge, [field]: value } : charge
+      )
+    }));
   };
 
   // Calculate grand totals per currency
@@ -165,3 +169,5 @@ export default function OtherChargesSection({ formData, setFormData, disabled = 
     </div>
   );
 }
+
+export default memo(OtherChargesSection);

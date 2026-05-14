@@ -1,9 +1,10 @@
 // components/DestinationChargesSection.jsx
+import { memo } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import AutocompleteInput from './AutocompleteInput';
 import { chargeNameSuggestions, unitTypeSuggestions, currencySuggestions } from '../../../data/quoteData';
 
-export default function DestinationChargesSection({ formData, setFormData, disabled = false }) {
+function DestinationChargesSection({ formData, setFormData, disabled = false }) {
   const addCharge = () => {
     if (disabled) return;
     setFormData(prev => ({
@@ -22,16 +23,19 @@ export default function DestinationChargesSection({ formData, setFormData, disab
 
   const updateCharge = (index, field, value) => {
     if (disabled) return;
-    const updated = [...formData.destinationCharges];
-    updated[index][field] = value;
-    
-    if (field === 'numberOfUnits' || field === 'amount') {
-      const units = parseFloat(updated[index].numberOfUnits) || 0;
-      const amount = parseFloat(updated[index].amount) || 0;
-      updated[index].total = units * amount;
-    }
-    
-    setFormData(prev => ({ ...prev, destinationCharges: updated }));
+    setFormData(prev => {
+      const updated = prev.destinationCharges.map((charge, i) => {
+        if (i !== index) return charge;
+        const updatedCharge = { ...charge, [field]: value };
+        if (field === 'numberOfUnits' || field === 'amount') {
+          const units = parseFloat(field === 'numberOfUnits' ? value : charge.numberOfUnits) || 0;
+          const amount = parseFloat(field === 'amount' ? value : charge.amount) || 0;
+          updatedCharge.total = units * amount;
+        }
+        return updatedCharge;
+      });
+      return { ...prev, destinationCharges: updated };
+    });
   };
 
   const calculateGrandTotal = () => {
@@ -154,3 +158,5 @@ export default function DestinationChargesSection({ formData, setFormData, disab
     </div>
   );
 }
+
+export default memo(DestinationChargesSection);

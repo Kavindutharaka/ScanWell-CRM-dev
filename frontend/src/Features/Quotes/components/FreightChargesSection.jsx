@@ -2,10 +2,10 @@
 import { Plus, Trash2 } from 'lucide-react';
 import AutocompleteInput from './AutocompleteInput';
 import { getCarriersByCategory, unitTypeSuggestions, currencySuggestions, getUOMSuggestions } from '../../../data/quoteData';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, memo } from 'react';
 import AirFreightChargesSection from './AirFreightChargesSection';
 
-export default function FreightChargesSection({ formData, setFormData, category, disabled = false, carrierName = null }) {
+function FreightChargesSection({ formData, setFormData, category, disabled = false, carrierName = null }) {
   
   // Use Air-specific component for air freight
   if (category === 'air') {
@@ -49,16 +49,19 @@ export default function FreightChargesSection({ formData, setFormData, category,
 
   const updateCharge = (index, field, value) => {
     if (disabled) return;
-    const updated = [...formData.freightCharges];
-    updated[index][field] = value;
-    
-    if (field === 'numberOfUnits' || field === 'amount') {
-      const units = parseFloat(updated[index].numberOfUnits) || 0;
-      const amount = parseFloat(updated[index].amount) || 0;
-      updated[index].total = units * amount;
-    }
-    
-    setFormData(prev => ({ ...prev, freightCharges: updated }));
+    setFormData(prev => {
+      const updated = prev.freightCharges.map((charge, i) => {
+        if (i !== index) return charge;
+        const updatedCharge = { ...charge, [field]: value };
+        if (field === 'numberOfUnits' || field === 'amount') {
+          const units = parseFloat(field === 'numberOfUnits' ? value : charge.numberOfUnits) || 0;
+          const amount = parseFloat(field === 'amount' ? value : charge.amount) || 0;
+          updatedCharge.total = units * amount;
+        }
+        return updatedCharge;
+      });
+      return { ...prev, freightCharges: updated };
+    });
   };
 
   const calculateGrandTotal = () => {
@@ -253,3 +256,5 @@ export default function FreightChargesSection({ formData, setFormData, category,
     </div>
   );
 }
+
+export default memo(FreightChargesSection);

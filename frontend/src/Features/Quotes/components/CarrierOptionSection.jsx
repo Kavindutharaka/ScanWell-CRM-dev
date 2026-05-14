@@ -1,6 +1,6 @@
 // components/CarrierOptionSection.jsx
 import { Trash2, ChevronDown, ChevronUp, Plus  } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useCallback, memo } from 'react';
 import AutocompleteInput from './AutocompleteInput';
 import { getCarriersByCategory, incotermSuggestions, currencySuggestions, cargoTypeSuggestions } from '../../../data/quoteData';
 import FreightChargesSection from './FreightChargesSection';
@@ -8,7 +8,7 @@ import SeaFreightRatioTable from './SeaFreightRatioTable';
 import DestinationChargesSection from './DestinationChargesSection';
 import HandlingChargesSection from './HandlingChargesSection';
 
-export default function CarrierOptionSection({ 
+function CarrierOptionSection({
   option, 
   index, 
   category, 
@@ -22,35 +22,30 @@ export default function CarrierOptionSection({
   const carrierList = getCarriersByCategory(category);
   const optionLabel = category === 'air' ? 'Airline Option' : 'Sea Option';
 
-  const updateCarrierOption = (field, value) => {
+  const updateCarrierOption = useCallback((field, value) => {
     if (disabled) return;
-    
-    const updatedOptions = [...formData.carrierOptions];
-    updatedOptions[index] = {
-      ...updatedOptions[index],
-      [field]: value
-    };
-    
-    setFormData(prev => ({
-      ...prev,
-      carrierOptions: updatedOptions
-    }));
-  };
+    setFormData(prev => {
+      const updatedOptions = [...prev.carrierOptions];
+      updatedOptions[index] = { ...updatedOptions[index], [field]: value };
+      return { ...prev, carrierOptions: updatedOptions };
+    });
+  }, [setFormData, index, disabled]);
 
   // Create wrapper formData for charge sections
   const createChargeFormData = (chargeType) => ({
     [chargeType]: option[chargeType] || []
   });
 
-  const createChargeSetFormData = (chargeType) => (updater) => {
-    if (typeof updater === 'function') {
-      const currentData = { [chargeType]: option[chargeType] || [] };
-      const updated = updater(currentData);
-      updateCarrierOption(chargeType, updated[chargeType]);
-    } else {
-      updateCarrierOption(chargeType, updater[chargeType]);
-    }
-  };
+  const createChargeSetFormData = useCallback((chargeType) => (updater) => {
+    setFormData(prev => {
+      const currentOption = prev.carrierOptions[index];
+      const currentData = { [chargeType]: currentOption[chargeType] || [] };
+      const updated = typeof updater === 'function' ? updater(currentData) : updater;
+      const updatedOptions = [...prev.carrierOptions];
+      updatedOptions[index] = { ...updatedOptions[index], [chargeType]: updated[chargeType] };
+      return { ...prev, carrierOptions: updatedOptions };
+    });
+  }, [setFormData, index]);
 
   return (
     <div className="border-2 border-blue-300 rounded-lg mb-6 overflow-hidden">
@@ -171,14 +166,20 @@ export default function CarrierOptionSection({
                   <FreightChargesSection
                     formData={{ freightCharges: table.charges }}
                     setFormData={(updater) => {
-                      const updated = [...formData.carrierOptions];
-                      if (typeof updater === 'function') {
-                        const result = updater({ freightCharges: table.charges });
-                        updated[index].freightChargesTables[tableIdx].charges = result.freightCharges;
-                      } else {
-                        updated[index].freightChargesTables[tableIdx].charges = updater.freightCharges;
-                      }
-                      setFormData(prev => ({ ...prev, carrierOptions: updated }));
+                      setFormData(prev => {
+                        const updatedOptions = [...prev.carrierOptions];
+                        const currentCharges = updatedOptions[index].freightChargesTables[tableIdx].charges;
+                        const result = typeof updater === 'function'
+                          ? updater({ freightCharges: currentCharges })
+                          : updater;
+                        updatedOptions[index] = { ...updatedOptions[index] };
+                        updatedOptions[index].freightChargesTables = [...updatedOptions[index].freightChargesTables];
+                        updatedOptions[index].freightChargesTables[tableIdx] = {
+                          ...updatedOptions[index].freightChargesTables[tableIdx],
+                          charges: result.freightCharges
+                        };
+                        return { ...prev, carrierOptions: updatedOptions };
+                      });
                     }}
                     category={category}
                     disabled={disabled}
@@ -253,3 +254,5 @@ export default function CarrierOptionSection({
     </div>
   );
 }
+
+export default memo(CarrierOptionSection);
