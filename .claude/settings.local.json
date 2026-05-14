@@ -83,7 +83,10 @@
       "Bash(py -3 -c ' *)",
       "Bash(Get-ChildItem -Path \"D:\\\\Kavindu\\\\ScanWell-CRM-dev-2\" -Recurse -Include \"*.md\" -ErrorAction SilentlyContinue)",
       "Bash(Select-Object FullName)",
-      "Bash(dotnet publish *)"
+      "Bash(dotnet publish *)",
+      "Bash(npm start *)",
+      "PowerShell(Get-NetTCPConnection -LocalPort 3000 -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess | Sort-Object -Unique | ForEach-Object { Get-Process -Id $_ -ErrorAction SilentlyContinue | Select-Object Id, ProcessName, MainWindowTitle })",
+      "PowerShell(Get-Process node -ErrorAction SilentlyContinue)"
     ]
   }
 }
