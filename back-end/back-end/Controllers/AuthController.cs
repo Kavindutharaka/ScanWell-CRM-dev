@@ -290,7 +290,7 @@ public IActionResult GetUserById(int id)
                 HttpOnly = true,
                 Secure = true,
                 SameSite = SameSiteMode.Strict,
-                Expires = DateTime.Now.AddHours(8)
+                Expires = DateTime.Now.AddMinutes(expireMinutes)
             });
 
             return Ok(new { success = true, id = userRoleId, username });

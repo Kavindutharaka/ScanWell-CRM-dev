@@ -248,7 +248,16 @@ namespace back_end.Controllers
                      WHERE sl.activity_id = a.id
                      ORDER BY sl.created_at DESC) AS LatestComment
                 FROM [dbo].[activity] a
-                LEFT JOIN [dbo].[emp_reg] e ON a.owner = e.SysID
+                -- Path 1: owner stores emp_reg.SysID directly
+                LEFT JOIN [dbo].[emp_reg]    e1  ON a.owner = e1.SysID
+                -- Path 2: owner stores user_roles.Id (fallback for activities created via role ID)
+                LEFT JOIN [dbo].[user_roles] ur  ON a.owner = ur.Id
+                LEFT JOIN [dbo].[emp_reg]    e2  ON ur.EmployeeId = CAST(e2.SysID AS NVARCHAR(50))
+                -- Resolve whichever path succeeded
+                CROSS APPLY (SELECT
+                    COALESCE(e1.fname, e2.fname) AS fname,
+                    COALESCE(e1.lname, e2.lname) AS lname
+                ) e
                 {whereClause}
                 ORDER BY a.end_time DESC, a.id DESC;";
 
