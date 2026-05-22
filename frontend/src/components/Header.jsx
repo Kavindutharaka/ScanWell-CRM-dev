@@ -1,4 +1,5 @@
 import { useContext } from 'react';
+import { useNavigate } from 'react-router-dom';
 import logo from '../assets/images/logo.png';
 import appLogo from '../assets/images/app_logo.png';
 import scanwellLogo from '../assets/images/logo_scanwell.png';
@@ -12,6 +13,7 @@ import { fetchNotifications, markNotificationsSeen } from '../api/NotificationAp
 import NotificationPanel from './NotificationPanel';
 
 function Header({ onMenuToggle, isMobileMenuOpen }) {
+  const navigate = useNavigate();
   const [showNotifications, setShowNotifications] = useState(false);
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
   const [userDetails, setUserDetails] = useState(null);
@@ -289,8 +291,7 @@ function Header({ onMenuToggle, isMobileMenuOpen }) {
                   className="w-full px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50 transition-colors flex items-center gap-3"
                   onClick={() => {
                     setShowProfileDropdown(false);
-                    // Add profile navigation logic here
-                    console.log('Navigate to profile');
+                    navigate('/profile');
                   }}
                 >
                   <User className="w-4 h-4 text-slate-500" />
