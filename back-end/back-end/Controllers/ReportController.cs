@@ -82,7 +82,9 @@ namespace back_end.Controllers
             if (!string.IsNullOrEmpty(salesPerson) && salesPerson != "all")
             {
                 // Filter on the sales person assigned to the customer account, not the quote entrant
-                conditions.Add("ar.salesPerson = @SalesPerson");
+                // LTRIM/RTRIM strips trailing/leading whitespace that often slips into
+                // manually-typed salesPerson fields in account_reg.
+                conditions.Add("LTRIM(RTRIM(ar.salesPerson)) = LTRIM(RTRIM(@SalesPerson))");
                 parameters.Add(new SqlParameter("@SalesPerson", salesPerson));
             }
             if (!string.IsNullOrEmpty(department) && department != "all")
@@ -189,7 +191,7 @@ namespace back_end.Controllers
             }
             if (!string.IsNullOrEmpty(salesPerson) && salesPerson != "all")
             {
-                conditions.Add("(ISNULL(e.fname, '') + ' ' + ISNULL(e.lname, '')) = @SalesPerson");
+                conditions.Add("LTRIM(RTRIM(ISNULL(e.fname, '') + ' ' + ISNULL(e.lname, ''))) = LTRIM(RTRIM(@SalesPerson))");
                 parameters.Add(new SqlParameter("@SalesPerson", salesPerson));
             }
             if (!string.IsNullOrEmpty(activityType) && activityType != "all")
@@ -332,7 +334,7 @@ namespace back_end.Controllers
 
             if (!string.IsNullOrEmpty(salesPerson) && salesPerson != "all")
             {
-                conditions.Add("salesPerson = @SalesPerson");
+                conditions.Add("LTRIM(RTRIM(salesPerson)) = LTRIM(RTRIM(@SalesPerson))");
                 parameters.Add(new SqlParameter("@SalesPerson", salesPerson));
             }
             if (!string.IsNullOrEmpty(country) && country != "all")
@@ -389,16 +391,19 @@ namespace back_end.Controllers
         // HELPER: Get distinct values for filter dropdowns
         // ====================================================================
 
-        // Get distinct salesperson names from account_reg.
-        // These are the names assigned to customer accounts — the correct source
-        // for the Quotation, Invoice Profit, and Customer List report filters.
+        // Get salesperson names from emp_reg (all employees).
+        // Source from emp_reg instead of account_reg.salesPerson so:
+        //   1. EVERY employee appears in the dropdown, not just those assigned to a customer.
+        //   2. Names are consistent — no manually-typed casing/whitespace mismatches.
         [HttpGet, Route("filter/salespersons")]
         public ActionResult GetSalespersons()
         {
             string query = @"
-                SELECT DISTINCT salesPerson AS name
-                FROM [dbo].[account_reg]
-                WHERE salesPerson IS NOT NULL AND salesPerson <> ''
+                SELECT DISTINCT
+                    LTRIM(RTRIM(ISNULL(e.fname, '') + ' ' + ISNULL(e.lname, ''))) AS name
+                FROM [dbo].[emp_reg] e
+                WHERE (ISNULL(e.fname, '') <> '' OR ISNULL(e.lname, '') <> '')
+                  AND (e.status IS NULL OR e.status <> 'inactive')
                 ORDER BY name;";
 
             DataTable tb = new DataTable();
@@ -520,7 +525,7 @@ namespace back_end.Controllers
             if (!string.IsNullOrEmpty(salesPerson) && salesPerson != "all")
             {
                 // Filter on the sales person assigned to the customer account, not the quote entrant
-                conditions.Add("ar.salesPerson = @SalesPerson");
+                conditions.Add("LTRIM(RTRIM(ar.salesPerson)) = LTRIM(RTRIM(@SalesPerson))");
                 parameters.Add(new SqlParameter("@SalesPerson", salesPerson));
             }
 
@@ -587,7 +592,7 @@ namespace back_end.Controllers
 
             if (!string.IsNullOrEmpty(salesPerson) && salesPerson != "all")
             {
-                conditions.Add("(ISNULL(e.fname, '') + ' ' + ISNULL(e.lname, '')) = @SalesPerson");
+                conditions.Add("LTRIM(RTRIM(ISNULL(e.fname, '') + ' ' + ISNULL(e.lname, ''))) = LTRIM(RTRIM(@SalesPerson))");
                 parameters.Add(new SqlParameter("@SalesPerson", salesPerson));
             }
 
