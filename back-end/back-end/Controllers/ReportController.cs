@@ -119,12 +119,17 @@ namespace back_end.Controllers
                     q.PortOfDischarge,
                     q.Status,
                     q.CreatedBy,
-                    -- CreatedByName: resolve via user_roles (q.CreatedBy = user_roles.Id) then to emp_reg.
-                    -- Also try direct SysID match as fallback so both storage patterns are covered.
+                    -- CreatedByName: quote forms store emp_reg.SysID in CreatedBy,
+                    -- so the direct SysID match (ecb2) is the correct primary path.
+                    -- The user_roles indirection (ecb) is a legacy fallback only.
+                    -- IMPORTANT: prefer ecb2 because ecb.Id can collide with a different
+                    -- person's SysID (numeric coincidence) and would return the wrong name.
                     NULLIF(RTRIM(LTRIM(
-                        ISNULL(
-                            ISNULL(ecb.fname, '') + ' ' + ISNULL(ecb.lname, ''),
-                            ISNULL(ecb2.fname, '') + ' ' + ISNULL(ecb2.lname, '')
+                        COALESCE(
+                            CASE WHEN ecb2.SysID IS NOT NULL
+                                 THEN ISNULL(ecb2.fname, '') + ' ' + ISNULL(ecb2.lname, '') END,
+                            CASE WHEN ecb.SysID  IS NOT NULL
+                                 THEN ISNULL(ecb.fname, '')  + ' ' + ISNULL(ecb.lname, '')  END
                         )
                     )), '') AS CreatedByName,
                     -- SalesPerson: the person assigned to this customer in account_reg,
@@ -132,11 +137,11 @@ namespace back_end.Controllers
                     ar.salesPerson AS SalesPerson,
                     esp.department AS Department
                 FROM [dbo].[Quotes] q
-                -- Path 1: q.CreatedBy = user_roles.Id (quote forms store the role row id)
+                -- Primary path: q.CreatedBy = emp_reg.SysID directly (current quote-form storage pattern)
+                LEFT JOIN [dbo].[emp_reg]     ecb2 ON q.CreatedBy = ecb2.SysID
+                -- Legacy fallback path: q.CreatedBy = user_roles.Id → emp_reg
                 LEFT JOIN [dbo].[user_roles]  ucb  ON q.CreatedBy = ucb.Id
                 LEFT JOIN [dbo].[emp_reg]     ecb  ON ucb.EmployeeId = CAST(ecb.SysID AS NVARCHAR(50))
-                -- Path 2: q.CreatedBy = emp_reg.SysID directly (fallback for older records)
-                LEFT JOIN [dbo].[emp_reg]     ecb2 ON q.CreatedBy = ecb2.SysID
                 LEFT JOIN [dbo].[account_reg] ar   ON q.Customer = ar.accountName
                 LEFT JOIN [dbo].[emp_reg]     esp  ON ar.salesPerson = ISNULL(esp.fname, '') + ' ' + ISNULL(esp.lname, '')
                 {whereClause}
@@ -656,13 +661,17 @@ namespace back_end.Controllers
                     q.CreatedBy AS id,
                     NULLIF(RTRIM(LTRIM(ISNULL(e.fname, '') + ' ' + ISNULL(e.lname, ''))), '') AS name
                 FROM [dbo].[Quotes] q
-                -- Path 1: q.CreatedBy = user_roles.Id
+                -- Primary path: q.CreatedBy = emp_reg.SysID directly (current storage pattern)
+                LEFT JOIN [dbo].[emp_reg]    e2 ON q.CreatedBy = e2.SysID
+                -- Legacy fallback path: q.CreatedBy = user_roles.Id
                 LEFT JOIN [dbo].[user_roles] ur ON q.CreatedBy = ur.Id
                 LEFT JOIN [dbo].[emp_reg]    e1 ON ur.EmployeeId = CAST(e1.SysID AS NVARCHAR(50))
-                -- Path 2: q.CreatedBy = emp_reg.SysID directly
-                LEFT JOIN [dbo].[emp_reg]    e2 ON q.CreatedBy = e2.SysID
-                CROSS APPLY (SELECT COALESCE(e1.fname, e2.fname) AS fname,
-                                    COALESCE(e1.lname, e2.lname) AS lname) e
+                -- Prefer direct SysID match — user_roles.Id can numerically collide with a
+                -- different person's SysID and would otherwise return the wrong name.
+                CROSS APPLY (SELECT
+                    COALESCE(CASE WHEN e2.SysID IS NOT NULL THEN e2.fname END, e1.fname) AS fname,
+                    COALESCE(CASE WHEN e2.SysID IS NOT NULL THEN e2.lname END, e1.lname) AS lname
+                ) e
                 WHERE NULLIF(RTRIM(LTRIM(ISNULL(e.fname, '') + ' ' + ISNULL(e.lname, ''))), '') IS NOT NULL
                 ORDER BY name;";
 
