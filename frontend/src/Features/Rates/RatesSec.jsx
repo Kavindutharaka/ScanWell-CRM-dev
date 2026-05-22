@@ -1585,7 +1585,9 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
           const gp20Usd = row['20GP USD'] || row['20GP-USD'] || row['20GP_USD'] || row['20GP'] || row.gp20_usd || row.Gp20Usd || null;
           const hq40Usd = row['40HQ-USD'] || row['40HQ USD'] || row['40HQ_USD'] || row['40HQ'] || row.hq40_usd || row.Hq40Usd || null;
           const ttRouting = row['TT/Routing'] || row['TT-Routing'] || row['TT/ROUITNG'] || row.TTRouting || row.tt_routing || row.TtRouting || null;
-          const valid = parseExcelDate(row['VALID '] || row.Valid || row.valid || row.validateDate || row.ValidateDate);
+          // Column keys are trimmed earlier (line ~1357), so the actual key is 'VALID'
+          // (no trailing space). Keep the spaced/title/lowercase variants as defensive fallbacks.
+          const valid = parseExcelDate(row.VALID || row['VALID '] || row.Valid || row.valid || row.validateDate || row.ValidateDate);
 
           if (!pol || !pod) {
             console.warn(`Row ${index + 1} missing required fields:`, { pol, pod, gp20Usd, hq40Usd });
