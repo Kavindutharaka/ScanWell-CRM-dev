@@ -41,8 +41,10 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
   const currentUserId   = permission?.EmployeeId ? String(permission.EmployeeId) : (user?.id ? String(user.id) : '');
   const canAddRates = isAdmin || permission?.RateManageAdd;
   const canEditRates = isAdmin || permission?.RateManageEdit;
-  const canDeleteRates = isAdmin; // delete is destructive — admin only
-  // Backward-compat alias for existing destination-header delete buttons.
+  // Delete permission: admins + users with RateManageEdit. View-only users still cannot delete.
+  const canDeleteRates = isAdmin || permission?.RateManageEdit;
+  // Backward-compat alias — kept so existing canManageRates references still work and resolve
+  // to the same delete-permission rule everywhere in the rates manager.
   const canManageRates = canDeleteRates;
   // A non-admin with RateManageEdit can only edit rates they personally entered.
   // Admins can edit everything. If entered_by_id is empty (old record), allow edit.
@@ -2135,7 +2137,7 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
                       Upload Excel
                     </button>
                   )}
-                  {isAdmin && seaSpotRates.length > 0 && (
+                  {canDeleteRates && seaSpotRates.length > 0 && (
                     <button
                       onClick={handleDeleteAllSpotRates}
                       className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600 text-white rounded-lg text-xs font-medium hover:bg-red-700 transition-colors"
@@ -2165,7 +2167,7 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
                         <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase">TT/Routing</th>
                         <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase">Valid</th>
                         <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase">Remark</th>
-                        {isAdmin && <th className="px-3 py-2.5 w-10"></th>}
+                        {canDeleteRates && <th className="px-3 py-2.5 w-10"></th>}
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
@@ -2179,7 +2181,7 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
                           <td className="px-3 py-2 text-slate-600">{rate.ttRouting || '—'}</td>
                           <td className="px-3 py-2 text-slate-600 whitespace-nowrap">{rate.valid ? new Date(rate.valid).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) : '—'}</td>
                           <td className="px-3 py-2 text-slate-500 text-xs max-w-[150px] truncate">{rate.remark || '—'}</td>
-                          {isAdmin && (
+                          {canDeleteRates && (
                             <td className="px-3 py-2 text-center">
                               <button
                                 onClick={async () => {
@@ -2279,7 +2281,7 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
                       Upload Excel
                     </button>
                   )}
-                  {isAdmin && seaBondRates.length > 0 && (
+                  {canDeleteRates && seaBondRates.length > 0 && (
                     <button
                       onClick={handleDeleteAllSeaBondRates}
                       className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600 text-white rounded-lg text-xs font-medium hover:bg-red-700 transition-colors"
@@ -2308,7 +2310,7 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
                         <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase">Cutoff</th>
                         <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase">Transit</th>
                         <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase">Validity</th>
-                        {isAdmin && <th className="px-3 py-2.5 w-10"></th>}
+                        {canDeleteRates && <th className="px-3 py-2.5 w-10"></th>}
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
@@ -2321,7 +2323,7 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
                           <td className="px-3 py-2 text-slate-600">{rate.cutoff || '—'}</td>
                           <td className="px-3 py-2 text-slate-600">{rate.transit || '—'}</td>
                           <td className="px-3 py-2 text-slate-600">{rate.validity || '—'}</td>
-                          {isAdmin && (
+                          {canDeleteRates && (
                             <td className="px-3 py-2 text-center">
                               <button
                                 onClick={async () => {
@@ -2446,7 +2448,7 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
                         <Ship className="w-4 h-4" /> {liner.name}
                       </button>
                       {/* Delete button on hover */}
-                      {isAdmin && liner.id && (
+                      {canDeleteRates && liner.id && (
                         <button
                           onClick={(e) => { e.stopPropagation(); handleDeleteSubCategory(liner.id, liner.name, 'linear'); }}
                           className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-500 text-white rounded-full items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity hidden group-hover:flex shadow-sm"
@@ -2512,7 +2514,7 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
                         <MapPin className="w-4 h-4" /> {liner.name}
                       </button>
                       {/* Delete button on hover */}
-                      {isAdmin && liner.id && (
+                      {canDeleteRates && liner.id && (
                         <button
                           onClick={(e) => { e.stopPropagation(); handleDeleteSubCategory(liner.id, liner.name, 'destination'); }}
                           className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-500 text-white rounded-full items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity hidden group-hover:flex shadow-sm"
@@ -2563,7 +2565,7 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
                         Upload Excel
                       </button>
                     )}
-                    {isAdmin && airExportRates.length > 0 && (
+                    {canDeleteRates && airExportRates.length > 0 && (
                       <button
                         onClick={handleDeleteAllAirExportRates}
                         className="bg-red-500/80 hover:bg-red-500 px-4 py-2 rounded-lg transition-all flex items-center gap-2 text-sm font-medium"
@@ -2700,7 +2702,7 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
                                 <Edit className="w-4 h-4 text-slate-600 hover:text-sky-600" />
                               </button>
                             )}
-                            {isAdmin && (
+                            {canDeleteRates && (
                               <button
                                 onClick={() => handleDeleteAirExportRate(rate.id)}
                                 className="p-2 hover:bg-red-50 rounded-lg transition-colors"
@@ -2733,7 +2735,7 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
                                   <Edit className="w-4 h-4 text-slate-600" />
                                 </button>
                               )}
-                              {isAdmin && (
+                              {canDeleteRates && (
                                 <button onClick={() => handleDeleteAirExportRate(rate.id)} className="p-2 hover:bg-red-50 rounded-lg">
                                   <Trash2 className="w-4 h-4 text-red-600" />
                                 </button>
