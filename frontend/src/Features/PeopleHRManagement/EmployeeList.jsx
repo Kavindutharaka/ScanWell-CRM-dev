@@ -236,16 +236,6 @@ export default function HREmployeeList({ onOpen, loading = false, delay = 0, emp
           <div className="text-sm text-slate-500 bg-slate-100 px-2 py-1 rounded">
             {employees.filter(e => (e.status || '').toLowerCase() === 'active').length} Active
           </div>
-          {onOpen && (
-            <button 
-              onClick={() => onOpen()}
-              className="flex items-center gap-2 px-3 py-1.5 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700 transition-all duration-200 active:scale-95 shadow-sm"
-              title="Add new employee"
-            >
-              <Plus className="w-4 h-4" />
-              <span className="hidden sm:inline">Add Employee</span>
-            </button>
-          )}
         </div>
         
         <button className="p-1 hover:bg-slate-100 rounded transition-colors self-start sm:self-center">
