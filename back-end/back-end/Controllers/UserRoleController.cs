@@ -116,48 +116,117 @@ namespace back_end.Controllers
         public IActionResult Create([FromBody] UserRole role)
         {
             if (string.IsNullOrWhiteSpace(role.Password))
-                return BadRequest("Password is required.");
+                return BadRequest(new { message = "Password is required." });
+            if (string.IsNullOrWhiteSpace(role.Username))
+                return BadRequest(new { message = "Username is required." });
 
-            string query = @"
-                INSERT INTO [dbo].[user_roles] (
-                    EmployeeId, Username, Password, IsAdmin, IsActive,
-                    RateManageView, RateManageAdd, RateManageEdit,
-                    UsefulLinksView, UsefulLinksAdd, UsefulLinksEdit,
-                    SalesPlanView, SalesPlanAdd, SalesPlanEdit,
-                    QuotesView, QuotesAdd, QuotesEdit,
-                    RfqView, RfqAdd, RfqEdit,
-                    ContactView, ContactAdd, ContactEdit,
-                    AccountView, AccountAdd, AccountEdit,
-                    SystemManagementView, SystemManagementAdd, SystemManagementEdit
-                ) VALUES (
-                    @EmployeeId, @Username, @Password, @IsAdmin, @IsActive,
-                    @RateManageView, @RateManageAdd, @RateManageEdit,
-                    @UsefulLinksView, @UsefulLinksAdd, @UsefulLinksEdit,
-                    @SalesPlanView, @SalesPlanAdd, @SalesPlanEdit,
-                    @QuotesView, @QuotesAdd, @QuotesEdit,
-                    @RfqView, @RfqAdd, @RfqEdit,
-                    @ContactView, @ContactAdd, @ContactEdit,
-                    @AccountView, @AccountAdd, @AccountEdit,
-                    @SystemManagementView, @SystemManagementAdd, @SystemManagementEdit
-                )";
-
-            using (myCon)
+            try
             {
-                myCon.Open();
-                using (myCom = new SqlCommand(query, myCon))
+                using (var con = new SqlConnection(dbcon))
                 {
-                    AddAllParameters(myCom, role);
-                    myCom.ExecuteNonQuery();
-                }
-            }
+                    con.Open();
 
-            return Ok("User role created successfully.");
+                    // Reject duplicate username up front so the client gets a clear message
+                    // instead of a generic 500 from a unique-index / constraint violation.
+                    using (var checkCmd = new SqlCommand(
+                        "SELECT COUNT(*) FROM [dbo].[user_roles] WHERE Username = @Username;", con))
+                    {
+                        checkCmd.Parameters.AddWithValue("@Username", role.Username);
+                        int existing = Convert.ToInt32(checkCmd.ExecuteScalar());
+                        if (existing > 0)
+                        {
+                            return Conflict(new
+                            {
+                                message = $"Username '{role.Username}' already exists. Please choose a different username."
+                            });
+                        }
+                    }
+
+                    string query = @"
+                        INSERT INTO [dbo].[user_roles] (
+                            EmployeeId, Username, Password, IsAdmin, IsActive,
+                            RateManageView, RateManageAdd, RateManageEdit,
+                            UsefulLinksView, UsefulLinksAdd, UsefulLinksEdit,
+                            SalesPlanView, SalesPlanAdd, SalesPlanEdit,
+                            QuotesView, QuotesAdd, QuotesEdit,
+                            RfqView, RfqAdd, RfqEdit,
+                            ContactView, ContactAdd, ContactEdit,
+                            AccountView, AccountAdd, AccountEdit,
+                            SystemManagementView, SystemManagementAdd, SystemManagementEdit
+                        ) VALUES (
+                            @EmployeeId, @Username, @Password, @IsAdmin, @IsActive,
+                            @RateManageView, @RateManageAdd, @RateManageEdit,
+                            @UsefulLinksView, @UsefulLinksAdd, @UsefulLinksEdit,
+                            @SalesPlanView, @SalesPlanAdd, @SalesPlanEdit,
+                            @QuotesView, @QuotesAdd, @QuotesEdit,
+                            @RfqView, @RfqAdd, @RfqEdit,
+                            @ContactView, @ContactAdd, @ContactEdit,
+                            @AccountView, @AccountAdd, @AccountEdit,
+                            @SystemManagementView, @SystemManagementAdd, @SystemManagementEdit
+                        )";
+
+                    using (var insertCmd = new SqlCommand(query, con))
+                    {
+                        AddAllParameters(insertCmd, role);
+                        insertCmd.ExecuteNonQuery();
+                    }
+                }
+
+                return Ok(new { message = "User role created successfully." });
+            }
+            catch (SqlException ex)
+            {
+                // Catch any DB-level uniqueness or constraint error as a last-resort guard
+                // so the client still sees something readable instead of a raw 500.
+                Console.Error.WriteLine($"[UserRole.Create] SQL error: {ex.Message}");
+                if (ex.Number == 2627 || ex.Number == 2601) // unique constraint violations
+                {
+                    return Conflict(new { message = $"Username '{role.Username}' already exists." });
+                }
+                return StatusCode(500, new { message = "Database error while creating user role." });
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"[UserRole.Create] Error: {ex.Message}");
+                return StatusCode(500, new { message = "Failed to create user role." });
+            }
         }
 
         // PUT: api/userrole/user-roles/5
         [HttpPut("user-roles/{id}")]
         public IActionResult Update(int id, [FromBody] UserRole role)
         {
+            if (string.IsNullOrWhiteSpace(role.Username))
+                return BadRequest(new { message = "Username is required." });
+
+            // Block username collisions with OTHER users (excluding this user's own row).
+            try
+            {
+                using (var con = new SqlConnection(dbcon))
+                {
+                    con.Open();
+                    using (var checkCmd = new SqlCommand(
+                        "SELECT COUNT(*) FROM [dbo].[user_roles] WHERE Username = @Username AND Id <> @Id;", con))
+                    {
+                        checkCmd.Parameters.AddWithValue("@Username", role.Username);
+                        checkCmd.Parameters.AddWithValue("@Id", id);
+                        int existing = Convert.ToInt32(checkCmd.ExecuteScalar());
+                        if (existing > 0)
+                        {
+                            return Conflict(new
+                            {
+                                message = $"Username '{role.Username}' is already used by another user."
+                            });
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"[UserRole.Update] Username check failed: {ex.Message}");
+                return StatusCode(500, new { message = "Database error while validating username." });
+            }
+
             var updateFields = new List<string> { "UpdatedAt = GETDATE()" };
             var cmd = new SqlCommand();
             cmd.Parameters.AddWithValue("@Id", id);
@@ -191,17 +260,33 @@ namespace back_end.Controllers
 
             string query = $"UPDATE [dbo].[user_roles] SET {string.Join(", ", updateFields)} WHERE Id = @Id";
 
-            using (myCon)
+            try
             {
-                myCon.Open();
-                cmd.CommandText = query;
-                cmd.Connection = myCon;
+                using (myCon)
+                {
+                    myCon.Open();
+                    cmd.CommandText = query;
+                    cmd.Connection = myCon;
 
-                int rows = cmd.ExecuteNonQuery();
-                if (rows == 0) return NotFound("User not found.");
+                    int rows = cmd.ExecuteNonQuery();
+                    if (rows == 0) return NotFound(new { message = "User not found." });
+                }
+                return Ok(new { message = "User role updated successfully." });
             }
-
-            return Ok("User role updated successfully.");
+            catch (SqlException ex)
+            {
+                Console.Error.WriteLine($"[UserRole.Update] SQL error: {ex.Message}");
+                if (ex.Number == 2627 || ex.Number == 2601)
+                {
+                    return Conflict(new { message = $"Username '{role.Username}' already exists." });
+                }
+                return StatusCode(500, new { message = "Database error while updating user role." });
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"[UserRole.Update] Error: {ex.Message}");
+                return StatusCode(500, new { message = "Failed to update user role." });
+            }
         }
 
         private void AddAllParameters(SqlCommand cmd, UserRole r)

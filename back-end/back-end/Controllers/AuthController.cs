@@ -347,6 +347,71 @@ public IActionResult GetUserById(int id)
             }
         }
 
+        // ============================================================
+        // DELETE PROFILE IMAGE
+        // DELETE /api/Auth/profile-image/{employeeId}
+        // Sets emp_reg.profile_image = NULL and removes the file from disk.
+        // ============================================================
+        [HttpDelete("profile-image/{employeeId:int}")]
+        public IActionResult DeleteProfileImage(int employeeId)
+        {
+            if (employeeId <= 0)
+                return BadRequest(new { message = "Valid employeeId is required" });
+
+            try
+            {
+                string currentUrl = null;
+                using (var con = new SqlConnection(dbcon))
+                {
+                    con.Open();
+
+                    // Read existing URL so we can also remove the underlying file from disk.
+                    using (var readCmd = new SqlCommand(
+                        "SELECT profile_image FROM [dbo].[emp_reg] WHERE SysID = @id;", con))
+                    {
+                        readCmd.Parameters.AddWithValue("@id", employeeId);
+                        var result = readCmd.ExecuteScalar();
+                        currentUrl = (result == null || result == DBNull.Value) ? null : result.ToString();
+                    }
+
+                    // Clear the DB column.
+                    using (var updateCmd = new SqlCommand(
+                        "UPDATE [dbo].[emp_reg] SET profile_image = NULL WHERE SysID = @id;", con))
+                    {
+                        updateCmd.Parameters.AddWithValue("@id", employeeId);
+                        int rows = updateCmd.ExecuteNonQuery();
+                        if (rows == 0)
+                            return NotFound(new { message = "Employee not found" });
+                    }
+                }
+
+                // Best-effort: remove the file from /wwwroot/profile_images/.
+                // If the file is already gone (or the URL is external), silently skip.
+                if (!string.IsNullOrEmpty(currentUrl) && currentUrl.StartsWith("/profile_images/"))
+                {
+                    try
+                    {
+                        var fileName = Path.GetFileName(currentUrl);
+                        var filePath = Path.Combine(_env.WebRootPath, "profile_images", fileName);
+                        if (System.IO.File.Exists(filePath))
+                            System.IO.File.Delete(filePath);
+                    }
+                    catch (Exception fileEx)
+                    {
+                        // Log only — DB is already updated, so the user-visible state is correct.
+                        Console.Error.WriteLine($"[Auth.DeleteProfileImage] File delete failed: {fileEx.Message}");
+                    }
+                }
+
+                return Ok(new { message = "Profile image removed" });
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"[Auth.DeleteProfileImage] Error: {ex.Message}");
+                return StatusCode(500, new { message = "Failed to remove profile image" });
+            }
+        }
+
 
         [AllowAnonymous]
         [HttpPost("login")]

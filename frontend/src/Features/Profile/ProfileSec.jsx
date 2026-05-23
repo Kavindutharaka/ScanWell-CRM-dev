@@ -2,7 +2,7 @@ import { useState, useEffect, useContext, useRef } from 'react';
 import {
   User, Mail, Phone, Briefcase, MapPin, Users,
   FileText, Shield, Eye, EyeOff,
-  Check, Building2, Camera, Upload, X
+  Check, Building2, Camera, Upload, Trash2
 } from 'lucide-react';
 import { AuthContext } from '../../context/AuthContext';
 import { BASE_URL } from '../../config/apiConfig';
@@ -161,11 +161,15 @@ function MyProfile() {
         alert(result.message || 'Failed to upload image');
         return;
       }
-      // Update local state with new URL (cache-busted)
-      setProfileData((prev) => ({
-        ...prev,
-        profile_image: `${result.imageUrl}?t=${Date.now()}`
+      // Update local state with new URL (cache-busted so the browser shows the new file)
+      const cacheBustedUrl = `${result.imageUrl}?t=${Date.now()}`;
+      setProfileData((prev) => ({ ...prev, profile_image: cacheBustedUrl }));
+
+      // Tell the Header (and anywhere else listening) to update instantly.
+      window.dispatchEvent(new CustomEvent('profile-image-updated', {
+        detail: { imageUrl: cacheBustedUrl }
       }));
+
       alert('Profile image updated!');
     } catch (err) {
       console.error('Image upload error:', err);
@@ -174,6 +178,36 @@ function MyProfile() {
       setIsUploadingImage(false);
       // Clear the input so the same file can be re-selected if needed
       if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  // Remove profile picture — clears emp_reg.profile_image and deletes the file.
+  const handleRemoveImage = async () => {
+    if (!profileData.sysID) return;
+    if (!window.confirm('Remove your profile picture? Your avatar will go back to initials.')) return;
+
+    setIsUploadingImage(true);
+    try {
+      const res = await fetch(`${BASE_URL}/auth/profile-image/${profileData.sysID}`, {
+        method: 'DELETE',
+        credentials: 'include'
+      });
+      const result = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        alert(result.message || 'Failed to remove image');
+        return;
+      }
+      setProfileData((prev) => ({ ...prev, profile_image: null }));
+      // Broadcast removal so the Header avatar falls back to initials immediately.
+      window.dispatchEvent(new CustomEvent('profile-image-updated', {
+        detail: { imageUrl: null }
+      }));
+      alert('Profile picture removed.');
+    } catch (err) {
+      console.error('Image remove error:', err);
+      alert('Failed to remove image. Please try again.');
+    } finally {
+      setIsUploadingImage(false);
     }
   };
 
@@ -236,13 +270,27 @@ function MyProfile() {
                   type="button"
                   onClick={handleImageSelect}
                   disabled={isUploadingImage}
-                  title="Change profile photo"
+                  title={profileData.profile_image ? 'Change profile photo' : 'Upload profile photo'}
                   className="absolute bottom-1 right-1 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-full w-9 h-9 flex items-center justify-center shadow-md border-2 border-white transition-all"
                 >
                   {isUploadingImage
                     ? <Upload className="w-4 h-4 animate-pulse" />
                     : <Camera className="w-4 h-4" />}
                 </button>
+
+                {/* Remove photo button — only when an image exists */}
+                {profileData.profile_image && (
+                  <button
+                    type="button"
+                    onClick={handleRemoveImage}
+                    disabled={isUploadingImage}
+                    title="Remove profile photo"
+                    className="absolute top-1 right-1 bg-red-600 hover:bg-red-700 disabled:bg-red-400 text-white rounded-full w-8 h-8 flex items-center justify-center shadow-md border-2 border-white transition-all"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                )}
+
                 <input
                   ref={fileInputRef}
                   type="file"

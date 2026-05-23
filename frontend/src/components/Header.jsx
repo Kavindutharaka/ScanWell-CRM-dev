@@ -25,17 +25,17 @@ function Header({ onMenuToggle, isMobileMenuOpen }) {
   const markedSeenRef = useRef(false);
   const lastSeenTotalRef = useRef(0);
 
-  const { user } = useContext(AuthContext);
+  const { user, permission } = useContext(AuthContext);
+  const [profileImage, setProfileImage] = useState(null);
 
   useEffect(() => {
-    console.log("Current user in header:", user);
+    if (!user) return;
     getUserById(user.id);
   }, [user]);
-  
+
   const getUserById = async (userId) => {
     try {
       const res = await fetchUserDetailsByRoleID(userId);
-      console.log("Fetched user data:", res);
       // API returns an array, so take the first item
       if (res && res.length > 0) {
         setUserDetails(res[0]);
@@ -44,6 +44,44 @@ function Header({ onMenuToggle, isMobileMenuOpen }) {
       console.error("Error fetching user details:", error);
     }
   };
+
+  // Load profile image from /auth/get-user (needs emp_reg.SysID, which is permission.EmployeeId)
+  const loadProfileImage = useCallback(async () => {
+    if (!permission?.EmployeeId) return;
+    try {
+      const res = await fetch(`${BASE_URL}/auth/get-user/${permission.EmployeeId}`, { credentials: 'include' });
+      if (!res.ok) return;
+      const data = await res.json();
+      setProfileImage(data.profile_image || null);
+    } catch (err) {
+      console.error("Error fetching profile image:", err);
+    }
+  }, [permission?.EmployeeId]);
+
+  useEffect(() => {
+    loadProfileImage();
+  }, [loadProfileImage]);
+
+  // Listen for in-app profile image changes (uploaded or removed from Profile page)
+  // so the header avatar refreshes instantly without requiring a page reload.
+  useEffect(() => {
+    const handler = (e) => {
+      // detail.imageUrl is either the new URL or null (for removal)
+      setProfileImage(e?.detail?.imageUrl ?? null);
+    };
+    window.addEventListener('profile-image-updated', handler);
+    return () => window.removeEventListener('profile-image-updated', handler);
+  }, []);
+
+  // Build a fully-qualified URL for the <img> tag.
+  // Backend stores relative URLs like "/profile_images/<guid>.png" — prefix with API root.
+  const getImageSrc = () => {
+    if (!profileImage) return null;
+    if (profileImage.startsWith('http://') || profileImage.startsWith('https://')) return profileImage;
+    const apiRoot = BASE_URL.replace(/\/api\/?$/, '');
+    return `${apiRoot}${profileImage.startsWith('/') ? '' : '/'}${profileImage}`;
+  };
+  const imageSrc = getImageSrc();
 
   // Fetch notifications + polling (every 2 minutes)
   const loadNotifications = useCallback(async () => {
@@ -259,12 +297,21 @@ function Header({ onMenuToggle, isMobileMenuOpen }) {
 
         {/* Profile */}
         <div className="relative" ref={profileDropdownRef}>
-          <button 
+          <button
             onClick={() => setShowProfileDropdown(!showProfileDropdown)}
-            className="bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-full w-9 h-9 flex items-center justify-center shadow-sm hover:shadow-md transition-all duration-200 active:scale-95"
+            className="bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-full w-9 h-9 flex items-center justify-center shadow-sm hover:shadow-md transition-all duration-200 active:scale-95 overflow-hidden"
             aria-label="User profile"
           >
-            <span className="text-sm font-semibold">{getInitials()}</span>
+            {imageSrc ? (
+              <img
+                src={imageSrc}
+                alt="Profile"
+                className="w-full h-full object-cover"
+                onError={() => setProfileImage(null)}
+              />
+            ) : (
+              <span className="text-sm font-semibold">{getInitials()}</span>
+            )}
           </button>
           
           {/* Profile Dropdown */}
@@ -273,8 +320,17 @@ function Header({ onMenuToggle, isMobileMenuOpen }) {
               {/* User Info */}
               <div className="px-4 py-3 border-b border-slate-100">
                 <div className="flex items-center gap-3">
-                  <div className="bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-full w-10 h-10 flex items-center justify-center">
-                    <span className="text-sm font-semibold">{getInitials()}</span>
+                  <div className="bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-full w-10 h-10 flex items-center justify-center overflow-hidden">
+                    {imageSrc ? (
+                      <img
+                        src={imageSrc}
+                        alt="Profile"
+                        className="w-full h-full object-cover"
+                        onError={() => setProfileImage(null)}
+                      />
+                    ) : (
+                      <span className="text-sm font-semibold">{getInitials()}</span>
+                    )}
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold text-slate-900 truncate">{user.username}</p>
