@@ -18,6 +18,14 @@ export default function HREmployees() {
 
   const modalClose = () => {
     setOpenModal(false);
+    // Clear edit selection so reopening the modal starts fresh (no stale data).
+    setSelectedEmployee(null);
+  };
+
+  // Called by EmployeeForm after a successful create/update — refreshes the
+  // table so the new/changed row appears without a manual browser reload.
+  const handleSaved = () => {
+    loadEmployees();
   };
 
   const handleMenuToggle = () => {
@@ -73,7 +81,7 @@ export default function HREmployees() {
           />
           <div className="flex items-center justify-center min-h-screen p-4">
             <div className="relative w-full animate-fadeIn">
-              <EmployeeForm onClose={modalClose} editEmployee={selectedEmployee}/>
+              <EmployeeForm onClose={modalClose} editEmployee={selectedEmployee} onSuccess={handleSaved}/>
             </div>
           </div>
         </div>
