@@ -88,14 +88,15 @@ export default function Project() {
 
         {/* Main content area - scrollable */}
         <main className="flex-1 overflow-y-auto">
-          <ProjectSec 
-            modalOpen={modalOpen} 
+          <ProjectSec
+            modalOpen={modalOpen}
             projects={projects}
             loading={loading}
             error={error}
             refreshing={refreshing}
             setLoading={setLoading}
             onEditProject={handleEditProject}
+            onRetry={loadProjects}
           />
         </main>
       </div>

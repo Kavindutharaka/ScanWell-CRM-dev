@@ -155,9 +155,9 @@ export default function InfoAndUpdatesForm({ onClose, initialItem, isEditMode })
         savedItem = { id: Date.now(), ...formData, logoUrl: logoPreview || formData.logoUrl, addedDate, addedBy: 'Kavindu Tharaka' };
       }
 
-      // Call onClose with the saved data
+      // Call onClose with the saved data — the parent uses this signal to
+      // bump its refreshTrigger and refresh the list in place (no page reload).
       onClose(savedItem);
-      window.location.reload();
     } catch (error) {
       console.error("Error saving item:", error);
       setErrors({ submit: "Failed to save. Please try again." });

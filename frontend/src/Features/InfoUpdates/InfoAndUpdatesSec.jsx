@@ -15,7 +15,7 @@ import {
 import ResourceApi from '../../api/ResourceApi'; // Adjust the import path as necessary
 import { AuthContext } from "../../context/AuthContext";
 
-export default function InfoAndUpdatesSec({ modalOpen, onEdit }) {
+export default function InfoAndUpdatesSec({ modalOpen, onEdit, refreshTrigger }) {
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [infoItems, setInfoItems] = useState([]);
@@ -26,7 +26,8 @@ export default function InfoAndUpdatesSec({ modalOpen, onEdit }) {
 
   useEffect(() => {
     fetchInfoItems();
-  }, []);
+    // refreshTrigger from parent bumps after a form save → re-fetches the list.
+  }, [refreshTrigger]);
 
   const fetchInfoItems = async () => {
     setLoading(true);
@@ -54,14 +55,14 @@ export default function InfoAndUpdatesSec({ modalOpen, onEdit }) {
   };
 
   const handleDelete = async (id) => {
-    console.log("this is the id pass to the delete: ", id);
-    if (window.confirm("Are you sure you want to delete this item?")) {
-      try {
-        await ResourceApi.deleteResource(id);
-        window.location.reload();
-      } catch (error) {
-        console.error("Error deleting resource:", error);
-      }
+    if (!window.confirm("Are you sure you want to delete this item?")) return;
+    try {
+      await ResourceApi.deleteResource(id);
+      // Refresh the local list instead of reloading the entire page.
+      fetchInfoItems();
+    } catch (error) {
+      console.error("Error deleting resource:", error);
+      alert("Failed to delete item.");
     }
   };
 

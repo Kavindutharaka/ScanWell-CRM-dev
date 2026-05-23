@@ -102,6 +102,11 @@ export default function Activities() {
 
   const handleFormClose = (response) => {
     modalClose();
+    // If the form saved something, refresh the activity list in place so the
+    // new/updated row appears immediately (replaces the old window.location.reload).
+    if (response) {
+      loadActivities();
+    }
   };
 
   const handleMenuToggle = () => {

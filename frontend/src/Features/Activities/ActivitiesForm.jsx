@@ -278,9 +278,9 @@ export default function ActivitiesForm({ onClose, initialActivity = null, isEdit
       const response = await updateActivity(activityData);
       console.log('Activity updated successfully:', response);
 
-      // Close modal after successful submission
+      // Close modal after successful submission. The parent's handleFormClose
+      // refreshes the table — no full-page reload needed.
       onClose(response);
-      window.location.reload();
     } catch (error) {
       console.error('Error submitting form:', error);
       setApiError(

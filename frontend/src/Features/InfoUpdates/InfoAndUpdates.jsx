@@ -8,6 +8,9 @@ export default function InfoAndUpdates() {
   const [openModal, setOpenModal] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
+  // Incremented after every successful save so InfoAndUpdatesSec re-fetches
+  // its data — no full-page reload needed.
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   const modalOpen = () => {
     setEditingItem(null);
@@ -25,7 +28,11 @@ export default function InfoAndUpdates() {
   };
 
   const handleFormClose = (response) => {
-    // response contains the updated/created item data
+    // If we got back a saved item, the list is stale — bump the trigger so the
+    // section re-fetches and shows the new/updated row immediately.
+    if (response) {
+      setRefreshTrigger((c) => c + 1);
+    }
     modalClose();
   };
 
@@ -55,7 +62,7 @@ export default function InfoAndUpdates() {
 
         {/* Main content area - scrollable */}
         <main className="flex-1 overflow-y-auto">
-          <InfoAndUpdatesSec modalOpen={modalOpen} onEdit={handleEdit} />
+          <InfoAndUpdatesSec modalOpen={modalOpen} onEdit={handleEdit} refreshTrigger={refreshTrigger} />
         </main>
       </div>
 

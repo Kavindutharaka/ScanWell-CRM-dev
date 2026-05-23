@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import ProjectDetails from "./ProjectDetails";
 
-export default function ProjectSec({ modalOpen, projects , error, refreshing, loading, setLoading, onEditProject }) {
+export default function ProjectSec({ modalOpen, projects , error, refreshing, loading, setLoading, onEditProject, onRetry }) {
   const [searchQuery, setSearchQuery] = useState("");
 
   // Simulate loading
@@ -179,8 +179,8 @@ export default function ProjectSec({ modalOpen, projects , error, refreshing, lo
 
         {/* Projects Content */}
         <div className="space-y-6">
-          <ProjectDetails 
-            onOpen={modalOpen} 
+          <ProjectDetails
+            onOpen={modalOpen}
             onEdit={handleEditProject}
             onDelete={handleDeleteProject}
             loading={loading}
@@ -188,6 +188,7 @@ export default function ProjectSec({ modalOpen, projects , error, refreshing, lo
             projects={projects}
             error={error}
             refreshing={refreshing}
+            onRetry={onRetry}
           />
          
         </div>
