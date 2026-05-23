@@ -27,6 +27,8 @@ import {
 import * as XLSX from 'xlsx';
 import * as RateAPI from '../../api/rateAPI';
 import { AuthContext } from "../../context/AuthContext";
+import { toast } from '../../components/Toast';
+import { confirm } from '../../components/ConfirmDialog';
 
 
 export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
@@ -171,7 +173,7 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
       await loadSubCategories();
     } catch (err) {
       console.error('Error creating sub-category:', err);
-      alert('Failed to create sub-category. ' + err.message);
+      toast.error('Failed to create sub-category. ' + err.message);
     } finally {
       setAddingSubCategory(false);
     }
@@ -179,7 +181,7 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
 
   // Delete sub-category
   const handleDeleteSubCategory = async (id, name, type) => {
-    if (!window.confirm(`Are you sure you want to delete "${name}"? This will NOT delete the rates data associated with it.`)) return;
+    if (!(await confirm(`Are you sure you want to delete "${name}"? This will NOT delete the rates data associated with it.`))) return;
     try {
       await RateAPI.deleteSubCategory(id);
       // If the deleted category was active, reset
@@ -190,7 +192,7 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
       await loadSubCategories();
     } catch (err) {
       console.error('Error deleting sub-category:', err);
-      alert('Failed to delete sub-category.');
+      toast.error('Failed to delete sub-category.');
     }
   };
 
@@ -301,7 +303,7 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
   // Handle sea spot Excel upload
   const handleSeaSpotExcelUpload = async () => {
     if (!seaSpotExcelFile) {
-      window.alert('Please select an Excel file.');
+      toast.info('Please select an Excel file.');
       return;
     }
 
@@ -313,7 +315,7 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
       const excelData = XLSX.utils.sheet_to_json(sheet, { raw: false });
 
       if (!excelData || excelData.length === 0) {
-        window.alert('Excel file is empty.');
+        toast.info('Excel file is empty.');
         setSeaSpotUploadProgress(false);
         return;
       }
@@ -331,7 +333,7 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
         if (!hasPod) msg += '• POD\n';
         if (!hasRates) msg += '• 20GP / 40HQ\n';
         msg += '\n✅ Required: LINER | POL | POD | 20GP | 40HQ | TT/ROUTING | VALID | REMARK';
-        window.alert(msg);
+        toast.info(msg);
         setSeaSpotUploadProgress(false);
         return;
       }
@@ -377,14 +379,14 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
       const validRows = transformedData.filter(r => r.Pol && r.Pod && r.Category && (r.Gp20Usd || r.Hq40Usd));
 
       if (validRows.length === 0) {
-        window.alert('❌ No valid rows found. Each row needs LINER, POL, POD, and at least one rate.');
+        toast.error('❌ No valid rows found. Each row needs LINER, POL, POD, and at least one rate.');
         setSeaSpotUploadProgress(false);
         return;
       }
 
       if (validRows.length < transformedData.length) {
         const skipped = transformedData.length - validRows.length;
-        if (!window.confirm(`⚠️ ${skipped} rows will be skipped (missing required fields).\n\nContinue uploading ${validRows.length} valid rows?`)) {
+        if (!(await confirm(`⚠️ ${skipped} rows will be skipped (missing required fields).\n\nContinue uploading ${validRows.length} valid rows?`))) {
           setSeaSpotUploadProgress(false);
           return;
         }
@@ -399,16 +401,16 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
 
       const result = await response.json();
       if (response.ok) {
-        window.alert(`✅ Uploaded ${result.successCount} sea spot rates successfully.`);
+        toast.success(`✅ Uploaded ${result.successCount} sea spot rates successfully.`);
         setShowSeaSpotUploadModal(false);
         setSeaSpotExcelFile(null);
         loadSeaSpotRates();
       } else {
-        window.alert(`❌ Upload failed: ${result.message || 'Unknown error'}`);
+        toast.error(`❌ Upload failed: ${result.message || 'Unknown error'}`);
       }
     } catch (err) {
       console.error('Error uploading sea spot Excel:', err);
-      window.alert('❌ Failed to process Excel file. Check format and try again.');
+      toast.error('❌ Failed to process Excel file. Check format and try again.');
     } finally {
       setSeaSpotUploadProgress(false);
     }
@@ -416,14 +418,14 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
 
   // Delete all sea spot rates
   const handleDeleteAllSpotRates = async () => {
-    if (!window.confirm('⚠️ Delete ALL sea spot rates? This cannot be undone.')) return;
+    if (!(await confirm('⚠️ Delete ALL sea spot rates? This cannot be undone.'))) return;
     try {
       const response = await fetch(`${BASE_URL}/rates/linear/all-spot`, { method: 'DELETE', credentials: 'include' });
       const result = await response.json();
-      window.alert(`✅ ${result.message}`);
+      toast.success(`✅ ${result.message}`);
       loadSeaSpotRates();
     } catch (err) {
-      window.alert('❌ Failed to delete rates.');
+      toast.error('❌ Failed to delete rates.');
     }
   };
 
@@ -454,7 +456,7 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
 
   const handleSeaBondExcelUpload = async () => {
     if (!seaBondExcelFile) {
-      window.alert('Please select an Excel file.');
+      toast.info('Please select an Excel file.');
       return;
     }
 
@@ -466,7 +468,7 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
       const excelData = XLSX.utils.sheet_to_json(sheet, { raw: false });
 
       if (!excelData || excelData.length === 0) {
-        window.alert('Excel file is empty.');
+        toast.info('Excel file is empty.');
         setSeaBondUploadProgress(false);
         return;
       }
@@ -480,7 +482,7 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
         if (!hasOrigin) msg += '• ORIGIN\n';
         if (!hasRate) msg += '• RATE\n';
         msg += '\n✅ Required: ORIGIN | RATE | VESSEL | ETD | CUTOFF | TRANSIT | VALIDITY';
-        window.alert(msg);
+        toast.info(msg);
         setSeaBondUploadProgress(false);
         return;
       }
@@ -508,40 +510,40 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
       const validRows = transformedData.filter(r => r.Origin && r.Rate);
 
       if (validRows.length === 0) {
-        window.alert('❌ No valid rows found. Each row needs at least ORIGIN and RATE.');
+        toast.error('❌ No valid rows found. Each row needs at least ORIGIN and RATE.');
         setSeaBondUploadProgress(false);
         return;
       }
 
       if (validRows.length < transformedData.length) {
         const skipped = transformedData.length - validRows.length;
-        if (!window.confirm(`⚠️ ${skipped} rows will be skipped (missing required fields).\n\nContinue uploading ${validRows.length} valid rows?`)) {
+        if (!(await confirm(`⚠️ ${skipped} rows will be skipped (missing required fields).\n\nContinue uploading ${validRows.length} valid rows?`))) {
           setSeaBondUploadProgress(false);
           return;
         }
       }
 
       const result = await RateAPI.bulkUploadSeaBondRates({ Rates: validRows });
-      window.alert(`✅ Uploaded ${result.successCount} sea bond rates successfully.`);
+      toast.success(`✅ Uploaded ${result.successCount} sea bond rates successfully.`);
       setShowSeaBondUploadModal(false);
       setSeaBondExcelFile(null);
       loadSeaBondRates();
     } catch (err) {
       console.error('Error uploading sea bond Excel:', err);
-      window.alert('❌ Failed to process Excel file. Check format and try again.');
+      toast.error('❌ Failed to process Excel file. Check format and try again.');
     } finally {
       setSeaBondUploadProgress(false);
     }
   };
 
   const handleDeleteAllSeaBondRates = async () => {
-    if (!window.confirm('⚠️ Delete ALL sea bond rates? This cannot be undone.')) return;
+    if (!(await confirm('⚠️ Delete ALL sea bond rates? This cannot be undone.'))) return;
     try {
       await RateAPI.deleteAllSeaBondRates();
-      window.alert('✅ All sea bond rates deleted.');
+      toast.success('✅ All sea bond rates deleted.');
       loadSeaBondRates();
     } catch (err) {
-      window.alert('❌ Failed to delete rates.');
+      toast.error('❌ Failed to delete rates.');
     }
   };
 
@@ -627,7 +629,7 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
 
   const handleAirExportExcelUpload = async () => {
     if (!airExportExcelFile) {
-      window.alert('Please select an Excel file.');
+      toast.info('Please select an Excel file.');
       return;
     }
 
@@ -639,7 +641,7 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
       const excelData = XLSX.utils.sheet_to_json(sheet, { raw: false });
 
       if (!excelData || excelData.length === 0) {
-        window.alert('Excel file is empty.');
+        toast.info('Excel file is empty.');
         setAirExportUploadProgress(false);
         return;
       }
@@ -709,14 +711,14 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
       const validRows = transformedData.filter(r => r.Airline);
 
       if (validRows.length === 0) {
-        window.alert('❌ No valid rows found. Each row needs at least an AIRLINE column.');
+        toast.error('❌ No valid rows found. Each row needs at least an AIRLINE column.');
         setAirExportUploadProgress(false);
         return;
       }
 
       if (validRows.length < transformedData.length) {
         const skipped = transformedData.length - validRows.length;
-        if (!window.confirm(`⚠️ ${skipped} rows will be skipped (missing AIRLINE).\n\nContinue uploading ${validRows.length} valid rows?`)) {
+        if (!(await confirm(`⚠️ ${skipped} rows will be skipped (missing AIRLINE).\n\nContinue uploading ${validRows.length} valid rows?`))) {
           setAirExportUploadProgress(false);
           return;
         }
@@ -731,42 +733,42 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
 
       const result = await response.json();
       if (response.ok) {
-        window.alert(`✅ Uploaded ${result.successCount} air export rates successfully.`);
+        toast.success(`✅ Uploaded ${result.successCount} air export rates successfully.`);
         setShowAirExportUploadModal(false);
         setAirExportExcelFile(null);
         loadAirExportRates();
       } else {
-        window.alert(`❌ Upload failed: ${result.message || 'Unknown error'}`);
+        toast.error(`❌ Upload failed: ${result.message || 'Unknown error'}`);
       }
     } catch (err) {
       console.error('Error uploading air export Excel:', err);
-      window.alert('❌ Failed to process Excel file. Check format and try again.');
+      toast.error('❌ Failed to process Excel file. Check format and try again.');
     } finally {
       setAirExportUploadProgress(false);
     }
   };
 
   const handleDeleteAirExportRate = async (rateId) => {
-    if (!window.confirm('Are you sure you want to delete this rate?')) return;
+    if (!(await confirm('Are you sure you want to delete this rate?'))) return;
     try {
       const response = await fetch(`${BASE_URL}/rates/air-export/${rateId}`, { method: 'DELETE', credentials: 'include' });
       if (response.ok) {
         setAirExportRates(prev => prev.filter(r => r.id !== rateId));
       }
     } catch (err) {
-      window.alert('❌ Failed to delete rate.');
+      toast.error('❌ Failed to delete rate.');
     }
   };
 
   const handleDeleteAllAirExportRates = async () => {
-    if (!window.confirm('⚠️ Delete ALL air export rates? This cannot be undone.')) return;
+    if (!(await confirm('⚠️ Delete ALL air export rates? This cannot be undone.'))) return;
     try {
       const response = await fetch(`${BASE_URL}/rates/air-export/all`, { method: 'DELETE', credentials: 'include' });
       const result = await response.json();
-      window.alert(`✅ ${result.message}`);
+      toast.success(`✅ ${result.message}`);
       loadAirExportRates();
     } catch (err) {
-      window.alert('❌ Failed to delete rates.');
+      toast.error('❌ Failed to delete rates.');
     }
   };
 
@@ -802,10 +804,10 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
         setEditingAirExportRate(null);
         loadAirExportRates();
       } else {
-        window.alert('❌ Failed to update rate.');
+        toast.error('❌ Failed to update rate.');
       }
     } catch (err) {
-      window.alert('❌ Failed to update rate.');
+      toast.error('❌ Failed to update rate.');
     }
   };
 
@@ -1261,7 +1263,7 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
   };
 
   const handleDelete = async (rateId) => {
-    if (!window.confirm('Are you sure you want to delete this rate?')) return;
+    if (!(await confirm('Are you sure you want to delete this rate?'))) return;
     try {
       // Use linear endpoint for liner rates, regular endpoint for others
       const endpoint = activeLiner
@@ -1283,13 +1285,13 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
         throw new Error('Delete failed');
       }
     } catch (err) {
-      window.alert('Failed to delete rate.');
+      toast.error('Failed to delete rate.');
     }
   };
 
   // Delete handler for Destination Header's rates
   const handleDeleteDestinationRate = async (rateId) => {
-    if (!window.confirm('Are you sure you want to delete this rate?')) return;
+    if (!(await confirm('Are you sure you want to delete this rate?'))) return;
     try {
       const response = await fetch(`${BASE_URL}/rates/destination/${rateId}`, {
         method: 'DELETE',
@@ -1302,7 +1304,7 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
         throw new Error('Delete failed');
       }
     } catch (err) {
-      window.alert('Failed to delete rate.');
+      toast.error('Failed to delete rate.');
     }
   };
 
@@ -1311,7 +1313,7 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
     const file = e.target.files[0];
     if (file) {
       if (!file.name.match(/\.(xlsx|xls)$/)) {
-        window.alert('Please upload a valid Excel file (.xlsx or .xls)');
+        toast.info('Please upload a valid Excel file (.xlsx or .xls)');
         return;
       }
       setExcelFile(file);
@@ -1320,7 +1322,7 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
 
   const handleExcelUpload = async () => {
     if (!excelFile || !activeLiner) {
-      window.alert('Please select an Excel file and ensure a shipping line is selected.');
+      toast.info('Please select an Excel file and ensure a shipping line is selected.');
       return;
     }
 
@@ -1370,7 +1372,7 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
         errorMsg += '• File is open in another program\n\n';
         errorMsg += `Technical error: ${parseError.message}`;
         
-        window.alert(errorMsg);
+        toast.error(errorMsg);
         setUploadProgress(false);
         return;
       }
@@ -1381,7 +1383,7 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
 
       // Validate that we have data
       if (!excelData || excelData.length === 0) {
-        window.alert('Excel file is empty or could not be read. Please check the file format.');
+        toast.info('Excel file is empty or could not be read. Please check the file format.');
         setUploadProgress(false);
         return;
       }
@@ -1430,7 +1432,7 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
           errorMsg += '• TT/ROUTING (optional)\n';
           errorMsg += '• VALID (optional)\n';
 
-          window.alert(errorMsg);
+          toast.error(errorMsg);
           setUploadProgress(false);
           return;
         }
@@ -1478,7 +1480,7 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
           errorMsg += '• VALID (optional)\n';
           errorMsg += '\n💡 Tip: Download the template for the correct format.';
 
-          window.alert(errorMsg);
+          toast.error(errorMsg);
           setUploadProgress(false);
           return;
         }
@@ -1636,7 +1638,7 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
         }
         errorMsg += '\n💡 Tip: Download the template and check your data format.';
 
-        window.alert(errorMsg);
+        toast.error(errorMsg);
         setUploadProgress(false);
         return;
       }
@@ -1677,7 +1679,7 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
             if (missingRates > 0) reasons.push(`• ${missingRates} rows: Missing rate values`);
           }
 
-          if (!window.confirm(skipMsg + reasons.join('\n') + `\n\n✅ Continue uploading ${validRows.length} valid rows?`)) {
+          if (!(await confirm(skipMsg + reasons.join('\n') + `\n\n✅ Continue uploading ${validRows.length} valid rows?`))) {
             setUploadProgress(false);
             return;
           }
@@ -1710,7 +1712,7 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
           successMsg = `✅ Success!\n\nUploaded ${responseData.successCount} rates for ${activeLiner}`;
         }
 
-        window.alert(successMsg);
+        toast.info(successMsg);
         setShowLinerModal(false);
         setExcelFile(null);
         // Reload appropriate data based on category
@@ -1763,7 +1765,7 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
         userErrorMsg += '• Check browser console for technical details';
       }
       
-      window.alert(userErrorMsg);
+      toast.error(userErrorMsg);
     } finally {
       setUploadProgress(false);
     }
@@ -2185,7 +2187,7 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
                             <td className="px-3 py-2 text-center">
                               <button
                                 onClick={async () => {
-                                  if (!window.confirm('Delete this rate?')) return;
+                                  if (!(await confirm('Delete this rate?'))) return;
                                   try {
                                     await fetch(`${BASE_URL}/rates/linear/${rate.id}`, { method: 'DELETE', credentials: 'include' });
                                     setSeaSpotRates(prev => prev.filter(r => r.id !== rate.id));
@@ -2327,7 +2329,7 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
                             <td className="px-3 py-2 text-center">
                               <button
                                 onClick={async () => {
-                                  if (!window.confirm('Delete this rate?')) return;
+                                  if (!(await confirm('Delete this rate?'))) return;
                                   try {
                                     await RateAPI.deleteSeaBondRate(rate.id);
                                     setSeaBondRates(prev => prev.filter(r => r.id !== rate.id));

@@ -14,6 +14,8 @@ import {
 } from "lucide-react";
 import { fetchAllWebLeads, updateWebLead, deleteWebLead } from "../../api/WebLeadApi";
 import { AuthContext } from "../../context/AuthContext";
+import { toast } from '../../components/Toast';
+import { confirm } from '../../components/ConfirmDialog';
 
 export default function MailTrackingSec() {
   const [leads, setLeads] = useState([]);
@@ -101,12 +103,12 @@ export default function MailTrackingSec() {
 
   // Delete (admin only)
   const handleDelete = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this web lead?")) return;
+    if (!(await confirm("Are you sure you want to delete this web lead?"))) return;
     try {
       await deleteWebLead(id);
       setLeads((prev) => prev.filter((l) => l.sysId !== id));
     } catch (err) {
-      alert("Failed to delete web lead. Please try again.");
+      toast.error("Failed to delete web lead. Please try again.");
     }
   };
 
@@ -119,7 +121,7 @@ export default function MailTrackingSec() {
       );
       setShowEditModal(null);
     } catch (err) {
-      alert("Failed to update web lead. Please try again.");
+      toast.error("Failed to update web lead. Please try again.");
     }
   };
 

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X, Download, Eye, Loader2 } from 'lucide-react';
 import QuotationTemplate, { generatePDF } from './QuotationTemplate';
+import { toast } from '../../components/Toast';
 
 const PreviewModal = ({ isOpen, onClose, quotationData }) => {
   const [isGenerating, setIsGenerating] = useState(false);
@@ -15,13 +16,13 @@ const PreviewModal = ({ isOpen, onClose, quotationData }) => {
       
       if (result.success) {
         // Show success message
-        alert('PDF generated successfully!');
+        toast.success('PDF generated successfully!');
       } else {
-        alert(`Error generating PDF: ${result.message}`);
+        toast.error(`Error generating PDF: ${result.message}`);
       }
     } catch (error) {
       console.error('Error:', error);
-      alert('Failed to generate PDF. Please try again.');
+      toast.error('Failed to generate PDF. Please try again.');
     } finally {
       setIsGenerating(false);
     }

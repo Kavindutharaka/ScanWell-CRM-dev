@@ -2,6 +2,7 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import logo from '../../../assets/images/logo.png';
+import { toast } from '../../../components/Toast';
 
 /**
  * Safety net so the literal strings "null" / "undefined" never leak into the PDF.
@@ -2198,7 +2199,7 @@ export const printPDF = (pdf, filename = 'document.pdf') => {
     };
   } catch (error) {
     console.error('Error printing PDF:', error);
-    alert('Failed to print PDF. Please try downloading instead.');
+    toast.error('Failed to print PDF. Please try downloading instead.');
   }
 };
 
@@ -2213,7 +2214,7 @@ export const printDirectQuotePDF = (quoteData, userData = null) => {
     printPDF(doc, `Quote_${quoteData.quoteNumber}_Direct.pdf`);
   } catch (error) {
     console.error('Error printing direct quote PDF:', error);
-    alert('Failed to print PDF');
+    toast.error('Failed to print PDF');
   }
 };
 
@@ -2224,7 +2225,7 @@ export const printTransitQuotePDF = (quoteData, userData = null) => {
     printPDF(doc, `Quote_${quoteData.quoteNumber}_Transit.pdf`);
   } catch (error) {
     console.error('Error printing transit quote PDF:', error);
-    alert('Failed to print PDF');
+    toast.error('Failed to print PDF');
   }
 };
 
@@ -2235,7 +2236,7 @@ export const printMultiModalQuotePDF = (quoteData, userData = null) => {
     printPDF(doc, `Quote_${quoteData.quoteNumber}_MultiModal.pdf`);
   } catch (error) {
     console.error('Error printing multi-modal quote PDF:', error);
-    alert('Failed to print PDF');
+    toast.error('Failed to print PDF');
   }
 };
 
@@ -2249,7 +2250,7 @@ export const printMultiModalQuotePDF = (quoteData, userData = null) => {
 //     printPDF(pdf, `Quote_${quoteData.quoteNumber}_Warehouse.pdf`);
 //   } catch (error) {
 //     console.error('Error printing warehouse quote PDF:', error);
-//     alert('Failed to print PDF');
+//     toast.error('Failed to print PDF');
 //   }
 // };
 

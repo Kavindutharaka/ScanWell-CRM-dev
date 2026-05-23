@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { fetchWonQuotes, fetchInvoiceEntries, createInvoiceEntries, deleteInvoiceEntry, completeInvoice } from '../../api/InvoiceApi';
 import { AuthContext } from '../../context/AuthContext';
+import { confirm } from '../../components/ConfirmDialog';
 
 const EMPTY_ROW = { entryDate: '', invoiceNumber: '', amount: '', costInvoice: '', currency: 'LKR', dollarAmount: '', dollarRate: '' };
 
@@ -197,7 +198,7 @@ export default function InvoicesSec() {
   };
 
   const handleDeleteEntry = async (quoteId, entryId) => {
-    if (!window.confirm('Delete this invoice entry?')) return;
+    if (!(await confirm('Delete this invoice entry?'))) return;
     try {
       await deleteInvoiceEntry(entryId);
       setInvoiceEntries(prev => ({
@@ -210,7 +211,7 @@ export default function InvoicesSec() {
   };
 
   const handleComplete = async (quoteId) => {
-    if (!window.confirm('Complete this invoice? Once completed, no more entries can be added or modified.')) return;
+    if (!(await confirm('Complete this invoice? Once completed, no more entries can be added or modified.'))) return;
     try {
       await completeInvoice(quoteId);
       setWonQuotes(prev => prev.map(q =>

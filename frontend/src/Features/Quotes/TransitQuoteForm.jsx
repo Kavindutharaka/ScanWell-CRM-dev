@@ -16,6 +16,7 @@ import { fetchAccountAddress } from '../../api/AccountApi';
 
 import { AuthContext } from "../../context/AuthContext";
 import { fetchUserDetailsByRoleID } from '../../api/UserRoleApi';
+import { toast } from '../../components/Toast';
 
 export default function TransitQuoteForm({ category, mode }) {
     const { user } = useContext(AuthContext);
@@ -169,7 +170,7 @@ export default function TransitQuoteForm({ category, mode }) {
       });
     } catch (error) {
       console.error('Error loading quote:', error);
-      alert('Failed to load quote data');
+      toast.error('Failed to load quote data');
     } finally {
       setLoading(false);
     }
@@ -325,7 +326,7 @@ export default function TransitQuoteForm({ category, mode }) {
 
     // Validate customer
     if (!formData.customer || formData.customer.trim() === '') {
-      alert('Customer is required. Please enter a customer name.');
+      toast.error('Customer is required. Please enter a customer name.');
       return;
     }
 
@@ -357,13 +358,13 @@ export default function TransitQuoteForm({ category, mode }) {
     try {
       if (quoteId) {
         await updateQuote(payload);
-        alert('Quote updated successfully!');
+        toast.success('Quote updated successfully!');
       } else {
         const result = await createNewQuote(payload);
         if (result?.quoteId) {
           setFormData(prev => ({ ...prev, quoteId: result.quoteId }));
         }
-        alert('Quote created successfully!');
+        toast.success('Quote created successfully!');
       }
 
       if (afterSave === 'print') {
@@ -375,7 +376,7 @@ export default function TransitQuoteForm({ category, mode }) {
       }
     } catch (error) {
       console.error('Error saving quote:', error);
-      alert('Failed to save quote');
+      toast.error('Failed to save quote');
     }
   };
 

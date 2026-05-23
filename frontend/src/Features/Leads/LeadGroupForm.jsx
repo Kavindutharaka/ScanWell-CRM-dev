@@ -1,6 +1,7 @@
 import { X, Users, Tag, FileText } from "lucide-react";
 import { useState, useEffect } from "react";
 import { createLeadGroup, fetchLeadGroups } from "../../api/LeadApi";
+import { toast } from '../../components/Toast';
 
 export default function LeadGroupForm({ onClose }) {
   const [formData, setFormData] = useState({
@@ -70,10 +71,10 @@ export default function LeadGroupForm({ onClose }) {
         tags: formData.tags.split(',').map(tag => tag.trim()).filter(tag => tag)
       };
       await createLeadGroup(groupData);
-      alert('Lead group created successfully!');
+      toast.success('Lead group created successfully!');
       onClose();
     } catch (error) {
-      alert('Failed to create lead group. Please try again.');
+      toast.error('Failed to create lead group. Please try again.');
     } finally {
       setIsSubmitting(false);
     }

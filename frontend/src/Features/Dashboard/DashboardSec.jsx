@@ -31,6 +31,8 @@ import {
   TrendingUp,
 } from "lucide-react";
 import { fetchTargetConfig, fetchAllTargets } from "../../api/SalesTargetApi";
+import { toast } from '../../components/Toast';
+import { confirm } from '../../components/ConfirmDialog';
 
 // ===== COLORS =====
 const COLORS = {
@@ -197,7 +199,7 @@ export default function DashboardSec() {
       fetchSalesTarget();
     } catch (err) {
       console.error("Save target error:", err);
-      alert("Failed to save sales target.");
+      toast.error("Failed to save sales target.");
     }
   };
 
@@ -245,21 +247,21 @@ export default function DashboardSec() {
       loadNewsFeed();
     } catch (err) {
       console.error("Upload error:", err);
-      alert("Failed to upload image. " + (err?.response?.data || err.message));
+      toast.error("Failed to upload image. " + (err?.response?.data || err.message));
     } finally {
       setUploading(false);
     }
   };
 
   const handleDeleteImage = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this image?")) return;
+    if (!(await confirm("Are you sure you want to delete this image?"))) return;
     try {
       console.log(id);
       await deleteNewsFeedImage(id);
       loadNewsFeed();
     } catch (err) {
       console.error("Delete error:", err);
-      alert("Failed to delete image.");
+      toast.error("Failed to delete image.");
     }
   };
 

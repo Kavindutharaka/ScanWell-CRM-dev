@@ -6,6 +6,8 @@ import {
 } from 'lucide-react';
 import { AuthContext } from '../../context/AuthContext';
 import { BASE_URL } from '../../config/apiConfig';
+import { toast } from '../../components/Toast';
+import { confirm } from '../../components/ConfirmDialog';
 
 function MyProfile() {
   const { user, permission } = useContext(AuthContext);
@@ -83,15 +85,15 @@ function MyProfile() {
 
   const handlePasswordUpdate = async () => {
     if (passwordData.newPassword !== passwordData.confirmPassword) {
-      alert("New passwords don't match!");
+      toast.error("New passwords don't match!");
       return;
     }
     if (passwordData.newPassword.length < 6) {
-      alert('Password must be at least 6 characters!');
+      toast.error('Password must be at least 6 characters!');
       return;
     }
     if (!user?.id) {
-      alert('User session not found. Please log in again.');
+      toast.error('User session not found. Please log in again.');
       return;
     }
 
@@ -109,15 +111,15 @@ function MyProfile() {
       });
       const result = await res.json().catch(() => ({}));
       if (!res.ok) {
-        alert(result.message || 'Failed to update password');
+        toast.error(result.message || 'Failed to update password');
         return;
       }
       setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
       setIsChangingPassword(false);
-      alert('Password updated successfully!');
+      toast.success('Password updated successfully!');
     } catch (err) {
       console.error('Password update error:', err);
-      alert('Failed to update password. Please try again.');
+      toast.error('Failed to update password. Please try again.');
     } finally {
       setIsSaving(false);
     }
@@ -133,15 +135,15 @@ function MyProfile() {
 
     // Client-side validation
     if (!file.type.startsWith('image/')) {
-      alert('Please select an image file');
+      toast.error('Please select an image file');
       return;
     }
     if (file.size > 5 * 1024 * 1024) {
-      alert('Image must be less than 5MB');
+      toast.error('Image must be less than 5MB');
       return;
     }
     if (!profileData.sysID) {
-      alert('Profile not loaded yet — please try again in a moment');
+      toast.warning('Profile not loaded yet — please try again in a moment');
       return;
     }
 
@@ -158,7 +160,7 @@ function MyProfile() {
       });
       const result = await res.json().catch(() => ({}));
       if (!res.ok) {
-        alert(result.message || 'Failed to upload image');
+        toast.error(result.message || 'Failed to upload image');
         return;
       }
       // Update local state with new URL (cache-busted so the browser shows the new file)
@@ -170,10 +172,10 @@ function MyProfile() {
         detail: { imageUrl: cacheBustedUrl }
       }));
 
-      alert('Profile image updated!');
+      toast.success('Profile image updated!');
     } catch (err) {
       console.error('Image upload error:', err);
-      alert('Failed to upload image. Please try again.');
+      toast.error('Failed to upload image. Please try again.');
     } finally {
       setIsUploadingImage(false);
       // Clear the input so the same file can be re-selected if needed
@@ -184,7 +186,13 @@ function MyProfile() {
   // Remove profile picture — clears emp_reg.profile_image and deletes the file.
   const handleRemoveImage = async () => {
     if (!profileData.sysID) return;
-    if (!window.confirm('Remove your profile picture? Your avatar will go back to initials.')) return;
+    const ok = await confirm({
+      title: 'Remove profile picture?',
+      message: 'Your avatar will go back to initials.',
+      confirmText: 'Remove',
+      variant: 'danger'
+    });
+    if (!ok) return;
 
     setIsUploadingImage(true);
     try {
@@ -194,7 +202,7 @@ function MyProfile() {
       });
       const result = await res.json().catch(() => ({}));
       if (!res.ok) {
-        alert(result.message || 'Failed to remove image');
+        toast.error(result.message || 'Failed to remove image');
         return;
       }
       setProfileData((prev) => ({ ...prev, profile_image: null }));
@@ -202,10 +210,10 @@ function MyProfile() {
       window.dispatchEvent(new CustomEvent('profile-image-updated', {
         detail: { imageUrl: null }
       }));
-      alert('Profile picture removed.');
+      toast.success('Profile picture removed.');
     } catch (err) {
       console.error('Image remove error:', err);
-      alert('Failed to remove image. Please try again.');
+      toast.error('Failed to remove image. Please try again.');
     } finally {
       setIsUploadingImage(false);
     }

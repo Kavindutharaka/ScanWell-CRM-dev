@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { fetchSalesEntries, createSalesEntries, deleteSalesEntry } from "../../api/RfqApi";
 import { fetchEmployees } from "../../api/PMApi";
+import { confirm } from '../../components/ConfirmDialog';
 
 const EMPTY_ROW = { mode: "AIR", type: "Import", booking_no: "", amount: "", sales_person: "" };
 
@@ -127,7 +128,7 @@ export default function SalesEntryModal({ rfqItem, onClose }) {
   };
 
   const handleDeleteExisting = async (entryId) => {
-    if (!window.confirm("Delete this sales entry?")) return;
+    if (!(await confirm("Delete this sales entry?"))) return;
     try {
       await deleteSalesEntry(entryId);
       setExistingEntries((prev) => prev.filter((e) => e.id !== entryId));

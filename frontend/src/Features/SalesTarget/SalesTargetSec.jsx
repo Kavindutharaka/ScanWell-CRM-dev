@@ -7,6 +7,7 @@ import {
   fetchAllTargets,
   saveEmployeeTarget,
 } from "../../api/SalesTargetApi";
+import { toast } from '../../components/Toast';
 import {
   Target,
   Settings,
@@ -185,7 +186,7 @@ export default function SalesTargetSec() {
       setFyConfig({ ...fyConfig, financialYearStart: fyStartEdit });
     } catch (err) {
       console.error("Config save error:", err);
-      alert("Failed to save financial year configuration.");
+      toast.error("Failed to save financial year configuration.");
     } finally {
       setFySaving(false);
     }
@@ -247,7 +248,7 @@ export default function SalesTargetSec() {
       setTimeout(() => setSaveSuccess(null), 2000);
     } catch (err) {
       console.error("Save error:", err);
-      alert("Failed to save target.");
+      toast.error("Failed to save target.");
     } finally {
       setSavingRow(null);
     }

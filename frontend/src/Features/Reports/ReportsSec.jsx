@@ -11,6 +11,7 @@ import {
   CheckCircle2, XCircle, Clock, TrendingUp, Briefcase, FileSpreadsheet,
   DollarSign, Target
 } from "lucide-react";
+import { toast } from '../../components/Toast';
 
 export default function ReportsSec() {
   const { user, permission } = useContext(AuthContext);
@@ -213,7 +214,7 @@ export default function ReportsSec() {
     // Non-admins must have their name resolved before generating — without it no filter
     // would be applied and they would see every employee's data.
     if (!isAdmin && !myFullName) {
-      window.alert('Your profile is still loading. Please wait a moment and try again.');
+      toast.info('Your profile is still loading. Please wait a moment and try again.');
       return;
     }
 
@@ -276,7 +277,7 @@ export default function ReportsSec() {
       setGenerated(true);
     } catch (err) {
       console.error("Error generating report:", err);
-      window.alert("Failed to generate report.");
+      toast.error("Failed to generate report.");
     } finally {
       setLoading(false);
     }

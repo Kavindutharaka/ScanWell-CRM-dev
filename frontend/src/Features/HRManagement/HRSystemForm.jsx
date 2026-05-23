@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Building2, Briefcase, Save } from 'lucide-react';
 import { createNewDepartment, updateDepartmentName } from '../../api/DepartmentApi';
 import { createNewPosition, updatePositionName } from '../../api/PositionApi';
+import { toast } from '../../components/Toast';
 
 // API functions (replace with your actual API calls)
 
@@ -123,7 +124,7 @@ export default function HRSystemForm({ onClose, editItem = null, activeTab, onSu
     } catch (error) {
       console.error('Error submitting form:', error);
       // You might want to show an error message to the user here
-      alert(`Error saving ${activeTab.slice(0, -1)}. Please try again.`);
+      toast.error(`Error saving ${activeTab.slice(0, -1)}. Please try again.`);
     } finally {
       setIsSubmitting(false);
     }

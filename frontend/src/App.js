@@ -3,6 +3,8 @@ import React,{useEffect, useContext} from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
+import { ToastContainer } from './components/Toast';
+import { ConfirmDialogContainer } from './components/ConfirmDialog';
 
 import SalesDashboard from './Features/Dashboard/Dashboard';
 import ContactBoard from './Features/ContactBoard/ContactBoard';
@@ -28,6 +30,10 @@ import SalesTargetPage from './Features/SalesTarget/SalesTargetPage';
 function App() {
   return (
     <AuthProvider>
+      {/* Global UX overlays — toast (top-right, below header) + confirm modal (centered).
+          Both are imperative APIs callable from anywhere via toast.* / confirm(...). */}
+      <ToastContainer />
+      <ConfirmDialogContainer />
       <Router>
         <Routes>
           {/* Public Route */}

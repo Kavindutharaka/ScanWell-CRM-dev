@@ -5,6 +5,8 @@ import SideNav from "../../components/SideNav";
 import RoleManagementSection from './RoleManagementSection';
 import UserRoleApi from '../../api/UserRoleApi';
 import { fetchEmployees } from '../../api/PMApi';
+import { toast } from '../../components/Toast';
+import { confirm } from '../../components/ConfirmDialog';
 
 export default function EmployeeRoleManagement() {
   const [openModal, setOpenModal] = useState(false);
@@ -114,7 +116,7 @@ export default function EmployeeRoleManagement() {
       setFilteredRoles(transformedData);
     } catch (error) {
       console.error('Error fetching user roles:', error);
-      alert('Failed to load user roles. Please try again.');
+      toast.error('Failed to load user roles. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -153,17 +155,17 @@ export default function EmployeeRoleManagement() {
   };
 
   const handleDeleteRole = async (roleId) => {
-    if (!window.confirm('Are you sure you want to delete this user role? This will revoke all access permissions.')) {
+    if (!(await confirm('Are you sure you want to delete this user role? This will revoke all access permissions.'))) {
       return;
     }
 
     try {
       await UserRoleApi.deleteUserRole(roleId);
       setRefreshTrigger(prev => prev + 1);
-      alert('User role deleted successfully!');
+      toast.success('User role deleted successfully!');
     } catch (error) {
       console.error('Error deleting user role:', error);
-      alert(error.response?.data?.message || 'Failed to delete user role. Please try again.');
+      toast.error(error.response?.data?.message || 'Failed to delete user role. Please try again.');
     }
   };
 

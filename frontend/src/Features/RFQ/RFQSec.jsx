@@ -14,6 +14,7 @@ import { fetchRfq, deleteRfq } from "../../api/RfqApi";
 import FilterPanel from "../../components/filters/FilterPanel";
 import useFilters from "../../components/filters/useFilters";
 import { AuthContext } from "../../context/AuthContext";
+import { confirm } from '../../components/ConfirmDialog';
 
 export default function RFQSec({ modalOpen, onEdit, onSalesEntry }) {
   const [loading, setLoading] = useState(false);
@@ -49,7 +50,7 @@ export default function RFQSec({ modalOpen, onEdit, onSalesEntry }) {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this RFQ?")) return;
+    if (!(await confirm("Are you sure you want to delete this RFQ?"))) return;
     try {
       await deleteRfq(id);
       setRfqItems((prev) => prev.filter((item) => item.sysID !== id));

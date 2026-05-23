@@ -19,6 +19,7 @@ import {
   Settings
 } from 'lucide-react';
 import UserRoleApi from '../../api/UserRoleApi';
+import { toast } from '../../components/Toast';
 
 const RoleForm = ({ employees, selectedRole, isEditMode, onClose, onSuccess }) => {
   const [loading, setLoading] = useState(false);
@@ -215,19 +216,19 @@ const RoleForm = ({ employees, selectedRole, isEditMode, onClose, onSuccess }) =
 
   const validateForm = () => {
     if (!formData.employeeId) {
-      alert('Please select an employee');
+      toast.info('Please select an employee');
       return false;
     }
     if (!formData.username.trim()) {
-      alert('Please enter a username');
+      toast.info('Please enter a username');
       return false;
     }
     if (!isEditMode && !formData.password.trim()) {
-      alert('Please enter a password');
+      toast.info('Please enter a password');
       return false;
     }
     if (formData.password && formData.password.length < 6) {
-      alert('Password must be at least 6 characters long');
+      toast.error('Password must be at least 6 characters long');
       return false;
     }
     return true;
@@ -303,10 +304,10 @@ const RoleForm = ({ employees, selectedRole, isEditMode, onClose, onSuccess }) =
 
       if (isEditMode) {
         await UserRoleApi.updateUserRole(selectedRole.id, backendData);
-        alert('User role updated successfully!');
+        toast.success('User role updated successfully!');
       } else {
         await UserRoleApi.createUserRole(backendData);
-        alert('User role created successfully!');
+        toast.success('User role created successfully!');
       }
 
       onSuccess();
@@ -315,7 +316,7 @@ const RoleForm = ({ employees, selectedRole, isEditMode, onClose, onSuccess }) =
       const errorMessage = error.response?.data?.message || 
                           error.response?.data?.Message ||
                           'Failed to save user role. Please try again.';
-      alert(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }

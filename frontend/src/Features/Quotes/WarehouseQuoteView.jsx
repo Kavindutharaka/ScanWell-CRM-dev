@@ -26,6 +26,8 @@ import {
   updateWareQuoteStatus
 } from "../../api/QuoteApi";
 import { generateWarehousePDF, printWarehousePDF } from "./utils/warehousePDFGenerator";
+import { toast } from '../../components/Toast';
+import { confirm } from '../../components/ConfirmDialog';
 
 const serviceCategories = [
   "Storage",
@@ -105,7 +107,7 @@ export default function WarehouseQuoteView() {
       });
     } catch (error) {
       console.error('Error loading warehouse quote:', error);
-      alert('Failed to load warehouse quote');
+      toast.error('Failed to load warehouse quote');
       navigate('/quotes-invoices');
     } finally {
       setLoading(false);
@@ -156,41 +158,41 @@ export default function WarehouseQuoteView() {
   const handleSave = async () => {
     // Validation
     if (!formData.customerName) {
-      alert("Please provide customer name");
+      toast.info("Please provide customer name");
       return;
     }
 
     if (formData.lineItems.some(item => !item.description || !item.amount)) {
-      alert("Please fill in all line item descriptions and amounts");
+      toast.info("Please fill in all line item descriptions and amounts");
       return;
     }
 
     try {
       setSaving(true);
       await updateWareQuote(id, formData);
-      alert('Warehouse quote updated successfully!');
+      toast.success('Warehouse quote updated successfully!');
       setEditMode(false);
       loadQuoteData(); // Reload to get updated data
     } catch (error) {
       console.error('Error updating warehouse quote:', error);
-      alert('Failed to update warehouse quote');
+      toast.error('Failed to update warehouse quote');
     } finally {
       setSaving(false);
     }
   };
 
   const handleDelete = async () => {
-    if (!window.confirm(`Are you sure you want to delete this warehouse quote?`)) {
+    if (!(await confirm(`Are you sure you want to delete this warehouse quote?`))) {
       return;
     }
 
     try {
       await deleteWareQuote(id);
-      alert('Warehouse quote deleted successfully!');
+      toast.success('Warehouse quote deleted successfully!');
       navigate('/quotes-invoice');
     } catch (error) {
       console.error('Error deleting warehouse quote:', error);
-      alert('Failed to delete warehouse quote');
+      toast.error('Failed to delete warehouse quote');
     }
   };
 
@@ -212,11 +214,11 @@ export default function WarehouseQuoteView() {
   const handleStatusChange = async (newStatus) => {
     try {
       await updateWareQuoteStatus(id, newStatus);
-      alert(`Quote status updated to ${newStatus}`);
+      toast.success(`Quote status updated to ${newStatus}`);
       loadQuoteData();
     } catch (error) {
       console.error('Error updating status:', error);
-      alert('Failed to update status');
+      toast.error('Failed to update status');
     }
   };
 
@@ -238,7 +240,7 @@ export default function WarehouseQuoteView() {
 
   const removeLineItem = (id) => {
     if (formData.lineItems.length === 1) {
-      alert("At least one line item is required");
+      toast.error("At least one line item is required");
       return;
     }
     setFormData(prev => ({

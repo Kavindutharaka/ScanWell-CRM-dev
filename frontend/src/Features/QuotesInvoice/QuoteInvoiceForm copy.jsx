@@ -29,6 +29,7 @@ import {
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import logo from '../../assets/images/logo.png';
+import { toast } from '../../components/Toast';
 
 const DynamicDropdown = ({ label, name, value, onChange, options = [], placeholder = "Select...", required = false, error = null, disabled = false, className = "" }) => {
   return (
@@ -880,10 +881,10 @@ export default function QuoteInvoiceForm({ onClose, type = 'quote', editDocument
     let result;
     if (editDocument) {
       result = await updateQuote(payload);
-      alert("Quote updated successfully!");
+      toast.success("Quote updated successfully!");
     } else {
       result = await createQuote(payload);
-      alert("Quote created successfully!");
+      toast.success("Quote created successfully!");
     }
 
     console.log("Success:", result);
@@ -894,7 +895,7 @@ export default function QuoteInvoiceForm({ onClose, type = 'quote', editDocument
   } catch (error) {
     console.error("Error saving quote:", error);
     const msg = error.response?.data || error.message || "Failed to save quote";
-    alert("Error: " + msg);
+    toast.error("Error: " + msg);
   } finally {
     setIsSubmitting(false);
   }

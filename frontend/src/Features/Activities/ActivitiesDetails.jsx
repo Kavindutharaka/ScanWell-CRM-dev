@@ -19,6 +19,7 @@ import {
   X
 } from "lucide-react";
 import { fetchActivities, deleteActivity, fetchActivityHistory } from "../../api/ActivityApi";
+import { confirm } from '../../components/ConfirmDialog';
 
 export default function ActivitiesDetails({ onOpen, onEdit, loading = false, delay = 0, activities, loadActivities, setActivities }) {
   const [error, setError] = useState('');
@@ -144,7 +145,7 @@ export default function ActivitiesDetails({ onOpen, onEdit, loading = false, del
 
   // Handle delete
   const handleDelete = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this activity?')) {
+    if (!(await confirm('Are you sure you want to delete this activity?'))) {
       return;
     }
     try {

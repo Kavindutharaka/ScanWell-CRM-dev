@@ -7,6 +7,7 @@ import {
   Trash2,
   Search
 } from 'lucide-react';
+import { confirm } from '../../components/ConfirmDialog';
 
 export default function HRSystemSec({ 
   modalOpen, 
@@ -35,8 +36,8 @@ export default function HRSystemSec({
     modalOpen();
   };
 
-  const handleDelete = (id) => {
-    if (window.confirm(`Are you sure you want to delete this ${activeTab.slice(0, -1)}?`)) {
+  const handleDelete = async (id) => {
+    if ((await confirm(`Are you sure you want to delete this ${activeTab.slice(0, -1)}?`))) {
       if (activeTab === 'departments') {
         setDepartments(departments.filter(d => d.id !== id));
       } else {

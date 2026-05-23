@@ -14,6 +14,8 @@ import {
 
 import ResourceApi from '../../api/ResourceApi'; // Adjust the import path as necessary
 import { AuthContext } from "../../context/AuthContext";
+import { toast } from '../../components/Toast';
+import { confirm } from '../../components/ConfirmDialog';
 
 export default function InfoAndUpdatesSec({ modalOpen, onEdit, refreshTrigger }) {
   const [loading, setLoading] = useState(false);
@@ -55,14 +57,14 @@ export default function InfoAndUpdatesSec({ modalOpen, onEdit, refreshTrigger })
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this item?")) return;
+    if (!(await confirm("Are you sure you want to delete this item?"))) return;
     try {
       await ResourceApi.deleteResource(id);
       // Refresh the local list instead of reloading the entire page.
       fetchInfoItems();
     } catch (error) {
       console.error("Error deleting resource:", error);
-      alert("Failed to delete item.");
+      toast.error("Failed to delete item.");
     }
   };
 

@@ -1,6 +1,7 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import logo from '../../../assets/images/logo.png'; // Import company logo
+import { toast } from '../../../components/Toast';
 
 /**
  * Generate a professional PDF for warehouse quotation
@@ -649,6 +650,6 @@ export const printWarehousePDF = (quoteData, lineItems, notes, userData = null) 
     };
   } catch (error) {
     console.error('Error printing warehouse PDF:', error);
-    alert('Failed to print PDF. Please try downloading instead.');
+    toast.error('Failed to print PDF. Please try downloading instead.');
   }
 };

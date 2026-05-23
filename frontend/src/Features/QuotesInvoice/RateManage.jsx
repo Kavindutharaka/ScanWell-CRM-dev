@@ -27,6 +27,7 @@ import SeaImportFcl from "../../SeaImportFcl";
 import SeaImportLcl from "../../SeaImportLcl";
 import SeaExportFclTemplate from "../../SeaExportFcl";
 import SeaExportLcl from "../../SeaExportLcl";
+import { confirm } from '../../components/ConfirmDialog';
 
 export default function RateManage({ onClose }) {
   const [step, setStep] = useState(1);
@@ -356,7 +357,7 @@ export default function RateManage({ onClose }) {
   };
 
   const deleteRate = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this rate?')) return;
+    if (!(await confirm('Are you sure you want to delete this rate?'))) return;
     try {
       await RateAPI.deleteRate(id);
       fetchExistingRates();

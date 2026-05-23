@@ -15,6 +15,7 @@ import {
   FolderOpen
 } from "lucide-react";
 import ProjectDetails from "./ProjectDetails";
+import { confirm } from '../../components/ConfirmDialog';
 
 export default function ProjectSec({ modalOpen, projects , error, refreshing, loading, setLoading, onEditProject, onRetry }) {
   const [searchQuery, setSearchQuery] = useState("");
@@ -40,8 +41,8 @@ export default function ProjectSec({ modalOpen, projects , error, refreshing, lo
   };
 
   // Handle delete project
-  const handleDeleteProject = (project) => {
-    if (window.confirm(`Are you sure you want to delete "${project.project_name}"?`)) {
+  const handleDeleteProject = async (project) => {
+    if ((await confirm(`Are you sure you want to delete "${project.project_name}"?`))) {
       console.log('Delete project:', project);
       // Add delete API call here
     }

@@ -21,6 +21,8 @@ import {
   deleteLead,
   bulkDeleteLeads,
 } from "../../api/LeadApi";
+import { toast } from '../../components/Toast';
+import { confirm } from '../../components/ConfirmDialog';
 
 export default function Leads({
   onOpen,
@@ -141,13 +143,13 @@ export default function Leads({
 
   // Delete single lead
   const handleDeleteLead = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this lead?")) return;
+    if (!(await confirm("Are you sure you want to delete this lead?"))) return;
     try {
       await deleteLead(id);
       setLeads((prev) => prev.filter((l) => l.id !== id));
       setSelectedLeads((prev) => prev.filter((sid) => sid !== id));
     } catch (err) {
-      alert("Failed to delete lead. Please try again.");
+      toast.error("Failed to delete lead. Please try again.");
     }
   };
 
@@ -155,9 +157,9 @@ export default function Leads({
   const handleBulkDelete = async () => {
     if (selectedLeads.length === 0) return;
     if (
-      !window.confirm(
+      !(await confirm(
         `Are you sure you want to delete ${selectedLeads.length} lead(s)?`
-      )
+      ))
     )
       return;
     try {
@@ -165,7 +167,7 @@ export default function Leads({
       setLeads((prev) => prev.filter((l) => !selectedLeads.includes(l.id)));
       setSelectedLeads([]);
     } catch (err) {
-      alert("Failed to delete leads. Please try again.");
+      toast.error("Failed to delete leads. Please try again.");
     }
   };
 
@@ -178,7 +180,7 @@ export default function Leads({
       );
       setShowEditModal(null);
     } catch (err) {
-      alert("Failed to update lead. Please try again.");
+      toast.error("Failed to update lead. Please try again.");
     }
   };
 

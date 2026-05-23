@@ -7,6 +7,7 @@ import { fetchOutComeById, saveQuoteOutCome, updateWonDetails } from '../../api/
 import { AuthContext } from '../../context/AuthContext';
 import FilterPanel from '../../components/filters/FilterPanel';
 import useFilters from '../../components/filters/useFilters';
+import { toast } from '../../components/Toast';
 
 export default function QuotesInvoiceSec({ modalOpen }) {
   const navigate = useNavigate();
@@ -199,7 +200,7 @@ function SalesPerson({ customerName }) {
   // NEW: Save win handler
   const handleSaveWin = async () => {
     if (!winForm.wonAmount || parseFloat(winForm.wonAmount) <= 0) {
-      alert('Please enter a valid won amount');
+      toast.info('Please enter a valid won amount');
       return;
     }
 
@@ -216,22 +217,22 @@ function SalesPerson({ customerName }) {
       await loadQuoteOutcome(currentQuote.quoteId);
       setWinModalShow(false);
       setCurrentQuote(null);
-      alert('Quote marked as won successfully!');
+      toast.success('Quote marked as won successfully!');
     } catch (error) {
       console.error('Error saving win outcome:', error);
-      alert('Failed to save win outcome');
+      toast.error('Failed to save win outcome');
     }
   };
 
   // NEW: Save lost handler
   const handleSaveLost = async () => {
     if (!lostForm.lostReason) {
-      alert('Please select a reason');
+      toast.info('Please select a reason');
       return;
     }
 
     if (lostForm.lostReason === 'Others' && !lostForm.lostNote) {
-      alert('Please provide a note');
+      toast.info('Please provide a note');
       return;
     }
 
@@ -248,10 +249,10 @@ function SalesPerson({ customerName }) {
       await loadQuoteOutcome(currentQuote.quoteId);
       setLostModalShow(false);
       setCurrentQuote(null);
-      alert('Quote marked as lost successfully!');
+      toast.success('Quote marked as lost successfully!');
     } catch (error) {
       console.error('Error saving lost outcome:', error);
-      alert('Failed to save lost outcome');
+      toast.error('Failed to save lost outcome');
     }
   };
 
@@ -264,7 +265,7 @@ function SalesPerson({ customerName }) {
         const rate = parseFloat(wonDetailsForm.dollarRate) || 0;
         computedSalesValue = dollarAmt * rate;
         if (computedSalesValue <= 0) {
-          alert('Please enter valid Dollar Amount and Exchange Rate');
+          toast.info('Please enter valid Dollar Amount and Exchange Rate');
           return;
         }
       } else {
@@ -282,10 +283,10 @@ function SalesPerson({ customerName }) {
       await loadQuoteOutcome(wonDetailsQuote.quoteId);
       setWonDetailsModalShow(false);
       setWonDetailsQuote(null);
-      alert('Won details updated successfully!');
+      toast.success('Won details updated successfully!');
     } catch (error) {
       console.error('Error updating won details:', error);
-      alert('Failed to update won details');
+      toast.error('Failed to update won details');
     }
   };
 
@@ -468,11 +469,11 @@ function SalesPerson({ customerName }) {
 
   const handleEdit = (quote) => {
     if (!canEditQuotes) {
-      alert('You do not have permission to edit quotes.');
+      toast.info('You do not have permission to edit quotes.');
       return;
     }
     if (isQuoteLocked(quote)) {
-      alert('This quote has been submitted and is locked. Contact an administrator to make changes.');
+      toast.info('This quote has been submitted and is locked. Contact an administrator to make changes.');
       return;
     }
 
@@ -520,10 +521,10 @@ function SalesPerson({ customerName }) {
       }
 
       setDeleteModal({ show: false, quoteId: null, quoteNumber: '', isWarehouse: false });
-      alert('Quote deleted successfully!');
+      toast.success('Quote deleted successfully!');
     } catch (error) {
       console.error('Error deleting quote:', error);
-      alert('Failed to delete quote');
+      toast.error('Failed to delete quote');
     }
   };
 
@@ -540,10 +541,10 @@ function SalesPerson({ customerName }) {
       await updateQuoteStatus(submitModal.quoteId, 'submitted');
       setSubmitModal({ show: false, quoteId: null, quoteNumber: '' });
       loadQuotes();
-      alert('Quote submitted successfully!');
+      toast.success('Quote submitted successfully!');
     } catch (error) {
       console.error('Error submitting quote:', error);
-      alert('Failed to submit quote');
+      toast.error('Failed to submit quote');
     }
   };
 

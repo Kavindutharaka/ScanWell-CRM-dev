@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from "react";
 import { createEmployee, updateEmployee, fetchEmployees } from "../../api/PMApi";
 import { fetchDepartment } from "../../api/DepartmentApi";
 import { fetchPosition } from "../../api/PositionApi";
+import { toast } from '../../components/Toast';
 
 
 export default function EmployeeForm({ onClose, editEmployee = null, onSuccess }) {
@@ -197,7 +198,7 @@ export default function EmployeeForm({ onClose, editEmployee = null, onSuccess }
       onClose();
     } catch (error) {
       console.error('Error submitting form:', error);
-      alert('Error saving employee. Please try again.');
+      toast.error('Error saving employee. Please try again.');
     } finally {
       setIsSubmitting(false);
     }

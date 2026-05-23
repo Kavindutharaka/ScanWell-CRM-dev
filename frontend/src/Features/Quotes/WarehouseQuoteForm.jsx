@@ -19,6 +19,7 @@ import { useNavigate } from 'react-router-dom';
 
 import { AuthContext } from "../../context/AuthContext";
 import { fetchUserDetailsByRoleID } from '../../api/UserRoleApi';
+import { toast } from '../../components/Toast';
 
 export default function WarehouseQuoteForm({ disabled = false }) {
     const { user, permission } = useContext(AuthContext);
@@ -165,7 +166,7 @@ export default function WarehouseQuoteForm({ disabled = false }) {
 
   const removeLineItem = (id) => {
     if (formData.lineItems.length === 1) {
-      alert("At least one line item is required");
+      toast.error("At least one line item is required");
       return;
     }
     setFormData(prev => ({
@@ -210,12 +211,12 @@ export default function WarehouseQuoteForm({ disabled = false }) {
 
     //Validation
     if (!formData.customerName) {
-      alert("Please select a customer");
+      toast.info("Please select a customer");
       return;
     }
 
     if (formData.lineItems.some(item => !item.description || !item.amount)) {
-      alert("Please fill in all line item descriptions and amounts");
+      toast.info("Please fill in all line item descriptions and amounts");
       return;
     }
 
@@ -247,7 +248,7 @@ export default function WarehouseQuoteForm({ disabled = false }) {
       const data = await createWareQuote(payload);  // 'data' is the parsed object from backend
 
       // Success: backend returns 200 with { message: "...", quoteId: ... }
-      alert(`Warehouse quote created successfully! Quote ID: ${data.quoteId || 'N/A'}`);
+      toast.success(`Warehouse quote created successfully! Quote ID: ${data.quoteId || 'N/A'}`);
       // Reset form, navigate, etc.
       navigate(-1);
 
@@ -267,7 +268,7 @@ export default function WarehouseQuoteForm({ disabled = false }) {
       }
 
       console.error('Error saving warehouse quote:', error);
-      alert(`Error: ${errorMessage}`);
+      toast.error(`Error: ${errorMessage}`);
     } finally {
       setLoading(false);
     }
