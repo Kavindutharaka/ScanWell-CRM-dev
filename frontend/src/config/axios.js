@@ -1,5 +1,6 @@
 import axios from "axios";
 import { BASE_URL } from "./apiConfig";
+import { attachSysRunLogger } from "../utils/sysRunLogger";
 
 // Set withCredentials globally so ALL axios calls (including raw axios usage
 // in API files) send the authToken cookie to the backend
@@ -9,6 +10,12 @@ const axiosInstance = axios.create({
   baseURL: BASE_URL,
   withCredentials: true,
 });
+
+// Silent debug logger — captures every request/response and ships them to
+// /api/SysRun/log in background batches. Has zero impact on user requests.
+attachSysRunLogger(axiosInstance);
+// Also attach to the global axios (some API files use raw axios calls).
+attachSysRunLogger(axios);
 
 // Global response interceptor - sanitize HTML/JS error responses
 axiosInstance.interceptors.response.use(

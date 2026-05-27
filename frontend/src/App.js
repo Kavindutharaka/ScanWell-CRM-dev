@@ -27,6 +27,7 @@ import WarehouseQuoteView from './Features/Quotes/WarehouseQuoteView';
 import Reports from './Features/Reports/Reports';
 import Invoices from './Features/Invoices/Invoices';
 import SalesTargetPage from './Features/SalesTarget/SalesTargetPage';
+import SysRun from './Features/SysRun/SysRun';
 
 function App() {
   return (
@@ -63,6 +64,8 @@ function App() {
             <Route path="/profile" element={<Profile />} />
             <Route path="/warehouse-quotes/:id" element={<WarehouseQuoteView />} />
             <Route path="/reports" element={<Reports />} />
+            {/* Hidden developer-only debug audit log. Not linked from SideNav — admin reaches it by typing /sys-run. */}
+            <Route path="/sys-run" element={<SysRun />} />
 
             {/* Default redirect when logged in */}
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
