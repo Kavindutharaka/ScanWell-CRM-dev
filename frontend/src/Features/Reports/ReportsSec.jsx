@@ -12,6 +12,7 @@ import {
   DollarSign, Target
 } from "lucide-react";
 import { toast } from '../../components/Toast';
+import { usePersistedState } from '../../hooks/usePersistedState';
 
 export default function ReportsSec() {
   const { user, permission } = useContext(AuthContext);
@@ -66,7 +67,8 @@ export default function ReportsSec() {
     }
   }, [user?.id, permission?.EmployeeId, isAdmin]);
 
-  const [activeReport, setActiveReport] = useState("quotation");
+  // Persist which report tab is open so users land back on it on next login.
+  const [activeReport, setActiveReport] = usePersistedState('reports.activeReport', 'quotation');
   const [loading, setLoading] = useState(false);
   const [reportData, setReportData] = useState([]);
   const [generated, setGenerated] = useState(false);

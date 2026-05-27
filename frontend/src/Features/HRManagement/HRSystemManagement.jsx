@@ -6,6 +6,7 @@ import HRSystemSec from "./HRSystemSec";
 // import { fetchDepartments, fetchPositions } from "../../api/HRApi";
 import { fetchDepartment } from "../../api/DepartmentApi";
 import { fetchPosition } from "../../api/PositionApi";
+import { usePersistedState } from '../../hooks/usePersistedState';
 
 export default function HRSystemManagement() {
   const [openModal, setOpenModal] = useState(false);
@@ -13,7 +14,8 @@ export default function HRSystemManagement() {
   const [positions, setPositions] = useState([]);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
-  const [activeTab, setActiveTab] = useState('departments');
+  // Remember whether the user was on Departments or Positions tab last time.
+  const [activeTab, setActiveTab] = usePersistedState('hrSystem.activeTab', 'departments');
   const scrollBottom = true;
  
   const modalOpen = () => {

@@ -29,6 +29,7 @@ import * as RateAPI from '../../api/rateAPI';
 import { AuthContext } from "../../context/AuthContext";
 import { toast } from '../../components/Toast';
 import { confirm } from '../../components/ConfirmDialog';
+import { usePersistedState } from '../../hooks/usePersistedState';
 
 
 export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
@@ -57,7 +58,8 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
     if (!enteredById) return true; // legacy records with no entrant info — allow
     return String(enteredById) === String(currentUserId);
   };
-  const [activeTab, setActiveTab] = useState('air');
+  // Persist tab/liner selection so users land back where they were on next login.
+  const [activeTab, setActiveTab] = usePersistedState('rates.activeTab', 'air');
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [rates, setRates] = useState([]);
@@ -65,8 +67,9 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
   const [expandedRows, setExpandedRows] = useState(new Set());
 
   // Sub-filter for Air Freight / Sea Freight (Import/Export)
-  const [airSubFilter, setAirSubFilter] = useState('all'); // 'all' | 'import' | 'export'
-  const [seaSubFilter, setSeaSubFilter] = useState('all'); // 'all' | 'import' | 'export'
+  // Persist air/sea sub-filters so they stick across logins, same as the main tab.
+  const [airSubFilter, setAirSubFilter] = usePersistedState('rates.airSubFilter', 'all'); // 'all' | 'import' | 'export'
+  const [seaSubFilter, setSeaSubFilter] = usePersistedState('rates.seaSubFilter', 'all'); // 'all' | 'import' | 'export'
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -75,8 +78,8 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
   // Button scroll ref
   const tabScrollRef = useRef(null);
 
-  // Shipping Line States
-  const [activeLiner, setActiveLiner] = useState(null);
+  // Shipping Line States (persisted so YML / MSC / etc selection survives login)
+  const [activeLiner, setActiveLiner] = usePersistedState('rates.activeLiner', null);
   const [linerRates, setLinerRates] = useState([]);
   const [linerLoading, setLinerLoading] = useState(false);
   const [showLinerModal, setShowLinerModal] = useState(false);
@@ -1017,7 +1020,8 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
   // State for showing Destination Header's sub-section
   const [showDestinationHeaders, setShowDestinationHeaders] = useState(false);
   // Track which category the active liner belongs to ('linearheaders' or 'destinationheaders')
-  const [activeLinerCategory, setActiveLinerCategory] = useState(null);
+  // Persisted so the user lands back in the same sub-category on next login.
+  const [activeLinerCategory, setActiveLinerCategory] = usePersistedState('rates.activeLinerCategory', null);
   // Destination rates data (separate from liner rates due to different format)
   const [destinationRates, setDestinationRates] = useState([]);
   const [destinationLoading, setDestinationLoading] = useState(false);

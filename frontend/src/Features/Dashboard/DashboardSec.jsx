@@ -33,6 +33,7 @@ import {
 import { fetchTargetConfig, fetchAllTargets } from "../../api/SalesTargetApi";
 import { toast } from '../../components/Toast';
 import { confirm } from '../../components/ConfirmDialog';
+import { usePersistedState } from '../../hooks/usePersistedState';
 
 // ===== COLORS =====
 const COLORS = {
@@ -87,8 +88,9 @@ export default function DashboardSec() {
   const [pipelineData, setPipelineData] = useState([]);
   const [pipelineLoading, setPipelineLoading] = useState(false);
 
-  const [activeTab, setActiveTab] = useState("dashboard");
-  const [activePreset, setActivePreset] = useState("thisMonth");
+  // Dashboard / Market-Place tab + selected period preset — both persist across sessions.
+  const [activeTab, setActiveTab] = usePersistedState('dashboard.activeTab', 'dashboard');
+  const [activePreset, setActivePreset] = usePersistedState('dashboard.activePreset', 'thisMonth');
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);

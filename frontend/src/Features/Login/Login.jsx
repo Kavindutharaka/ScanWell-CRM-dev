@@ -4,6 +4,7 @@ import { Eye, EyeOff, LogIn, Loader2, Lock, User } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { BASE_URL } from '../../config/apiConfig';
 import axios from "../../config/axios";
+import { getLastRoute } from '../../utils/sessionRestore';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -69,8 +70,14 @@ export default function Login() {
 
       console.log("Login Success!", { userRoleId: id, username });
 
-      // Force full reload so AuthContext calls /auth/me and detects the cookie
-      window.location.href = "/dashboard";
+      // If this user has a saved last-route from a previous session, send them back there.
+      // Otherwise fall back to the dashboard. Falling back also handles fresh logins and
+      // any user-no-longer-has-access cases (ProtectedRoute will catch that and bounce).
+      const saved = getLastRoute(id);
+      const target = saved?.path ? `${saved.path}${saved.search || ''}` : '/dashboard';
+
+      // Force full reload so AuthContext calls /auth/me and detects the cookie.
+      window.location.href = target;
 
     } catch (error) {
       console.error("Login failed:", error);

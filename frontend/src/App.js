@@ -5,6 +5,7 @@ import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import { ToastContainer } from './components/Toast';
 import { ConfirmDialogContainer } from './components/ConfirmDialog';
+import RouteTracker from './components/RouteTracker';
 
 import SalesDashboard from './Features/Dashboard/Dashboard';
 import ContactBoard from './Features/ContactBoard/ContactBoard';
@@ -35,6 +36,8 @@ function App() {
       <ToastContainer />
       <ConfirmDialogContainer />
       <Router>
+        {/* Tracks every route change to localStorage so we can restore on next login */}
+        <RouteTracker />
         <Routes>
           {/* Public Route */}
           <Route path="/login" element={<Login/>} />
