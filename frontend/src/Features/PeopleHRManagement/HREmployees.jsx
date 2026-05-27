@@ -68,7 +68,12 @@ export default function HREmployees() {
 
         {/* Main content area - scrollable */}
         <main className="flex-1 overflow-y-auto">
-          <EmployeeSec modalOpen={modalOpen} employees={employees} setSelectedEmployee={setSelectedEmployee}/>
+          <EmployeeSec
+            modalOpen={modalOpen}
+            employees={employees}
+            setSelectedEmployee={setSelectedEmployee}
+            onRefresh={loadEmployees}
+          />
         </main>
       </div>
 

@@ -6,10 +6,20 @@ import {
 } from "lucide-react";
 import EmployeeList from "./EmployeeList";
 import OnlineEmployees from "./OnlineEmployees";
+import EmployeeViewModal from "./EmployeeViewModal";
 
-export default function EmployeeSec({ modalOpen, employees, setSelectedEmployee}) {
+export default function EmployeeSec({ modalOpen, employees, setSelectedEmployee, onRefresh }) {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+  // Pagination state — lives in the parent so search/filter changes can reset it.
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  // View-modal state — opened from the Eye-icon button in the list.
+  const [viewingEmployee, setViewingEmployee] = useState(null);
+
+  // Reset to page 1 whenever the search query changes so users don't get stuck on an
+  // empty/out-of-range page.
+  useEffect(() => { setPage(1); }, [searchQuery]);
 
   // Simulate loading
   useEffect(() => {
@@ -136,7 +146,25 @@ export default function EmployeeSec({ modalOpen, employees, setSelectedEmployee}
             employees={filteredEmployees}
             delay={300}
             setSelectedEmployee={setSelectedEmployee}
+            onView={setViewingEmployee}
+            onRefresh={onRefresh}
+            page={page}
+            setPage={setPage}
+            pageSize={pageSize}
+            setPageSize={setPageSize}
           />
+
+          {/* Read-only details modal — opened via the Eye-icon in the table */}
+          {viewingEmployee && (
+            <EmployeeViewModal
+              employee={viewingEmployee}
+              onClose={() => setViewingEmployee(null)}
+              onEdit={(emp) => {
+                setSelectedEmployee(emp);
+                modalOpen();
+              }}
+            />
+          )}
         </div>
 
         {/* Floating refresh button */}
