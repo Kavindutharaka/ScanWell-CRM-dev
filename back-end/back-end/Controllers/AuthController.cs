@@ -190,8 +190,8 @@ public IActionResult GetUserById(int id)
             er.profile_image,
             ur.Username,
             ur.Password
-        FROM phvtechc_crm.dbo.user_roles ur
-        INNER JOIN phvtechc_crm.dbo.emp_reg er
+        FROM dbo.user_roles ur
+        INNER JOIN dbo.emp_reg er
             ON ur.EmployeeId = er.SysID
         WHERE ur.EmployeeId = @id;
     ";

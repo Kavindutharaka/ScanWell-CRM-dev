@@ -268,8 +268,8 @@ namespace back_end.Controllers
         [HttpGet("owner/{id}")]
         public ActionResult GetActivityOwner(long id)
         {
-            string query = @"SELECT fname + ' ' + lname AS fullName 
-                     FROM [phvtechc_crm].[dbo].[emp_reg] 
+            string query = @"SELECT fname + ' ' + lname AS fullName
+                     FROM [dbo].[emp_reg]
                      WHERE SysID = @id;";
 
             string fullName = null;

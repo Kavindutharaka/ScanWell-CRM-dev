@@ -236,7 +236,7 @@ namespace back_end.Controllers
 
             string query = @"
                 SELECT TOP 1 [description]
-                FROM [phvtechc_crm].[dbo].[account_reg]
+                FROM [dbo].[account_reg]
                 WHERE accountName = @accountName;";
 
             string address = null;
@@ -277,7 +277,7 @@ namespace back_end.Controllers
 
             string query = @"
         SELECT TOP 1 [contactsJson]
-        FROM [phvtechc_crm].[dbo].[account_reg]
+        FROM [dbo].[account_reg]
         WHERE accountName = @accountName;";
 
             string contactsJson = null;
