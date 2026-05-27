@@ -1,6 +1,16 @@
 // Read-only view modal for an employee. Opened by the Eye-icon button in the table row.
 
+import { useState } from 'react';
 import { X, User, Mail, Phone, Briefcase, Building2, MapPin, Users as UsersIcon, FileText, CheckCircle2, XCircle } from 'lucide-react';
+import { BASE_URL } from '../../config/apiConfig';
+
+// Build an absolute URL for the stored profile_image path.
+const buildImageSrc = (relUrl) => {
+  if (!relUrl) return null;
+  if (relUrl.startsWith('http://') || relUrl.startsWith('https://')) return relUrl;
+  const apiRoot = BASE_URL.replace(/\/api\/?$/, '');
+  return `${apiRoot}${relUrl.startsWith('/') ? '' : '/'}${relUrl}`;
+};
 
 const Field = ({ label, value, icon: Icon }) => (
   <div>
@@ -15,12 +25,14 @@ const Field = ({ label, value, icon: Icon }) => (
 );
 
 export default function EmployeeViewModal({ employee, onClose, onEdit }) {
+  const [imgError, setImgError] = useState(false);
   if (!employee) return null;
 
   const fullName = [employee.fname, employee.lname].filter(Boolean).join(' ') || 'Unknown';
   const empId = `EMP-${String(employee.sysID || 0).padStart(3, '0')}`;
   const isActive = (employee.status || '').toLowerCase() === 'active';
   const initials = ((employee.fname || '').charAt(0) + (employee.lname || '').charAt(0)).toUpperCase() || '?';
+  const photoSrc = !imgError ? buildImageSrc(employee.profile_image) : null;
 
   return (
     <div className="fixed inset-0 z-[1500] flex items-center justify-center p-4">
@@ -36,8 +48,17 @@ export default function EmployeeViewModal({ employee, onClose, onEdit }) {
             <X className="w-5 h-5" />
           </button>
           <div className="absolute -bottom-12 left-6 flex items-end gap-4">
-            <div className="bg-gradient-to-br from-emerald-500 to-emerald-700 text-white rounded-full w-24 h-24 flex items-center justify-center text-2xl font-bold shadow-lg border-4 border-white">
-              {initials}
+            <div className="bg-gradient-to-br from-emerald-500 to-emerald-700 text-white rounded-full w-24 h-24 flex items-center justify-center text-2xl font-bold shadow-lg border-4 border-white overflow-hidden">
+              {photoSrc ? (
+                <img
+                  src={photoSrc}
+                  alt={fullName}
+                  className="w-full h-full object-cover"
+                  onError={() => setImgError(true)}
+                />
+              ) : (
+                <span>{initials}</span>
+              )}
             </div>
           </div>
         </div>

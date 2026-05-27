@@ -36,23 +36,42 @@ export default function EmployeeSec({ modalOpen, employees, setSelectedEmployee,
     setTimeout(() => setLoading(false), 1500);
   };
 
-  // Filter employees with proper null handling
+  // Filter employees — matches name, email, phone, employee ID (raw or formatted), and other fields.
   const filteredEmployees = employees.filter(emp => {
     if (!searchQuery) return true;
-    
-    const query = searchQuery.toLowerCase();
-    
-    // Safely check each field with null handling
+
+    // Normalize the query: strip "EMP-" / "EMP" prefixes + dashes so users can type
+    // any of these and find the same employee:  "11" | "EMP011" | "EMP-011" | "emp 011"
+    const raw = searchQuery.toLowerCase().trim();
+    const normalized = raw.replace(/^emp[-\s]?0*/, '').replace(/[-\s]/g, '');
+
+    // Pre-compute searchable strings for this employee.
+    const idStr      = String(emp.sysID ?? '');
+    const idPadded   = idStr.padStart(3, '0');                           // "011"
+    const idEmpForm  = `emp-${idPadded}`;                                 // "emp-011"
+    const idEmpFlat  = `emp${idPadded}`;                                  // "emp011"
+    const fullName   = `${emp.fname || ''} ${emp.lname || ''}`.toLowerCase().trim();
+
     return (
-      (emp.fname || '').toLowerCase().includes(query) ||
-      (emp.lname || '').toLowerCase().includes(query) ||
-      (emp.email || '').toLowerCase().includes(query) ||
-      (emp.tp || '').toLowerCase().includes(query) ||
-      (emp.position || '').toLowerCase().includes(query) ||
-      (emp.department || '').toLowerCase().includes(query) ||
-      (emp.w_location || '').toLowerCase().includes(query) ||
-      (emp.a_manager || '').toLowerCase().includes(query) ||
-      (emp.status || '').toLowerCase().includes(query)
+      // Name fields
+      (emp.fname || '').toLowerCase().includes(raw) ||
+      (emp.lname || '').toLowerCase().includes(raw) ||
+      fullName.includes(raw) ||
+      // Contact
+      (emp.email || '').toLowerCase().includes(raw) ||
+      (emp.tp || '').toLowerCase().includes(raw) ||
+      // Employee ID — multiple forms
+      idStr === raw ||                          // exact "11"
+      idStr === normalized ||                   // typed "EMP011" → 11
+      idPadded.includes(raw) ||                 // partial "011"
+      idEmpForm.includes(raw) ||                // "emp-011" / "emp-01"
+      idEmpFlat.includes(raw) ||                // "emp011"
+      // Work fields
+      (emp.position || '').toLowerCase().includes(raw) ||
+      (emp.department || '').toLowerCase().includes(raw) ||
+      (emp.w_location || '').toLowerCase().includes(raw) ||
+      (emp.a_manager || '').toLowerCase().includes(raw) ||
+      (emp.status || '').toLowerCase().includes(raw)
     );
   });
 
@@ -126,7 +145,7 @@ export default function EmployeeSec({ modalOpen, employees, setSelectedEmployee,
               <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
               <input
                 type="text"
-                placeholder="Search employees..."
+                placeholder="Search by name, email, phone, or ID (e.g. 11 or EMP-011)…"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all duration-200 text-sm"

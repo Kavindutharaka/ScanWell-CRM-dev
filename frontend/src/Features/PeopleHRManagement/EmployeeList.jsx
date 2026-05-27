@@ -6,6 +6,16 @@ import {
 import { updateEmployee } from "../../api/PMApi";
 import { toast } from '../../components/Toast';
 import { confirm } from '../../components/ConfirmDialog';
+import { BASE_URL } from '../../config/apiConfig';
+
+// Resolve a stored relative profile_image URL into a full HTTP URL the browser can load.
+// Same logic the Header avatar uses — keeps the two in sync.
+const buildImageSrc = (relUrl) => {
+  if (!relUrl) return null;
+  if (relUrl.startsWith('http://') || relUrl.startsWith('https://')) return relUrl;
+  const apiRoot = BASE_URL.replace(/\/api\/?$/, '');
+  return `${apiRoot}${relUrl.startsWith('/') ? '' : '/'}${relUrl}`;
+};
 
 // =============================================================
 // Small presentational helpers
@@ -23,11 +33,23 @@ const getInitials = (name) => {
   return parts.map(n => n[0]).join('').toUpperCase().substring(0, 2);
 };
 
-const Avatar = ({ name, isActive }) => {
+const Avatar = ({ name, isActive, profileImage }) => {
+  const [imgError, setImgError] = useState(false);
+  const src = !imgError ? buildImageSrc(profileImage) : null;
   const bg = isActive ? 'bg-gradient-to-br from-emerald-500 to-emerald-600' : 'bg-gradient-to-br from-slate-400 to-slate-500';
   return (
-    <div className={`${bg} text-white rounded-full w-9 h-9 flex items-center justify-center shadow-sm relative flex-shrink-0`}>
-      <span className="text-xs font-semibold">{getInitials(name)}</span>
+    <div className={`${bg} text-white rounded-full w-9 h-9 flex items-center justify-center shadow-sm relative flex-shrink-0 overflow-hidden`}>
+      {src ? (
+        // Show uploaded profile picture if available; fall back to initials on image error.
+        <img
+          src={src}
+          alt={name || 'avatar'}
+          className="w-full h-full object-cover"
+          onError={() => setImgError(true)}
+        />
+      ) : (
+        <span className="text-xs font-semibold">{getInitials(name)}</span>
+      )}
       {isActive && <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-green-400 border-2 border-white rounded-full" />}
     </div>
   );
@@ -226,7 +248,7 @@ export default function HREmployeeList({
                   {/* Employee (avatar + name + id) */}
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-3 min-w-[180px]">
-                      <Avatar name={fullName} isActive={isActive} />
+                      <Avatar name={fullName} isActive={isActive} profileImage={employee.profile_image} />
                       <div>
                         <div className="font-medium text-slate-900">{fullName}</div>
                         <div className="text-xs text-slate-500">{empId}</div>
