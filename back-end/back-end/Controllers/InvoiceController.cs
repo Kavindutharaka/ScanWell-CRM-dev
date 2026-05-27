@@ -31,6 +31,10 @@ namespace back_end.Controllers
                 {
                     con.Open();
 
+                    // The original query used a plain LEFT JOIN to account_reg by accountName.
+                    // That fans out when duplicate customer rows exist (same accountName, different SysID)
+                    // which produced React "duplicate key" warnings on the frontend.
+                    // OUTER APPLY ... TOP 1 guarantees at most one match per quote.
                     string query = @"
                         SELECT
                             q.QuoteId,
@@ -47,7 +51,12 @@ namespace back_end.Controllers
                             ISNULL(qo.invoice_completed, 0) AS invoice_completed
                         FROM [dbo].[Quotes] q
                         INNER JOIN quote_outcomes qo ON q.QuoteId = qo.quote_id
-                        LEFT JOIN [dbo].[account_reg] a ON q.Customer = a.accountName
+                        OUTER APPLY (
+                            SELECT TOP 1 salesPerson
+                            FROM [dbo].[account_reg]
+                            WHERE accountName = q.Customer
+                            ORDER BY SysID DESC
+                        ) a
                         WHERE qo.outcome_status = 'won'
                           AND (@CreatedBy = '' OR q.CreatedBy = @CreatedBy)
                         ORDER BY qo.created_date DESC";

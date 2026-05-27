@@ -5,6 +5,7 @@ import {
   UserCheck
 } from "lucide-react";
 import EmployeeList from "./EmployeeList";
+import OnlineEmployees from "./OnlineEmployees";
 
 export default function EmployeeSec({ modalOpen, employees, setSelectedEmployee}) {
   const [loading, setLoading] = useState(true);
@@ -124,10 +125,13 @@ export default function EmployeeSec({ modalOpen, employees, setSelectedEmployee}
           </div>
         </div>
 
+        {/* Currently-online employees — driven by sys_event_log, polls every 30s */}
+        <OnlineEmployees />
+
         {/* Employee List Content */}
         <div className="space-y-6">
-          <EmployeeList 
-            onOpen={modalOpen} 
+          <EmployeeList
+            onOpen={modalOpen}
             loading={loading}
             employees={filteredEmployees}
             delay={300}

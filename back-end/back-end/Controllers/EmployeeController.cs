@@ -128,5 +128,68 @@ namespace back_end.Controllers
             return Ok("Employee updated successfully.");
         }
 
+        // ============================================================
+        // GET /api/Employee/online-now
+        // Returns employees who made any API call in the last 5 minutes.
+        // Source of truth: sys_event_log (populated by the silent axios interceptor).
+        // No new tables, no heartbeat — every authenticated request is already
+        // logged with user_id + created_at, so we just query the recent window.
+        // ============================================================
+        [HttpGet("online-now")]
+        public IActionResult OnlineNow()
+        {
+            try
+            {
+                var rows = new List<object>();
+                using (var con = new SqlConnection(dbcon))
+                {
+                    con.Open();
+                    string query = @"
+                        SELECT TOP 50
+                            sel.user_id,
+                            MAX(sel.user_name)             AS user_name,
+                            MAX(CAST(er.SysID AS INT))     AS emp_id,
+                            MAX(er.fname)                  AS fname,
+                            MAX(er.lname)                  AS lname,
+                            MAX(er.profile_image)          AS profile_image,
+                            MAX(sel.created_at)            AS last_seen
+                        FROM [dbo].[sys_event_log] sel
+                        LEFT JOIN [dbo].[user_roles] ur
+                            ON sel.user_id = ur.Id
+                        LEFT JOIN [dbo].[emp_reg] er
+                            ON ur.EmployeeId = CAST(er.SysID AS NVARCHAR(50))
+                        WHERE sel.created_at >= DATEADD(MINUTE, -5, SYSUTCDATETIME())
+                          AND sel.user_id IS NOT NULL
+                        GROUP BY sel.user_id
+                        ORDER BY MAX(sel.created_at) DESC;";
+
+                    using (var cmd = new SqlCommand(query, con))
+                    using (var reader = cmd.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            rows.Add(new
+                            {
+                                userId        = reader["user_id"]       == DBNull.Value ? (int?)null : Convert.ToInt32(reader["user_id"]),
+                                userName      = reader["user_name"]     == DBNull.Value ? null : reader["user_name"].ToString(),
+                                empId         = reader["emp_id"]        == DBNull.Value ? (int?)null : Convert.ToInt32(reader["emp_id"]),
+                                fname         = reader["fname"]         == DBNull.Value ? null : reader["fname"].ToString(),
+                                lname         = reader["lname"]         == DBNull.Value ? null : reader["lname"].ToString(),
+                                profile_image = reader["profile_image"] == DBNull.Value ? null : reader["profile_image"].ToString(),
+                                lastSeen      = reader["last_seen"]     == DBNull.Value ? (DateTime?)null
+                                                : DateTime.SpecifyKind(Convert.ToDateTime(reader["last_seen"]), DateTimeKind.Utc)
+                            });
+                        }
+                    }
+                }
+                return Ok(rows);
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"[Employee.OnlineNow] {ex.Message}");
+                return StatusCode(500, new { message = "Failed to load online users" });
+            }
+        }
+
     }
 }
