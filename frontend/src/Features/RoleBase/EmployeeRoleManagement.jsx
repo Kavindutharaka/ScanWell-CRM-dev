@@ -499,7 +499,7 @@ export default function EmployeeRoleManagement() {
         </div>
       )}
 
-      <style jsx>{`
+      <style>{`
         @keyframes fadeIn {
           0% {
             opacity: 0;

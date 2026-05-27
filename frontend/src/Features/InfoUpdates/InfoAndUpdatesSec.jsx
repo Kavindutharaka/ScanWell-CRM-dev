@@ -75,7 +75,7 @@ export default function InfoAndUpdatesSec({ modalOpen, onEdit, refreshTrigger })
 
   return (
     <div className="w-full bg-gradient-to-br from-slate-50 to-blue-50/30 min-h-full">
-      <style jsx>{`
+      <style>{`
         @keyframes slideInLeft {
           0% {
             opacity: 0;

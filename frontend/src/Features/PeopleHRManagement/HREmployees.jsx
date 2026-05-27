@@ -87,7 +87,7 @@ export default function HREmployees() {
         </div>
       )}
 
-      <style jsx>{`
+      <style>{`
         @keyframes fadeIn {
           0% {
             opacity: 0;

@@ -573,7 +573,7 @@ export default function HREmployeeList({ onOpen, loading = false, delay = 0, emp
         </div>
       )}
 
-      <style jsx>{`
+      <style>{`
         @keyframes slideInLeft {
           0% {
             opacity: 0;

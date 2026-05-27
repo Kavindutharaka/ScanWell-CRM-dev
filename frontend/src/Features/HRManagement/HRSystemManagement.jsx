@@ -159,7 +159,7 @@ export default function HRSystemManagement() {
         </div>
       )}
 
-      <style jsx>{`
+      <style>{`
         @keyframes fadeIn {
           0% {
             opacity: 0;

@@ -33,7 +33,7 @@ export default function Quotes() {
         </main>
       </div>
 
-      <style jsx>{`
+      <style>{`
         @keyframes fadeIn {
           0% {
             opacity: 0;

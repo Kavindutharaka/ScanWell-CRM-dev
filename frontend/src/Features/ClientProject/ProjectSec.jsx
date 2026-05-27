@@ -51,7 +51,7 @@ export default function ProjectSec({ modalOpen, projects , error, refreshing, lo
   return (
     <div className="w-full bg-gradient-to-br from-slate-50 to-green-50/30 min-h-full">
       {/* Add custom CSS for animations */}
-      <style jsx>{`
+      <style>{`
         @keyframes slideInLeft {
           0% {
             opacity: 0;

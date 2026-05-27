@@ -68,7 +68,7 @@ export default function DealSec({ modalOpen, deals, loadDeals, error}) {
   return (
     <div className="w-full bg-gradient-to-br from-slate-50 to-emerald-50/30 min-h-full">
       {/* Add custom CSS for animations */}
-      <style jsx>{`
+      <style>{`
         @keyframes slideInLeft {
           0% {
             opacity: 0;

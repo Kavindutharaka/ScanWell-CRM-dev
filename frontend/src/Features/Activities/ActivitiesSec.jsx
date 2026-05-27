@@ -79,7 +79,7 @@ export default function ActivitiesSec({ modalOpen, onEdit, activities, setActivi
   return (
     <div className="w-full bg-gradient-to-br from-slate-50 to-blue-50/30 min-h-full">
       {/* Add custom CSS for animations */}
-      <style jsx>{`
+      <style>{`
         @keyframes slideInLeft {
           0% {
             opacity: 0;

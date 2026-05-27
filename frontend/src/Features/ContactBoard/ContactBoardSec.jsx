@@ -110,7 +110,7 @@ export default function ContactBoardSec({ modalOpen, setSelectedData, loading, l
   return (
     <div className="w-full bg-gradient-to-br from-slate-50 to-indigo-50/30 min-h-full">
       {/* Add custom CSS for animations */}
-      <style jsx>{`
+      <style>{`
         @keyframes slideInLeft {
           0% {
             opacity: 0;

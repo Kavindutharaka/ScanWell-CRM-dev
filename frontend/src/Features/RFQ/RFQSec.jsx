@@ -111,7 +111,7 @@ export default function RFQSec({ modalOpen, onEdit, onSalesEntry }) {
 
   return (
     <div className="w-full bg-gradient-to-br from-slate-50 to-blue-50/30 min-h-full">
-      <style jsx>{`
+      <style>{`
         @keyframes fadeInUp {
           0% { opacity: 0; transform: translateY(30px); }
           100% { opacity: 1; transform: translateY(0); }

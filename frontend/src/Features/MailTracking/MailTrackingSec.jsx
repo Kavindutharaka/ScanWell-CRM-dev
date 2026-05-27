@@ -218,7 +218,7 @@ export default function MailTrackingSec() {
 
   return (
     <div className="w-full bg-gradient-to-br from-slate-50 to-orange-50/30 min-h-full">
-      <style jsx>{`
+      <style>{`
         @keyframes slideInLeft {
           0% { opacity: 0; transform: translateX(-100px); }
           100% { opacity: 1; transform: translateX(0); }
