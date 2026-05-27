@@ -18,12 +18,25 @@ const METHOD_COLORS = {
   DELETE: 'bg-red-100 text-red-700'
 };
 
-// Format an ISO timestamp into "dd/MM/yyyy HH:mm:ss.SSS"
+// Backend stores created_at as UTC via SYSUTCDATETIME() but returns the string
+// without a "Z" timezone marker (e.g. "2026-05-27T20:37:07.62"). Without that
+// marker, JS `new Date(...)` treats the string as LOCAL time — which makes the
+// displayed time appear ~5h30m off in LKR (UTC+5:30). Force UTC interpretation
+// by appending "Z" only when the string lacks any timezone info.
+const parseAsUtc = (value) => {
+  if (!value) return null;
+  if (typeof value !== 'string') return new Date(value);
+  const hasTz = /Z$|[+-]\d{2}:?\d{2}$/.test(value);
+  return new Date(hasTz ? value : value + 'Z');
+};
+
+// Format an ISO timestamp into "dd/MM/yyyy HH:mm:ss.SSS" in the viewer's local time.
 const formatTimestamp = (utcString) => {
   if (!utcString) return '—';
   try {
-    const d = new Date(utcString);
-    if (isNaN(d.getTime())) return utcString;
+    const d = parseAsUtc(utcString);
+    if (!d || isNaN(d.getTime())) return utcString;
+    // After parseAsUtc, getDate/getHours/etc. return the user's LOCAL components.
     const dd = String(d.getDate()).padStart(2, '0');
     const mm = String(d.getMonth() + 1).padStart(2, '0');
     const yyyy = d.getFullYear();
@@ -148,10 +161,22 @@ export default function SysRunSec() {
     return () => clearTimeout(t);
   }, [searchInput]);
 
+  // The <input type="datetime-local"> gives us a naive local string like
+  // "2026-05-27T09:00". The backend expects UTC. Construct a Date (JS parses
+  // naive strings as LOCAL time) → toISOString() gives a proper UTC string
+  // ending in "Z" that the backend's DateTime.TryParse round-trips correctly.
+  const localDatetimeToUtcIso = (localValue) => {
+    if (!localValue) return null;
+    const d = new Date(localValue);
+    return isNaN(d.getTime()) ? null : d.toISOString();
+  };
+
   const buildQuery = useCallback(() => {
     const params = new URLSearchParams();
-    if (dateFrom) params.append('dateFrom', dateFrom);
-    if (dateTo) params.append('dateTo', dateTo);
+    const fromUtc = localDatetimeToUtcIso(dateFrom);
+    const toUtc   = localDatetimeToUtcIso(dateTo);
+    if (fromUtc) params.append('dateFrom', fromUtc);
+    if (toUtc)   params.append('dateTo', toUtc);
     if (userId !== 'all') params.append('userId', userId);
     if (moduleName !== 'all') params.append('module', moduleName);
     if (method !== 'all') params.append('method', method);

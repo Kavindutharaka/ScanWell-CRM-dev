@@ -17,12 +17,22 @@ const buildImageSrc = (relUrl) => {
   return `${apiRoot}${relUrl.startsWith('/') ? '' : '/'}${relUrl}`;
 };
 
+// Backend sends UTC timestamps without a "Z" suffix; force UTC parsing so the
+// diff against Date.now() (which is UTC ms) is correct. Without this, the time
+// gets parsed as local → diff is off by the local UTC offset (5h 30m for LKR).
+const parseAsUtc = (value) => {
+  if (!value) return null;
+  if (typeof value !== 'string') return new Date(value);
+  const hasTz = /Z$|[+-]\d{2}:?\d{2}$/.test(value);
+  return new Date(hasTz ? value : value + 'Z');
+};
+
 // "Active 12s ago" / "Active 3m ago"
 const relativeTime = (utcString) => {
   if (!utcString) return '';
-  const then = new Date(utcString).getTime();
-  if (isNaN(then)) return '';
-  const secs = Math.max(0, Math.floor((Date.now() - then) / 1000));
+  const d = parseAsUtc(utcString);
+  if (!d || isNaN(d.getTime())) return '';
+  const secs = Math.max(0, Math.floor((Date.now() - d.getTime()) / 1000));
   if (secs < 60) return `Active ${secs}s ago`;
   const mins = Math.floor(secs / 60);
   if (mins < 60) return `Active ${mins}m ago`;
