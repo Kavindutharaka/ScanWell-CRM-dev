@@ -284,6 +284,9 @@ export default function Activities() {
   const formatDateTime = (dateTimeString) => {
     if (!dateTimeString) return 'N/A';
     const date = new Date(dateTimeString);
+    // Guard against unparseable input — without this, downstream code that
+    // re-parses this string would render "NaN/NaN/NaN 12:NaN AM".
+    if (isNaN(date.getTime())) return 'N/A';
     return date.toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'short',

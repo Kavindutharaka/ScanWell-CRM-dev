@@ -164,19 +164,25 @@ export default function ActivitiesDetails({ onOpen, onEdit, loading = false, del
 
   // Format date to MM/DD/YYYY HH:mm AM/PM
   const formatDate = (dateString) => {
-    if (!dateString) return '';
-    
+    // Treat null, undefined, empty string, or the placeholder string "N/A"
+    // (produced by formatDateTime upstream) as a missing value.
+    if (!dateString || dateString === 'N/A') return 'N/A';
+
     const date = new Date(dateString);
+    // Guard against unparseable strings — without this, every getter below
+    // returns NaN and the output becomes "NaN/NaN/NaN 12:NaN AM".
+    if (isNaN(date.getTime())) return 'N/A';
+
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const day = String(date.getDate()).padStart(2, '0');
     const year = date.getFullYear();
-    
+
     let hours = date.getHours();
     const minutes = String(date.getMinutes()).padStart(2, '0');
     const ampm = hours >= 12 ? 'PM' : 'AM';
     hours = hours % 12 || 12; // Convert to 12-hour format
     const formattedHours = String(hours).padStart(2, '0');
-    
+
     return `${month}/${day}/${year} ${formattedHours}:${minutes} ${ampm}`;
   };
 

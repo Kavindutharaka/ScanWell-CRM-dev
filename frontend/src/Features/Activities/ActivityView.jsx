@@ -27,6 +27,15 @@ export default function ActivityView({ isAdmin = false, data = [], onClose }) {
         return () => clearInterval(timer);
     }, []);
 
+    // Safe time-only formatter — returns 'N/A' for null, empty, or unparseable input
+    // (e.g. when upstream formatDateTime returned 'N/A' for a NULL end_time in DB).
+    const formatTimeOnly = (value) => {
+        if (!value || value === 'N/A') return 'N/A';
+        const d = new Date(value);
+        if (isNaN(d.getTime())) return 'N/A';
+        return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    };
+
     // Check if activity time has passed
     const hasTimePassed = (endTime) => {
         if (!endTime) return false;
@@ -147,7 +156,7 @@ export default function ActivityView({ isAdmin = false, data = [], onClose }) {
                                                 <td className="px-4 py-4">
                                                     <div className="flex items-center gap-2">
                                                         <span className={`text-sm ${isPast ? 'text-slate-500 line-through' : 'text-slate-700'}`}>
-                                                            {activity.endTime ? new Date(activity.endTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : 'N/A'}
+                                                            {formatTimeOnly(activity.endTime)}
                                                         </span>
                                                         {isPast && (
                                                             <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700">
@@ -203,7 +212,7 @@ export default function ActivityView({ isAdmin = false, data = [], onClose }) {
                                             </div>
                                             <div className="flex items-center gap-2">
                                                 <span className={`text-xs ${isPast ? 'text-slate-500 line-through' : 'text-slate-500'}`}>
-                                                    {activity.endTime ? new Date(activity.endTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : 'N/A'}
+                                                    {formatTimeOnly(activity.endTime)}
                                                 </span>
                                                 {isPast && (
                                                     <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700">
