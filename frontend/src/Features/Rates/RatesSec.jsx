@@ -1026,6 +1026,28 @@ export default function RatesSec({ modalOpen, onEditRate, refreshTrigger }) {
   const [destinationRates, setDestinationRates] = useState([]);
   const [destinationLoading, setDestinationLoading] = useState(false);
 
+  // Auto-load the matching dataset whenever the active tab / liner / category combo
+  // changes — including when these values are restored from localStorage on next
+  // login via usePersistedState. Without this, restoring (e.g.) "Linear Header → YML"
+  // shows an empty table because the click handlers were the original load triggers.
+  // Click handlers may also call the loader directly; the duplicate fetch is harmless
+  // (same data, idempotent state update) and avoids a brittle refactor.
+  // Note: placed AFTER `activeLinerCategory` is declared to avoid a TDZ ReferenceError.
+  useEffect(() => {
+    if (activeTab === 'airexport') {
+      loadAirExportRates();
+    } else if (activeTab === 'seaspot') {
+      loadSeaSpotRates();
+    } else if (activeTab === 'seabond') {
+      loadSeaBondRates();
+    } else if (activeLiner && activeLinerCategory === 'linearheaders') {
+      loadLinerRates(activeLiner);
+    } else if (activeLiner && activeLinerCategory === 'destinationheaders') {
+      loadDestinationRates(activeLiner);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, activeLiner, activeLinerCategory]);
+
   // Load destination rates (different API endpoint and format)
   const loadDestinationRates = async (category) => {
     setDestinationLoading(true);

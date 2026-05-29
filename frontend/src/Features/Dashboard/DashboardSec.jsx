@@ -138,6 +138,16 @@ export default function DashboardSec() {
     fetchDashboard();
   }, [fetchDashboard]);
 
+  // Re-apply the persisted preset on mount so dateFrom/dateTo are recomputed.
+  // Without this, restoring (e.g.) "thisQuarter" on next login keeps the default
+  // "thisMonth" date range — the preset button is highlighted but the data shown
+  // is for the wrong range. Skips when activePreset is null (custom date range).
+  // The fyConfig dependency ensures the quarter math uses the latest config.
+  useEffect(() => {
+    if (activePreset) setPreset(activePreset);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activePreset, fyConfig]);
+
   // ===== PIPELINE FETCH (independent date range) =====
   const fetchPipeline = useCallback(async () => {
     if (authLoading || !user?.id || permission === null) return;
