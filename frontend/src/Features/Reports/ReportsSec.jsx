@@ -91,6 +91,7 @@ export default function ReportsSec() {
   const [qSalesPerson, setQSalesPerson] = useState("all");
   const [qDepartment, setQDepartment] = useState("all");
   const [qCreatedBy, setQCreatedBy] = useState("all"); // employee SysID or "all"
+  const [qStatus, setQStatus] = useState("all"); // 'all' | 'won' | 'lost' | 'submitted' | 'draft'
 
   // Sales Activity filters
   const [saDateFrom, setSaDateFrom] = useState("");
@@ -240,6 +241,7 @@ export default function ReportsSec() {
           { const sp = effectiveSalesPerson ?? qSalesPerson; if (sp && sp !== "all") params.append("salesPerson", sp); }
           if (qDepartment !== "all") params.append("department", qDepartment);
           if (qCreatedBy !== "all") params.append("createdById", qCreatedBy);
+          if (qStatus !== "all") params.append("status", qStatus);
           break;
         case "sales-activity":
           url = `${BASE_URL}/report/sales-activity`;
@@ -699,6 +701,7 @@ export default function ReportsSec() {
         if (qSalesPerson !== "all") parts.push(`Sales Person: ${qSalesPerson}`);
         if (qDepartment !== "all") parts.push(`Department: ${qDepartment}`);
         if (qCreatedBy !== "all") { const creator = quoteCreators.find(c => c.id === qCreatedBy); if (creator) parts.push(`Created By: ${creator.name}`); }
+        if (qStatus !== "all") parts.push(`Status: ${qStatus.charAt(0).toUpperCase() + qStatus.slice(1)}`);
         break;
       case "sales-activity":
         if (saDateFrom || saDateTo) parts.push(`End Date: ${saDateFrom || "start"} to ${saDateTo || "now"}`);
@@ -862,6 +865,17 @@ export default function ReportsSec() {
                   <select value={qCreatedBy} onChange={e => setQCreatedBy(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 bg-white">
                     <option value="all">All</option>
                     {quoteCreators.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </select>
+                </div>
+                {/* Status — Won / Lost / Submitted / Draft */}
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 mb-1">Status</label>
+                  <select value={qStatus} onChange={e => setQStatus(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 bg-white">
+                    <option value="all">All</option>
+                    <option value="won">Won</option>
+                    <option value="lost">Lost</option>
+                    <option value="submitted">Submitted</option>
+                    <option value="draft">Draft</option>
                   </select>
                 </div>
               </div>
@@ -1163,7 +1177,10 @@ export default function ReportsSec() {
                               <td className="px-3 py-2 text-slate-600 text-xs">{row.CreatedByName || row.createdByName || "—"}</td>
                               <td className="px-3 py-2">
                                 <span className={`inline-flex px-2 py-0.5 rounded text-xs font-medium ${
+                                  status === "won" ? "bg-green-100 text-green-700" :
+                                  status === "lost" ? "bg-red-100 text-red-700" :
                                   status === "approved" ? "bg-green-100 text-green-700" :
+                                  status === "submitted" ? "bg-amber-100 text-amber-700" :
                                   status === "sent" ? "bg-violet-100 text-violet-700" :
                                   status === "draft" ? "bg-blue-100 text-blue-700" :
                                   "bg-slate-100 text-slate-600"

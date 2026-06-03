@@ -30,7 +30,8 @@ namespace back_end.Controllers
             [FromQuery] string? country,
             [FromQuery] string? salesPerson,
             [FromQuery] string? department,
-            [FromQuery] long? createdById)
+            [FromQuery] long? createdById,
+            [FromQuery] string? status)   // optional: 'won' | 'lost' | 'submitted' | 'draft' | 'all'
         {
             var conditions = new List<string>();
             var parameters = new List<SqlParameter>();
@@ -99,6 +100,14 @@ namespace back_end.Controllers
                 conditions.Add("q.CreatedBy = @CreatedById");
                 parameters.Add(new SqlParameter("@CreatedById", createdById.Value));
             }
+            // Effective status = the won/lost outcome when one exists, otherwise the
+            // quote's draft/submitted flag (Option A — outcome always wins).
+            // qo.outcome_status comes from the LEFT JOIN added in the query below.
+            if (!string.IsNullOrEmpty(status) && status != "all")
+            {
+                conditions.Add("COALESCE(qo.outcome_status, q.Status) = @StatusFilter");
+                parameters.Add(new SqlParameter("@StatusFilter", status));
+            }
 
             string whereClause = conditions.Count > 0 ? "WHERE " + string.Join(" AND ", conditions) : "";
 
@@ -117,7 +126,9 @@ namespace back_end.Controllers
                     q.DeliveryLocation,
                     q.PortOfLoading,
                     q.PortOfDischarge,
-                    q.Status,
+                    -- Status: prefer the won/lost outcome (from quote_outcomes); fall back to
+                    -- the quote's own draft/submitted flag when no outcome has been recorded.
+                    COALESCE(qo.outcome_status, q.Status) AS Status,
                     q.CreatedBy,
                     -- CreatedByName: quote forms store emp_reg.SysID in CreatedBy,
                     -- so the direct SysID match (ecb2) is the correct primary path.
@@ -144,6 +155,10 @@ namespace back_end.Controllers
                 LEFT JOIN [dbo].[emp_reg]     ecb  ON ucb.EmployeeId = CAST(ecb.SysID AS NVARCHAR(50))
                 LEFT JOIN [dbo].[account_reg] ar   ON q.Customer = ar.accountName
                 LEFT JOIN [dbo].[emp_reg]     esp  ON ar.salesPerson = ISNULL(esp.fname, '') + ' ' + ISNULL(esp.lname, '')
+                -- Outcome (won/lost) lives in quote_outcomes (schema: csv_admin, the connection
+                -- user's default schema — same unqualified reference InvoiceController uses).
+                -- Keyed by quote_id = QuoteId.
+                LEFT JOIN quote_outcomes qo ON q.QuoteId = qo.quote_id
                 {whereClause}
                 ORDER BY q.CreatedDate DESC, q.QuoteId DESC;";
 
