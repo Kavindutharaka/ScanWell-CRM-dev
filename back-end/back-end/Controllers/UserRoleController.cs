@@ -152,7 +152,8 @@ namespace back_end.Controllers
                             RfqView, RfqAdd, RfqEdit,
                             ContactView, ContactAdd, ContactEdit,
                             AccountView, AccountAdd, AccountEdit,
-                            SystemManagementView, SystemManagementAdd, SystemManagementEdit
+                            SystemManagementView, SystemManagementAdd, SystemManagementEdit,
+                            SalesTargetView, SalesTargetAdd, SalesTargetEdit
                         ) VALUES (
                             @EmployeeId, @Username, @Password, @IsAdmin, @IsActive,
                             @RateManageView, @RateManageAdd, @RateManageEdit,
@@ -162,7 +163,8 @@ namespace back_end.Controllers
                             @RfqView, @RfqAdd, @RfqEdit,
                             @ContactView, @ContactAdd, @ContactEdit,
                             @AccountView, @AccountAdd, @AccountEdit,
-                            @SystemManagementView, @SystemManagementAdd, @SystemManagementEdit
+                            @SystemManagementView, @SystemManagementAdd, @SystemManagementEdit,
+                            @SalesTargetView, @SalesTargetAdd, @SalesTargetEdit
                         )";
 
                     using (var insertCmd = new SqlCommand(query, con))
@@ -257,6 +259,7 @@ namespace back_end.Controllers
             AddPermissionParams(cmd, updateFields, "Contact", role);
             AddPermissionParams(cmd, updateFields, "Account", role);
             AddPermissionParams(cmd, updateFields, "SystemManagement", role);
+            AddPermissionParams(cmd, updateFields, "SalesTarget", role);
 
             string query = $"UPDATE [dbo].[user_roles] SET {string.Join(", ", updateFields)} WHERE Id = @Id";
 
@@ -329,6 +332,10 @@ namespace back_end.Controllers
             cmd.Parameters.AddWithValue("@SystemManagementView", r.SystemManagementView);
             cmd.Parameters.AddWithValue("@SystemManagementAdd", r.SystemManagementAdd);
             cmd.Parameters.AddWithValue("@SystemManagementEdit", r.SystemManagementEdit);
+
+            cmd.Parameters.AddWithValue("@SalesTargetView", r.SalesTargetView);
+            cmd.Parameters.AddWithValue("@SalesTargetAdd", r.SalesTargetAdd);
+            cmd.Parameters.AddWithValue("@SalesTargetEdit", r.SalesTargetEdit);
         }
 
         private void AddPermissionParams(SqlCommand cmd, List<string> fields, string prefix, UserRole r)

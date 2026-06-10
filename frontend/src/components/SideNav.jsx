@@ -143,7 +143,7 @@ export default function SideNav({ isOpen, onClose, scrollBottom = false }) {
       path: "/hr/sales-target",
       icon: Target,
       label: "Sales Target",
-      permissionKey: "SystemManagementView"
+      permissionKey: "SalesTargetView"
     }
   ];
 

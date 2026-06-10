@@ -50,5 +50,10 @@ namespace back_end.Models
         public bool SystemManagementView { get; set; }
         public bool SystemManagementAdd { get; set; }
         public bool SystemManagementEdit { get; set; }
+
+        // Sales Target
+        public bool SalesTargetView { get; set; }
+        public bool SalesTargetAdd { get; set; }
+        public bool SalesTargetEdit { get; set; }
     }
 }

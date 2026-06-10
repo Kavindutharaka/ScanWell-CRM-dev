@@ -16,7 +16,8 @@ import {
   MessageSquare,
   Users,
   Briefcase,
-  Settings
+  Settings,
+  Target
 } from 'lucide-react';
 import UserRoleApi from '../../api/UserRoleApi';
 import { toast } from '../../components/Toast';
@@ -63,6 +64,10 @@ const RoleForm = ({ employees, selectedRole, isEditMode, onClose, onSuccess }) =
     systemManagementView: false,
     systemManagementAdd: false,
     systemManagementEdit: false,
+    // Sales Target
+    salesTargetView: false,
+    salesTargetAdd: false,
+    salesTargetEdit: false,
   });
 
   const modules = [
@@ -115,12 +120,19 @@ const RoleForm = ({ employees, selectedRole, isEditMode, onClose, onSuccess }) =
       color: 'text-teal-600',
       bgColor: 'bg-teal-100'
     },
-    { 
-      name: 'System Management', 
+    {
+      name: 'System Management',
       key: 'systemManagement',
       icon: Settings,
       color: 'text-red-600',
       bgColor: 'bg-red-100'
+    },
+    {
+      name: 'Sales Target',
+      key: 'salesTarget',
+      icon: Target,
+      color: 'text-rose-600',
+      bgColor: 'bg-rose-100'
     },
   ];
 
@@ -164,6 +176,10 @@ const RoleForm = ({ employees, selectedRole, isEditMode, onClose, onSuccess }) =
         systemManagementView: selectedRole.systemManagementView || false,
         systemManagementAdd: selectedRole.systemManagementAdd || false,
         systemManagementEdit: selectedRole.systemManagementEdit || false,
+        // Sales Target
+        salesTargetView: selectedRole.salesTargetView || false,
+        salesTargetAdd: selectedRole.salesTargetAdd || false,
+        salesTargetEdit: selectedRole.salesTargetEdit || false,
       });
     }
   }, [selectedRole, isEditMode]);
@@ -281,6 +297,11 @@ const RoleForm = ({ employees, selectedRole, isEditMode, onClose, onSuccess }) =
       SystemManagementView: data.systemManagementView,
       SystemManagementAdd: data.systemManagementAdd,
       SystemManagementEdit: data.systemManagementEdit,
+
+      // Sales Target
+      SalesTargetView: data.salesTargetView,
+      SalesTargetAdd: data.salesTargetAdd,
+      SalesTargetEdit: data.salesTargetEdit,
     };
 
     // Add password only if provided

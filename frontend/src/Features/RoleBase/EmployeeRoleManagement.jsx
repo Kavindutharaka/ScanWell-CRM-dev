@@ -107,7 +107,12 @@ export default function EmployeeRoleManagement() {
         systemManagementView: role.systemManagementView,
         systemManagementAdd: role.systemManagementAdd,
         systemManagementEdit: role.systemManagementEdit,
-        
+
+        // Sales Target
+        salesTargetView: role.salesTargetView,
+        salesTargetAdd: role.salesTargetAdd,
+        salesTargetEdit: role.salesTargetEdit,
+
         createdAt: role.createdAt,
         updatedAt: role.updatedAt
       }));
@@ -287,7 +292,8 @@ export default function EmployeeRoleManagement() {
                         role.rfqView, role.rfqAdd, role.rfqEdit,
                         role.contactView, role.contactAdd, role.contactEdit,
                         role.accountView, role.accountAdd, role.accountEdit,
-                        role.systemManagementView, role.systemManagementAdd, role.systemManagementEdit
+                        role.systemManagementView, role.systemManagementAdd, role.systemManagementEdit,
+                        role.salesTargetView, role.salesTargetAdd, role.salesTargetEdit
                       ].filter(Boolean).length;
 
                       return (
@@ -391,7 +397,8 @@ export default function EmployeeRoleManagement() {
                     role.rfqView, role.rfqAdd, role.rfqEdit,
                     role.contactView, role.contactAdd, role.contactEdit,
                     role.accountView, role.accountAdd, role.accountEdit,
-                    role.systemManagementView, role.systemManagementAdd, role.systemManagementEdit
+                    role.systemManagementView, role.systemManagementAdd, role.systemManagementEdit,
+                    role.salesTargetView, role.salesTargetAdd, role.salesTargetEdit
                   ].filter(Boolean).length;
 
                   return (
