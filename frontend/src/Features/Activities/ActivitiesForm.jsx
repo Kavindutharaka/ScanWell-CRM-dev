@@ -87,12 +87,22 @@ export default function ActivitiesForm({ onClose, initialActivity = null, isEdit
   }, [isEditMode, initialActivity]);
 
 
-  useEffect(()=>{
-    if(isSuccesssNote){
-      console.log("dan trigger function!!");
+  // Only auto-save when the flag TRANSITIONS to true during this mount (i.e. the
+  // user actually just saved a note from this form's flow). If the flag was already
+  // true when the form mounted (stale value left over from a previous activity),
+  // ignore it — otherwise the form would save itself the moment it opens.
+  const sawNoteFlagFalseRef = useRef(!isSuccesssNote);
+  useEffect(() => {
+    if (!isSuccesssNote) {
+      sawNoteFlagFalseRef.current = true;
+      return;
+    }
+    if (isSuccesssNote && sawNoteFlagFalseRef.current) {
+      console.log("note saved — auto-saving activity");
       autoTriggerEdit();
-    };
-  },[isSuccesssNote]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isSuccesssNote]);
 
   useEffect(()=>{
     setPreStatus(initialActivity?.status || "");

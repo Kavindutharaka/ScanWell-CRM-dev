@@ -93,10 +93,16 @@ export default function Activities() {
   const modalClose = () => {
     setOpenModal(false);
     setEditingActivity(null);
+    // Reset the one-shot "note saved" flag. Without this it stays true forever,
+    // and the NEXT edit form to mount sees it truthy and fires autoTriggerEdit()
+    // immediately — saving the activity before the user has typed anything.
+    setIsSuccesssNote(false);
   };
 
   const handleEdit = (activity) => {
     setEditingActivity(activity);
+    // Defensive: never open an edit form with a stale auto-save flag.
+    setIsSuccesssNote(false);
     setOpenModal(true);
   };
 
